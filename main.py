@@ -160,18 +160,31 @@ async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         await update.message.reply_text(
-            f"✨ Found {len(images)} quality images!\n\n"
-            f"Use /review to see and approve them."
+            f"Found {len(images)} quality images! Showing previews..."
         )
 
-        # Show first image preview
-        for img in images[:1]:
-            await update.message.reply_text(
-                f"Preview:\n"
-                f"📷 Score: {img.quality_score}/10\n"
-                f"📍 Source: {img.source_name}\n"
-                f"💭 {img.scroll_stop_factor[:200]}"
+        # Show image previews with scores
+        for img in images:
+            caption = (
+                f"Score: {img.quality_score}/10 | {img.source_name}\n"
+                f"{img.scroll_stop_factor[:200]}"
             )
+            try:
+                await update.message.reply_photo(
+                    photo=img.image_url,
+                    caption=caption[:1024],  # Telegram caption limit
+                )
+            except Exception:
+                # Fallback to text if image URL doesn't work
+                await update.message.reply_text(
+                    f"Score: {img.quality_score}/10 | {img.source_name}\n"
+                    f"{img.scroll_stop_factor[:200]}\n"
+                    f"URL: {img.image_url}"
+                )
+
+        await update.message.reply_text(
+            f"Use /review to approve or reject these."
+        )
 
     except Exception as e:
         logger.error(f"Find error: {e}")
@@ -198,19 +211,30 @@ async def review_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Create approve/reject buttons
         keyboard = [
             [
-                InlineKeyboardButton("✅ Approve", callback_data=f"approve_{candidate['id']}"),
-                InlineKeyboardButton("❌ Reject", callback_data=f"reject_{candidate['id']}"),
+                InlineKeyboardButton("Approve", callback_data=f"approve_{candidate['id']}"),
+                InlineKeyboardButton("Reject", callback_data=f"reject_{candidate['id']}"),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        text = (
+        caption = (
             f"#{candidate['id']} | Score: {candidate['quality_score']}/10\n"
             f"Source: {candidate['source_name']}\n\n"
             f"{candidate['curator_notes'][:300] if candidate['curator_notes'] else 'No notes'}"
         )
 
-        await update.message.reply_text(text, reply_markup=reply_markup)
+        try:
+            await update.message.reply_photo(
+                photo=candidate['image_url'],
+                caption=caption[:1024],
+                reply_markup=reply_markup,
+            )
+        except Exception:
+            # Fallback to text if image can't be sent
+            await update.message.reply_text(
+                f"{caption}\nURL: {candidate['image_url']}",
+                reply_markup=reply_markup,
+            )
 
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -298,14 +322,23 @@ async def queue_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for post in ready:
         keyboard = [
-            [InlineKeyboardButton("🚀 Post Now", callback_data=f"confirm_post_{post['id']}")]
+            [InlineKeyboardButton("Post Now", callback_data=f"confirm_post_{post['id']}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text(
-            f"#{post['id']}\n{post['caption']}\n\n{post['hashtags']}",
-            reply_markup=reply_markup,
-        )
+        caption = f"#{post['id']}\n{post['caption']}\n\n{post['hashtags']}"
+
+        try:
+            await update.message.reply_photo(
+                photo=post['image_url'],
+                caption=caption[:1024],
+                reply_markup=reply_markup,
+            )
+        except Exception:
+            await update.message.reply_text(
+                caption,
+                reply_markup=reply_markup,
+            )
 
 
 async def handle_post(query, approved_id: int):
