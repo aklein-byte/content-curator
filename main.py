@@ -20,7 +20,9 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
 )
 
 from agents.curator import find_images, curate_with_conversation
@@ -38,6 +40,7 @@ from tools.storage import (
 )
 from tools.social import post_to_x, format_tweet, verify_credentials
 from config.niches import get_niche, list_niches
+from config.context import CHAT_SYSTEM_PROMPT
 
 # Load environment variables
 load_dotenv()
@@ -64,6 +67,13 @@ DEFAULT_NICHE = "tatamispaces"
 # Telegram application (initialized at startup)
 telegram_app: Optional[Application] = None
 
+# Anthropic client for chat
+from anthropic import Anthropic
+anthropic_client = Anthropic()
+
+# Chat history per user (in-memory, resets on restart)
+chat_histories: dict[int, list] = {}
+
 
 def is_authorized(user_id: int) -> bool:
     """Check if user is authorized to use the bot."""
@@ -82,14 +92,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🎨 Content Curator Bot\n\n"
+        "Just chat with me - I'm Opus 4.5, your curator.\n\n"
         "Commands:\n"
         "/find [query] - Find new images\n"
         "/review - Review pending candidates\n"
         "/queue - Show approved queue\n"
         "/post - Post next in queue\n"
         "/stats - Show statistics\n"
-        "/niches - List available niches\n"
-        "/help - Show this help"
+        "/clear - Clear chat history\n"
+        "/help - Show this help\n\n"
+        "Or just send me a message to chat!"
     )
 
 
@@ -402,6 +414,71 @@ async def niches_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text)
 
 
+async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /clear command - clear chat history."""
+    if not is_authorized(update.effective_user.id):
+        return
+
+    user_id = update.effective_user.id
+    chat_histories[user_id] = []
+    await update.message.reply_text("Chat history cleared. Fresh start!")
+
+
+async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle free-form chat messages - talk to the curator agent."""
+    if not is_authorized(update.effective_user.id):
+        return
+
+    user_id = update.effective_user.id
+    user_message = update.message.text
+
+    # Initialize chat history for this user if needed
+    if user_id not in chat_histories:
+        chat_histories[user_id] = []
+
+    # Add user message to history
+    chat_histories[user_id].append({
+        "role": "user",
+        "content": user_message
+    })
+
+    # Keep history reasonable (last 20 messages)
+    if len(chat_histories[user_id]) > 20:
+        chat_histories[user_id] = chat_histories[user_id][-20:]
+
+    # Send typing indicator
+    await update.message.chat.send_action("typing")
+
+    try:
+        # Call Opus for response
+        response = anthropic_client.messages.create(
+            model="claude-opus-4-5-20251101",
+            max_tokens=1024,
+            system=CHAT_SYSTEM_PROMPT,
+            messages=chat_histories[user_id],
+        )
+
+        assistant_message = response.content[0].text
+
+        # Add assistant response to history
+        chat_histories[user_id].append({
+            "role": "assistant",
+            "content": assistant_message
+        })
+
+        # Send response (split if too long for Telegram)
+        if len(assistant_message) > 4000:
+            # Split into chunks
+            for i in range(0, len(assistant_message), 4000):
+                await update.message.reply_text(assistant_message[i:i+4000])
+        else:
+            await update.message.reply_text(assistant_message)
+
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        await update.message.reply_text(f"Error: {str(e)[:200]}")
+
+
 # --- FastAPI Application ---
 
 @asynccontextmanager
@@ -426,7 +503,10 @@ async def lifespan(app: FastAPI):
         telegram_app.add_handler(CommandHandler("post", post_command))
         telegram_app.add_handler(CommandHandler("stats", stats_command))
         telegram_app.add_handler(CommandHandler("niches", niches_command))
+        telegram_app.add_handler(CommandHandler("clear", clear_command))
         telegram_app.add_handler(CallbackQueryHandler(callback_handler))
+        # Chat handler for non-command messages (must be last)
+        telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_handler))
 
         # Set webhook
         if RENDER_EXTERNAL_URL:
