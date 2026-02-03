@@ -6,6 +6,7 @@ cultural nuance, and what makes design photography compelling.
 
 import os
 import json
+import base64
 import httpx
 from anthropic import Anthropic
 from dataclasses import dataclass
@@ -104,13 +105,54 @@ async def search_web_for_images(query: str, num_results: int = 5) -> list[dict]:
     return results
 
 
+async def download_and_encode_image(url: str) -> Optional[tuple[str, str]]:
+    """
+    Download an image and return (base64_data, media_type).
+    Returns None if download fails or image is too small/invalid.
+    """
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as http:
+        try:
+            resp = await http.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; ContentCurator/1.0)"
+            })
+            if resp.status_code != 200:
+                return None
+
+            content_type = resp.headers.get("content-type", "")
+            data = resp.content
+
+            # Skip tiny images (< 10KB likely icons/thumbnails)
+            if len(data) < 10_000:
+                return None
+
+            # Skip images > 5MB (API limit)
+            if len(data) > 5_000_000:
+                return None
+
+            # Determine media type
+            if "png" in content_type:
+                media_type = "image/png"
+            elif "webp" in content_type:
+                media_type = "image/webp"
+            elif "gif" in content_type:
+                media_type = "image/gif"
+            else:
+                media_type = "image/jpeg"
+
+            return base64.standard_b64encode(data).decode("utf-8"), media_type
+
+        except Exception:
+            return None
+
+
 async def evaluate_images_from_source(
     source_url: str,
     source_name: str,
     niche_id: str,
 ) -> list[CuratedImage]:
     """
-    Scrape a source and have Opus evaluate the images.
+    Scrape a source, download images, and have Opus VISUALLY evaluate them.
+    Uses Claude's vision API to actually see the images.
     """
     # Scrape the page
     page = await scrape_url(source_url)
@@ -123,61 +165,107 @@ async def evaluate_images_from_source(
         await log_source_scrape(source_url, source_name, 0, "success")
         return []
 
-    # Filter out known images
+    # Filter out known images and small thumbnails
     new_images = []
     for img in page.images:
-        if not await is_image_known(img["url"]):
+        url = img["url"]
+        # Skip obvious thumbnails/icons by URL pattern
+        if any(skip in url.lower() for skip in [
+            "thumb", "icon", "logo", "avatar", "1x1", "pixel",
+            "loading", "spinner", "arrow", "menu", "cart",
+            "150x150", "100x100", "50x50",
+        ]):
+            continue
+        if not await is_image_known(url):
             new_images.append(img)
 
     if not new_images:
         await log_source_scrape(source_url, source_name, 0, "success")
         return []
 
-    # Build evaluation prompt
-    images_text = "\n\n".join([
-        f"Image {i+1}:\n- URL: {img['url']}\n- Alt: {img.get('alt', 'N/A')}\n- Context: {img.get('context', 'N/A')[:300]}"
-        for i, img in enumerate(new_images[:20])  # Limit to 20 images per page
-    ])
+    # Download and encode images (limit to 10 per source to manage cost)
+    downloaded = []
+    for img in new_images[:15]:
+        result = await download_and_encode_image(img["url"])
+        if result:
+            b64_data, media_type = result
+            downloaded.append({
+                "url": img["url"],
+                "alt": img.get("alt", ""),
+                "context": img.get("context", "")[:300],
+                "b64": b64_data,
+                "media_type": media_type,
+            })
+        if len(downloaded) >= 10:
+            break
 
-    evaluation_prompt = f"""I found these images from {source_name} ({source_url}):
+    if not downloaded:
+        await log_source_scrape(source_url, source_name, len(new_images), "success")
+        return []
 
-{images_text}
+    # Build vision message with actual images
+    content_blocks = []
 
-Please evaluate each image against our quality criteria. For each image that scores 7+, include it in your response.
+    content_blocks.append({
+        "type": "text",
+        "text": f"I'm showing you {len(downloaded)} images from {source_name} ({source_url}). "
+                f"Please LOOK at each image and evaluate it for @tatamispaces.\n\n"
+                f"For each image, I'll show the image followed by its metadata."
+    })
 
-Return a JSON array of curated images. Example format:
+    for i, img in enumerate(downloaded):
+        # Add the actual image
+        content_blocks.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": img["media_type"],
+                "data": img["b64"],
+            },
+        })
+        # Add metadata
+        content_blocks.append({
+            "type": "text",
+            "text": f"Image {i+1} | URL: {img['url']}\nContext: {img['context'][:200]}"
+        })
+
+    content_blocks.append({
+        "type": "text",
+        "text": f"""Now evaluate ALL images above. For each one scoring 7+/10, include it.
+
+Return ONLY a JSON array:
 [
   {{
-    "image_url": "https://...",
+    "image_number": 1,
+    "image_url": "the url from metadata",
     "source_url": "{source_url}",
     "source_name": "{source_name}",
-    "title": "Description from context",
+    "title": "What you see in the image",
     "quality_score": 8,
-    "scroll_stop_factor": "The morning light through the shoji screens creates a sense of calm",
-    "curator_notes": "Authentic tatami room with visible wear. The tokonoma alcove is understated."
+    "scroll_stop_factor": "Why this stops the scroll",
+    "curator_notes": "Your visual assessment"
   }}
 ]
 
-If no images meet our quality bar (7+), return an empty array [].
-"""
+If NOTHING scores 7+, return []. Be brutally selective."""
+    })
 
     response = client.messages.create(
         model=CURATOR_MODEL,
         max_tokens=4096,
         system=build_curator_system_prompt(niche_id),
-        messages=[{"role": "user", "content": evaluation_prompt}],
+        messages=[{"role": "user", "content": content_blocks}],
     )
 
     # Parse response
     try:
         response_text = response.content[0].text
 
-        # Extract JSON from response
         json_start = response_text.find("[")
         json_end = response_text.rfind("]") + 1
 
         if json_start == -1 or json_end == 0:
-            await log_source_scrape(source_url, source_name, len(new_images), "success")
+            await log_source_scrape(source_url, source_name, len(downloaded), "success")
             return []
 
         json_str = response_text[json_start:json_end]
@@ -186,7 +274,7 @@ If no images meet our quality bar (7+), return an empty array [].
         curated = []
         for item in results:
             curated.append(CuratedImage(
-                image_url=item["image_url"],
+                image_url=item.get("image_url", ""),
                 source_url=item.get("source_url", source_url),
                 source_name=item.get("source_name", source_name),
                 title=item.get("title"),
@@ -196,11 +284,11 @@ If no images meet our quality bar (7+), return an empty array [].
                 scroll_stop_factor=item.get("scroll_stop_factor", ""),
             ))
 
-        await log_source_scrape(source_url, source_name, len(new_images), "success")
+        await log_source_scrape(source_url, source_name, len(downloaded), "success")
         return curated
 
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
-        await log_source_scrape(source_url, source_name, len(new_images), "partial")
+    except (json.JSONDecodeError, KeyError, IndexError):
+        await log_source_scrape(source_url, source_name, len(downloaded), "partial")
         return []
 
 
