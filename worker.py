@@ -145,23 +145,24 @@ async def run_post():
         log.error(f"post.py failed: {e}")
 
 
-async def run_research():
-    """Run content research script."""
-    log.info("=== Running research.py ===")
+async def run_bookmarks():
+    """Run bookmarks-to-posts pipeline."""
+    log.info("=== Running bookmarks.py ===")
     try:
         os.environ["POSTS_FILE"] = str(DATA_DIR / "posts.json")
 
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, str(BASE_DIR / "research.py"),
+            sys.executable, str(BASE_DIR / "bookmarks.py"),
             "--niche", "tatamispaces",
             "--max-drafts", "5",
+            "--min-score", "7",
             cwd=str(BASE_DIR),
             env={**os.environ},
         )
         await proc.wait()
-        log.info(f"research.py exited with code {proc.returncode}")
+        log.info(f"bookmarks.py exited with code {proc.returncode}")
     except Exception as e:
-        log.error(f"research.py failed: {e}")
+        log.error(f"bookmarks.py failed: {e}")
 
 
 async def scheduler():
@@ -196,10 +197,10 @@ async def scheduler():
             await run_post()
             last_post_check = now
 
-        # Research once daily at 14:00 UTC
+        # Bookmarks once daily at 14:00 UTC (9 AM ET)
         today = now.date()
         if now.hour >= RESEARCH_HOUR_UTC and last_research_date != today:
-            await run_research()
+            await run_bookmarks()
             last_research_date = today
 
         # Sleep 5 minutes between checks

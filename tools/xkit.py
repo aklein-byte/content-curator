@@ -92,16 +92,27 @@ async def login(niche_id: str) -> Client:
     # Try loading existing cookies first
     if Path(cookies_file).exists():
         try:
+            # Try twikit's native format first
             client.load_cookies(cookies_file)
-            # Verify session is still valid by making a lightweight call
             await client.user()
             logger.info(f"Loaded existing session for {niche_id}")
             _clients[niche_id] = client
             return client
         except Exception:
+            # Try Chrome-exported format (simple {name: value} dict)
+            try:
+                cookie_data = json.loads(Path(cookies_file).read_text())
+                if isinstance(cookie_data, dict) and "auth_token" in cookie_data:
+                    client.set_cookies(cookie_data)
+                    await client.user()
+                    logger.info(f"Loaded Chrome cookies for {niche_id}")
+                    _clients[niche_id] = client
+                    return client
+            except Exception:
+                pass
             logger.info(f"Saved session expired for {niche_id}, logging in fresh")
 
-    # Fresh login
+    # Fresh login (may fail if X challenges)
     await client.login(
         auth_info_1=username,
         auth_info_2=email,

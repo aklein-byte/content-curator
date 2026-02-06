@@ -13,7 +13,7 @@ import asyncio
 import logging
 import argparse
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -48,6 +48,42 @@ def save_posts(data: dict):
 def next_post_id(posts_data: dict) -> int:
     existing_ids = [p.get("id", 0) for p in posts_data.get("posts", [])]
     return max(existing_ids, default=0) + 1
+
+
+POSTING_HOURS = [9, 13, 19]  # ET slots for 3 posts/day
+
+
+def next_schedule_slot(posts_data: dict) -> datetime:
+    """Find the next available posting slot (9am, 1pm, 7pm ET)."""
+    from zoneinfo import ZoneInfo
+    et = ZoneInfo("America/New_York")
+
+    # Collect all scheduled times
+    taken = set()
+    for p in posts_data.get("posts", []):
+        sf = p.get("scheduled_for")
+        if sf and p.get("status") in ("approved", "posted"):
+            try:
+                dt = datetime.fromisoformat(sf).astimezone(et)
+                taken.add((dt.date(), dt.hour))
+            except Exception:
+                pass
+
+    # Start from tomorrow if today's slots are past
+    now_et = datetime.now(et)
+    check_date = now_et.date()
+    if now_et.hour >= POSTING_HOURS[-1]:
+        check_date += timedelta(days=1)
+
+    # Search up to 30 days out
+    for day_offset in range(30):
+        d = check_date + timedelta(days=day_offset)
+        for hour in POSTING_HOURS:
+            if (d, hour) not in taken:
+                return datetime(d.year, d.month, d.day, hour, 0, tzinfo=et)
+
+    # Fallback: 30 days out
+    return datetime.now(et) + timedelta(days=30)
 
 
 def already_in_queue(posts_data: dict, post_id: str) -> bool:
@@ -155,6 +191,7 @@ async def main():
             continue
 
         source_url = f"https://x.com/{post.author_handle}/status/{post.post_id}"
+        sched = next_schedule_slot(posts_data)
 
         new_post = {
             "id": next_post_id(posts_data),
@@ -164,13 +201,14 @@ async def main():
             "image_urls": post.image_urls,
             "source_url": source_url,
             "source_handle": f"@{post.author_handle}",
-            "status": "draft",
+            "status": "approved",
+            "scheduled_for": sched.isoformat(),
             "notes": f"From bookmarks. Score {score}/10. {post.likes} likes. {evaluation['reason'][:80]}",
         }
 
         posts_data["posts"].append(new_post)
         drafts_created += 1
-        log.info(f"  Draft #{new_post['id']}: {caption_text[:80]}...")
+        log.info(f"  Scheduled #{new_post['id']} for {sched.strftime('%b %d %I%p ET')}: {caption_text[:60]}...")
 
     save_posts(posts_data)
 

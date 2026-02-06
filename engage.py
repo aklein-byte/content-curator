@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, search_posts, like_post, follow_user, XPost
+from tools.xkit import login, search_posts, like_post, follow_user, reply_to_post, XPost
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
 
@@ -39,7 +39,7 @@ ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / "eng
 
 # Limits
 MAX_LIKES_PER_RUN = 15
-MAX_REPLY_DRAFTS = 5
+MAX_REPLIES_PER_RUN = 5
 MAX_FOLLOWS_PER_RUN = 3
 POSTS_PER_QUERY = 15
 
@@ -174,18 +174,17 @@ async def main():
                 })
                 log.info(f"Liked post by @{post.author_handle} ({likes_done}/{MAX_LIKES_PER_RUN})")
 
-    # --- Draft replies for top posts ---
-    reply_drafts = load_json(ENGAGEMENT_DRAFTS)
-    if not isinstance(reply_drafts, list):
-        reply_drafts = []
-
-    drafts_created = 0
+    # --- Reply to top posts ---
+    replies_done = 0
+    replied_authors = set()  # avoid replying to same author twice
     for post, eval_data in scored_posts:
-        if drafts_created >= MAX_REPLY_DRAFTS:
+        if replies_done >= MAX_REPLIES_PER_RUN:
             break
         if eval_data["relevance_score"] < 7:
             continue
         if "reply" not in eval_data.get("suggested_actions", []):
+            continue
+        if post.author_handle in replied_authors:
             continue
 
         log.info(f"Drafting reply to @{post.author_handle}...")
@@ -196,26 +195,33 @@ async def main():
         )
 
         if reply_text:
-            reply_drafts.append({
-                "post_id": post.post_id,
-                "author": post.author_handle,
-                "post_text": post.text[:200],
-                "post_url": f"https://x.com/{post.author_handle}/status/{post.post_id}",
-                "draft_reply": reply_text,
-                "score": eval_data["relevance_score"],
-                "reason": eval_data["reason"],
-                "status": "pending_review",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-            drafts_created += 1
-            log.info(f"  Draft: {reply_text[:80]}...")
+            if dry_run:
+                log.info(f"[DRY RUN] Would reply to @{post.author_handle}: {reply_text[:80]}...")
+                replies_done += 1
+                replied_authors.add(post.author_handle)
+            else:
+                await random_delay("reply")
+                reply_id = await reply_to_post(client, post.post_id, reply_text)
+                if reply_id:
+                    replies_done += 1
+                    replied_authors.add(post.author_handle)
+                    engagement_log.append({
+                        "action": "reply",
+                        "post_id": post.post_id,
+                        "reply_id": reply_id,
+                        "author": post.author_handle,
+                        "reply_text": reply_text,
+                        "score": eval_data["relevance_score"],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    })
+                    log.info(f"Replied to @{post.author_handle} ({replies_done}/{MAX_REPLIES_PER_RUN}): {reply_text[:60]}...")
 
     # --- Follow a few relevant accounts ---
-    # Pick accounts from high-scoring posts we haven't followed before
     followed_handles = {
         e["author"] for e in engagement_log if e.get("action") == "follow"
     }
     follows_done = 0
+    seen_follow_handles = set()  # dedup within this run
 
     for post, eval_data in scored_posts:
         if follows_done >= MAX_FOLLOWS_PER_RUN:
@@ -224,11 +230,13 @@ async def main():
             continue
         if "follow" not in eval_data.get("suggested_actions", []):
             continue
-        if post.author_handle in followed_handles:
+        if post.author_handle in followed_handles or post.author_handle in seen_follow_handles:
             continue
 
+        seen_follow_handles.add(post.author_handle)
         if dry_run:
             log.info(f"[DRY RUN] Would follow @{post.author_handle}")
+            follows_done += 1
         else:
             await random_delay("follow")
             success = await follow_user(client, post.author_handle)
@@ -244,18 +252,15 @@ async def main():
                 })
                 log.info(f"Followed @{post.author_handle} ({follows_done}/{MAX_FOLLOWS_PER_RUN})")
 
-    # Save everything
+    # Save engagement log
     save_json(ENGAGEMENT_LOG, engagement_log)
-    save_json(ENGAGEMENT_DRAFTS, reply_drafts)
 
     # Summary
     summary = (
-        f"Done. Likes: {likes_done}, Reply drafts: {drafts_created}, "
+        f"Done. Likes: {likes_done}, Replies: {replies_done}, "
         f"Follows: {follows_done}"
     )
     log.info(summary)
-    if drafts_created > 0:
-        log.info(f"Review reply drafts in: {ENGAGEMENT_DRAFTS}")
 
     notify("@tatamispaces engage", summary)
 
