@@ -70,7 +70,43 @@ def sync_state():
     cookies_dir.mkdir(exist_ok=True)
     os.environ["COOKIES_DIR"] = str(cookies_dir)
 
+    # Write cookies from env var if they don't exist on Disk yet
+    _init_cookies(cookies_dir)
+
     log.info(f"State synced. Disk: {DATA_DIR}")
+
+
+def _init_cookies(cookies_dir: Path):
+    """Write X cookies from env vars to Disk on first deploy."""
+    cookie_file = cookies_dir / "tatamispaces_cookies.json"
+    auth_token = os.environ.get("X_AUTH_TOKEN", "")
+    ct0 = os.environ.get("X_CT0", "")
+
+    if cookie_file.exists():
+        log.info("Cookies already on Disk")
+        return
+
+    # Try from env vars first
+    if auth_token and ct0:
+        cookies = {
+            "auth_token": auth_token,
+            "ct0": ct0,
+            "lang": "en",
+            "dnt": "1",
+            "twid": os.environ.get("X_TWID", "u%3D2017827047129718784"),
+        }
+        cookie_file.write_text(json.dumps(cookies, indent=2))
+        log.info("Wrote cookies from env vars")
+        return
+
+    # Try from repo (local dev)
+    repo_cookies = BASE_DIR / "data" / "cookies" / "tatamispaces_cookies.json"
+    if repo_cookies.exists():
+        shutil.copy2(repo_cookies, cookie_file)
+        log.info("Copied cookies from repo")
+        return
+
+    log.warning("No cookies available — twikit login will attempt fresh login")
 
 
 def _merge_posts(repo_file: Path, disk_file: Path):
