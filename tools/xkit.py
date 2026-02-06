@@ -110,9 +110,15 @@ async def login(niche_id: str) -> Client:
                     return client
             except Exception:
                 pass
-            logger.info(f"Saved session expired for {niche_id}, logging in fresh")
+            logger.warning(f"Saved session expired for {niche_id}")
 
-    # Fresh login (may fail if X challenges)
+    # Fresh login — usually blocked by Cloudflare, but try as last resort
+    if not all([username, email, password]):
+        raise ValueError(
+            f"No valid cookies and no credentials for '{niche_id}'. "
+            f"Re-export cookies from Chrome using pycookiecheat."
+        )
+    logger.info(f"Attempting fresh login for {niche_id} (may be blocked)...")
     await client.login(
         auth_info_1=username,
         auth_info_2=email,
@@ -152,8 +158,12 @@ async def search_posts(
                 for media in tweet.media:
                     if hasattr(media, 'media_url_https'):
                         images.append(media.media_url_https)
+                    elif hasattr(media, 'media_url'):
+                        images.append(media.media_url)
                     elif isinstance(media, dict) and 'media_url_https' in media:
                         images.append(media['media_url_https'])
+                    elif isinstance(media, dict) and 'media_url' in media:
+                        images.append(media['media_url'])
 
             posts.append(XPost(
                 post_id=tweet.id,
@@ -204,8 +214,12 @@ async def get_user_posts(
                 for media in tweet.media:
                     if hasattr(media, 'media_url_https'):
                         images.append(media.media_url_https)
+                    elif hasattr(media, 'media_url'):
+                        images.append(media.media_url)
                     elif isinstance(media, dict) and 'media_url_https' in media:
                         images.append(media['media_url_https'])
+                    elif isinstance(media, dict) and 'media_url' in media:
+                        images.append(media['media_url'])
 
             posts.append(XPost(
                 post_id=tweet.id,

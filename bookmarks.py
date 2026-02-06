@@ -89,7 +89,7 @@ def next_schedule_slot(posts_data: dict) -> datetime:
 def already_in_queue(posts_data: dict, post_id: str) -> bool:
     """Check if a post ID or source URL containing it is already queued."""
     for p in posts_data.get("posts", []):
-        src = p.get("source_url", "")
+        src = p.get("source_url") or ""
         if post_id in src:
             return True
     return False
@@ -102,8 +102,12 @@ def parse_bookmark(tweet) -> XPost:
         for media in tweet.media:
             if hasattr(media, 'media_url_https'):
                 images.append(media.media_url_https)
+            elif hasattr(media, 'media_url'):
+                images.append(media.media_url)
             elif isinstance(media, dict) and 'media_url_https' in media:
                 images.append(media['media_url_https'])
+            elif isinstance(media, dict) and 'media_url' in media:
+                images.append(media['media_url'])
 
     return XPost(
         post_id=tweet.id,
