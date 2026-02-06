@@ -178,7 +178,7 @@ async def main():
             reposts=post.reposts,
         )
 
-        score = evaluation["relevance_score"]
+        score = evaluation.get("relevance_score") or 0
         if score < args.min_score:
             log.info(f"  Skip @{post.author_handle} — score {score}/10: {evaluation['reason'][:50]}")
             continue
