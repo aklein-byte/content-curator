@@ -6,7 +6,7 @@ The infrastructure is niche-agnostic - swap config to launch new accounts.
 NICHES = {
     "tatamispaces": {
         "handle": "@tatamispaces",
-        "name": "Tatami Spaces",
+        "name": "tatami",
         "description": "Japanese interior design and architecture",
         "curator_prompt": """You are a photo editor at a high-end Japanese design magazine with impeccable taste.
 
@@ -74,6 +74,44 @@ Example captions:
             "#JapanDesign",
             "#InteriorDesign",
         ],
+        "engagement": {
+            "search_queries": [
+                # Japanese language searches — high-quality architectural content
+                "(畳 OR 障子 OR 縁側 OR 茶室) filter:images min_faves:200 lang:ja",
+                "(古民家 OR 町家) filter:images min_faves:100 lang:ja",
+                "(建築 OR インテリア) (設計 OR デザイン) filter:images min_faves:500 lang:ja",
+                # English searches
+                "japanese interior design filter:images min_faves:100",
+                "japanese architecture filter:images min_faves:200",
+                "tatami room filter:images min_faves:50",
+                "wabi sabi interior filter:images min_faves:50",
+            ],
+            "tracked_accounts": [
+                "@naparchitects",
+                "@WalkAroundTokyo",
+                "@530E",
+                "@kenohare_media",
+                "@Hasselblad_JPN",
+                "@JapanArchitects",
+                "@mm__ii89",
+            ],
+            "reply_voice": (
+                "Knowledgeable but casual. Add context the English-speaking audience "
+                "wouldn't know. Use specific details — measurements, materials, costs, "
+                "locations. Reference voice.md for exact style."
+            ),
+            "engagement_targets": {
+                "replies_per_day": 5,
+                "likes_per_day": 10,
+                "reposts_per_day": 2,
+                "original_posts_per_day": 2,
+            },
+            "posting_times": [
+                "09:00",  # Morning US East
+                "13:00",  # Lunch US East / Morning US West
+                "19:00",  # Evening US East
+            ],
+        },
     },
 
     "brutalist": {

@@ -1,35 +1,23 @@
-# Render Blueprint for Content Curator
-
 services:
-  - type: web
-    name: content-curator
+  - type: worker
+    name: tatami-worker
     runtime: python
-    plan: starter  # Need starter for longer timeouts (Opus can take time)
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    startCommand: python worker.py
+    disk:
+      name: tatami-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: TELEGRAM_BOT_TOKEN
+      - key: X_USERNAME
+        value: tatamispaces
+      - key: X_EMAIL
         sync: false
-      - key: ALLOWED_TELEGRAM_USERS
+      - key: X_PASSWORD
         sync: false
-      - key: FIRECRAWL_API_KEY
-        sync: false
-      - key: X_API_KEY
-        sync: false
-      - key: X_API_SECRET
-        sync: false
-      - key: X_ACCESS_TOKEN
-        sync: false
-      - key: X_ACCESS_SECRET
-        sync: false
-      - key: X_BEARER_TOKEN
-        sync: false
-      - key: DB_PATH
-        value: /var/data/curator.db
-    disk:
-      name: curator-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: RENDER_DISK_PATH
+        value: /data
+      - key: COOKIES_DIR
+        value: /data/cookies

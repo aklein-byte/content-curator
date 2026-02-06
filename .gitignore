@@ -32,3 +32,15 @@ Thumbs.db
 # Temp files
 *.tmp
 *.temp
+
+# Engagement state (generated at runtime)
+engagement-log.json
+engagement-drafts.json
+
+# Cookie sessions
+data/cookies/
+cookies/
+
+# Downloaded images (large, re-downloadable)
+data/images/
+images/

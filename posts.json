@@ -1,0 +1,143 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "type": "original",
+      "text": "I keep finding Japanese architecture that most English-speaking audiences never see. Marble shoji screens, $110K thatched-roof houses in Kyoto, 100-year-old buildings turned into pop-up restaurants. Going to post what I find here.",
+      "image": null,
+      "source_url": null,
+      "source_handle": null,
+      "status": "posted",
+      "pinned": true,
+      "posted_at": "2026-02-05T22:10:00Z"
+    },
+    {
+      "id": 2,
+      "type": "repost-with-credit",
+      "text": "The point of a shoji screen is to divide a room without blocking light. NAP Architects sliced white marble down to 3 millimeters and set it into the existing frames. No structural changes to the building. The marble does what paper couldn't \u2014 blocks sound, keeps the light. 3mm. Marble. \ud83e\udd2f\n\ud83d\udcf7 @naparchitects",
+      "image": "nap_marble_shoji.jpg",
+      "source_url": "https://x.com/naparchitects/status/1935841135349711033",
+      "source_handle": "@naparchitects",
+      "status": "posted",
+      "posted_at": "2026-02-05T22:20:00Z"
+    },
+    {
+      "id": 3,
+      "type": "repost-with-credit",
+      "text": "Thatched-roof kominka in Sakyo Ward, Kyoto. 4,191 square meters of land, hearth intact, original fittings, cherry trees in the garden. Listed at 16.8 million yen. That's about $110K for a house with its own forest.\n\ud83d\udcf7 @530E",
+      "image": null,
+      "source_url": "https://x.com/530E/status/2008149983262818595",
+      "source_handle": "@530E",
+      "status": "approved",
+      "scheduled_for": "2026-02-06T09:12:00-05:00"
+    },
+    {
+      "id": 4,
+      "type": "repost-with-credit",
+      "text": "100-year-old kominka, renovated into an inn. 10-tatami room, shoji filtering afternoon light, kotatsu in the center. In Japanese winter, one heated table under a blanket runs the entire house. You eat there, nap there, argue there.\n\ud83d\udcf7 @mm__ii89",
+      "image": null,
+      "source_url": "https://x.com/mm__ii89/status/2008296955529605183",
+      "source_handle": "@mm__ii89",
+      "status": "approved",
+      "scheduled_for": "2026-02-06T19:38:00-05:00"
+    },
+    {
+      "id": 5,
+      "type": "repost-with-credit",
+      "text": "100-year-old kominka near Kudanshita Station, Tokyo. Slated for demolition in a redevelopment zone. Someone opened a one-year pop-up restaurant inside instead. \"酒とてらだや\" \u2014 sake and small plates in a building that's running out of time.\n\ud83d\udcf7 @WalkAroundTokyo",
+      "image": null,
+      "source_url": "https://x.com/WalkAroundTokyo/status/1983124548859113836",
+      "source_handle": "@WalkAroundTokyo",
+      "status": "approved",
+      "scheduled_for": "2026-02-07T08:47:00-05:00"
+    },
+    {
+      "id": 6,
+      "type": "repost-with-credit",
+      "text": "Kyoto International Conference Centre, 1966. Sachio Otani tilted every column 22 degrees off vertical. The whole building follows a hexagonal grid \u2014 almost no straight walls. Raw concrete shaped to mirror the mountains across Lake Takaragaike. The Kyoto Protocol was signed here. That's why it's called the Kyoto Protocol.\n\ud83d\udcf7 @SciFiArchives",
+      "image": null,
+      "source_url": "https://x.com/SciFiArchives/status/2019125805478265212",
+      "source_handle": "@SciFiArchives",
+      "status": "draft",
+      "suggested_schedule": "2026-02-07T19:22:00-05:00",
+      "notes": "Modernist JP architecture. 16K likes on source. Different from traditional content so far."
+    },
+    {
+      "id": 7,
+      "type": "repost-with-credit",
+      "text": "Shirakawa-go after snowfall. The thatched roofs are built at 60 degrees \u2014 gassho-zukuri, 'hands in prayer.' The angle isn't decorative. It keeps 2 meters of annual snowfall from crushing the frame. Some of these houses are over 250 years old.\n\ud83d\udcf7 @hitoritabiken",
+      "image": null,
+      "source_url": "https://x.com/hitoritabiken/status/2019245216839123012",
+      "source_handle": "@hitoritabiken",
+      "status": "draft",
+      "suggested_schedule": "2026-02-08T09:34:00-05:00",
+      "notes": "UNESCO site but winter snow angle is specific. 5.2K likes. Strong images."
+    },
+    {
+      "id": 8,
+      "type": "repost-with-credit",
+      "text": "Kumiko lattice panels dividing a room without closing it off. Each pattern is assembled from small strips of wood, interlocked by hand. No nails. The lattice filters light differently depending on the time of day. Same room, different light.\n\ud83d\udcf7 @Kanapi_House",
+      "image": null,
+      "source_url": "https://x.com/Kanapi_House/status/2019526781754306694",
+      "source_handle": "@Kanapi_House",
+      "status": "draft",
+      "suggested_schedule": "2026-02-08T19:11:00-05:00",
+      "notes": "Perfect niche content. Kumiko woodworking. Lower engagement on source but exactly our audience."
+    },
+    {
+      "id": 9,
+      "type": "repost-with-credit",
+      "text": "Rotenburo \u2014 open-air hot spring baths at Japanese inns. Stone, cedar, no enclosure. The mountain is right there. In winter, you sit in 42\u00b0C water while snow falls on your shoulders. The colder the air, the better it works.\n\ud83d\udcf7 @tadanowanwan",
+      "image": null,
+      "source_url": "https://x.com/tadanowanwan/status/2019531731792195725",
+      "source_handle": "@tadanowanwan",
+      "status": "draft",
+      "suggested_schedule": "2026-02-09T10:03:00-05:00",
+      "notes": "Outdoor bath architecture. Sensory, specific. 604 likes."
+    },
+    {
+      "id": 10,
+      "type": "repost-with-credit",
+      "text": "Shimane. Wooden facades, tile roofs, covered walkways built for rain, not tourists. Shimane gets fewer visitors than any other prefecture on Honshu. Home to Izumo Taisha, one of the oldest Shinto shrines in Japan. The architecture is quiet because nobody needed it to be loud.\n\ud83d\udcf7 @cpgu_b24",
+      "image": null,
+      "source_url": "https://x.com/cpgu_b24/status/2019407712224977212",
+      "source_handle": "@cpgu_b24",
+      "status": "draft",
+      "suggested_schedule": "2026-02-10T09:47:00-05:00",
+      "notes": "Off-beaten-path. 8 images in source (pick best 4). Authentic small-town architecture."
+    },
+    {
+      "id": 11,
+      "type": "repost-with-credit",
+      "text": "Ent\u014d, on the Oki Islands, 50km off the coast of Shimane. The name means \u9060\u5cf6 \u2014 'exile island.' Oki was where Japan sent emperors it wanted to forget. Mount Fuji Architects Studio built the hotel into the cliff using cross-laminated timber. The rooms are mostly window. UNESCO Global Geopark.\n\ud83d\udcf7 @sora413s",
+      "image": null,
+      "source_url": "https://x.com/sora413s/status/2019360656118681815",
+      "source_handle": "@sora413s",
+      "status": "draft",
+      "suggested_schedule": "2026-02-10T19:29:00-05:00",
+      "notes": "Modern architecture on remote island. Verify: Mount Fuji Architects Studio, opened 2021. 3K likes."
+    },
+    {
+      "id": 12,
+      "type": "repost-with-credit",
+      "text": "Kikuya (\u83ca\u5c4b), Shuzenji, Shizuoka. 400 years old. In 1910, Natsume S\u014dseki checked in to recover from a stomach ulcer and nearly died here \u2014 the \u4fee\u5584\u5bfa\u306e\u5927\u60a3 (Shuzenji no Taikan). He wrote about it after. The inn still has his room. The building hasn't tried to be anything other than what it is.\n\ud83d\udcf7 @mm__ii89",
+      "image": null,
+      "source_url": "https://x.com/mm__ii89/status/2016987734951473238",
+      "source_handle": "@mm__ii89",
+      "status": "draft",
+      "suggested_schedule": "2026-02-11T09:18:00-05:00",
+      "notes": "VERIFIED: Kikuya (湯回廊 菊屋) in Shuzenji. Soseki stayed Aug-Oct 1910, nearly died. 6.3K likes. 3rd mm__ii89 post - space from others."
+    },
+    {
+      "id": 13,
+      "type": "repost-with-credit",
+      "text": "Kyoto. Temples, wooden gates, stone paths. The kind of city where you turn a corner and the century changes.\n\ud83d\udcf7 @VERISUKE0805",
+      "image": null,
+      "source_url": "https://x.com/VERISUKE0805/status/2019411778518806819",
+      "source_handle": "@VERISUKE0805",
+      "status": "draft",
+      "suggested_schedule": "2026-02-11T19:44:00-05:00",
+      "notes": "Backup. 1.6K likes. More travel photography than architecture-specific. Caption needs work after viewing images."
+    }
+  ]
+}
