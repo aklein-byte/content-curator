@@ -34,6 +34,7 @@ logging.basicConfig(
 log = logging.getLogger("engage")
 
 BASE_DIR = Path(__file__).parent
+POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
 ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(BASE_DIR / "engagement-log.json")))
 ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / "engagement-drafts.json")))
 
@@ -61,6 +62,25 @@ def save_json(path: Path, data):
 def already_engaged(log_entries: list, post_id: str) -> bool:
     """Check if we already liked/replied to this post."""
     return any(e["post_id"] == post_id for e in log_entries)
+
+
+def load_source_tweet_ids() -> set:
+    """Load tweet IDs we've used as sources for our own posts.
+    We shouldn't like/engage with these — it looks weird to like the original
+    of content we've already curated and reposted."""
+    ids = set()
+    if POSTS_FILE.exists():
+        try:
+            data = json.loads(POSTS_FILE.read_text())
+            for p in data.get("posts", []):
+                src = p.get("source_url") or ""
+                if src:
+                    tweet_id = src.rstrip("/").split("/")[-1]
+                    if tweet_id.isdigit():
+                        ids.add(tweet_id)
+        except Exception:
+            pass
+    return ids
 
 
 async def random_delay(label: str = ""):
@@ -127,10 +147,16 @@ async def main():
 
     log.info(f"Found {len(all_posts)} unique posts across {len(shuffled_queries)} queries")
 
+    # Skip tweets we've used as sources for our own posts
+    source_ids = load_source_tweet_ids()
+
     # Evaluate all posts with Claude
     scored_posts = []
     for post in all_posts:
         if already_engaged(engagement_log, post.post_id):
+            continue
+        if post.post_id in source_ids:
+            log.info(f"  Skip @{post.author_handle} — source tweet for our content")
             continue
 
         evaluation = await evaluate_post(
