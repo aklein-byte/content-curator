@@ -54,7 +54,8 @@ POSTING_HOURS = [9, 13, 19]  # ET slots for 3 posts/day
 
 
 def next_schedule_slot(posts_data: dict) -> datetime:
-    """Find the next available posting slot (9am, 1pm, 7pm ET)."""
+    """Find the next available posting slot (~9am, ~1pm, ~7pm ET with jitter)."""
+    import random
     from zoneinfo import ZoneInfo
     et = ZoneInfo("America/New_York")
 
@@ -80,7 +81,9 @@ def next_schedule_slot(posts_data: dict) -> datetime:
         d = check_date + timedelta(days=day_offset)
         for hour in POSTING_HOURS:
             if (d, hour) not in taken:
-                return datetime(d.year, d.month, d.day, hour, 0, tzinfo=et)
+                # Add random jitter (-20 to +35 min) so times aren't identical daily
+                jitter = random.randint(-20, 35)
+                return datetime(d.year, d.month, d.day, hour, 0, tzinfo=et) + timedelta(minutes=jitter)
 
     # Fallback: 30 days out
     return datetime.now(et) + timedelta(days=30)
