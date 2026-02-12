@@ -9,7 +9,12 @@
       "source_handle": null,
       "status": "posted",
       "pinned": true,
-      "posted_at": "2026-02-05T22:10:00Z"
+      "posted_at": "2026-02-05T22:10:00Z",
+      "posted": true,
+      "tweet_id": "2019609629022646672",
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "too old to cross-post, marked during reconciliation"
     },
     {
       "id": 2,
@@ -19,7 +24,14 @@
       "source_url": "https://x.com/naparchitects/status/1935841135349711033",
       "source_handle": "@naparchitects",
       "status": "posted",
-      "posted_at": "2026-02-05T22:20:00Z"
+      "posted_at": "2026-02-05T22:20:00Z",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T15:22:01.224121+00:00",
+      "ig_carousel": false,
+      "posted": true,
+      "tweet_id": "2019615532484276688",
+      "ig_container_created": true,
+      "ig_media_id": "18094585760005679"
     },
     {
       "id": 3,
@@ -31,56 +43,86 @@
       "status": "posted",
       "scheduled_for": "2026-02-06T09:12:00-05:00",
       "posted_at": "2026-02-06T15:16:19.444675+00:00",
-      "tweet_id": "2019792262083850285"
+      "tweet_id": "2019792262083850285",
+      "posted": true,
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "too old to cross-post, marked during reconciliation"
     },
     {
       "id": 4,
       "type": "repost-with-credit",
-      "text": "100-year-old kominka, renovated into an inn. 10-tatami room, shoji filtering afternoon light, kotatsu in the center. In Japanese winter, one heated table under a blanket runs the entire house. You eat there, nap there, argue there.\n📷 @mm__ii89",
+      "text": "100-year-old kominka, renovated into an inn. 10-tatami room with a kotatsu in the center. One heated table under a blanket. That's the heating system for the whole room. Showa-era, still running.\n📷 @mm__ii89",
       "image": null,
       "image_urls": [
-        "https://pbs.twimg.com/media/G97nb5cbcAUiz4K.jpg",
-        "https://pbs.twimg.com/media/G97nb5cbsAAi--N.jpg",
-        "https://pbs.twimg.com/media/G97nb52bcAUZDR8.jpg",
-        "https://pbs.twimg.com/media/G97nb5dbcAAcRGD.jpg"
+        "https://pbs.twimg.com/media/G97nb5cbcAUiz4K?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G97nb5cbsAAi--N?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G97nb52bcAUZDR8?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G97nb5dbcAAcRGD?format=jpg&name=orig"
       ],
       "source_url": "https://x.com/mm__ii89/status/2008296955529605183",
       "source_handle": "@mm__ii89",
-      "status": "approved",
-      "scheduled_for": "2026-02-06T19:58:00-05:00"
+      "status": "posted",
+      "scheduled_for": "2026-02-06T19:38:00-05:00",
+      "notes": "Scheduled natively in X — do not post via post.py",
+      "tweet_id": "2019933628491325735",
+      "posted_at": "2026-02-11T20:56:18.060773+00:00",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-12T00:05:09.975562+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-12T00:05:10.355147+00:00",
+      "ig_publish_error": "Child container 1 failed: 400 {\"error\":{\"message\":\"Only photo or video can be accepted as media type.\",\"type\":\"OAuthException\",\"code\":9004,\"error_subcode\":2207052,\"is_transient\":false,\"error_user_title\":\"Media download has failed. The media URI doesn't meet our requirements.\",\"error_user_msg\":\"The media could not be fetched from this URI: http:\\/\\/35.221.9.93\\/ig\\/e40c19ae57e8.jpg.Please check the limitations section in our development document for more information: https:\\/\\/developers.facebook.com\\/docs\\/instagram-platform\\/instagram-graph-api\\/reference\\/ig-user\\/media#creating\",\"fbtrace_id\":\"ADTdotBj4qVkrQiiRnIgjHs\"}}",
+      "posted": true,
+      "ig_skip_reason": "not found on IG (deleted or failed)"
     },
     {
       "id": 5,
       "type": "repost-with-credit",
-      "text": "100-year-old kominka near Kudanshita Station, Tokyo. Slated for demolition in a redevelopment zone. Someone opened a one-year pop-up restaurant inside instead. \"酒とてらだや\" — sake and small plates in a building that's running out of time.\n📷 @WalkAroundTokyo",
+      "text": "Kominka near Kudanshita Station, Tokyo. Slated for demolition in a redevelopment zone. Someone opened a one-year pop-up restaurant inside instead. 酒とてらだや — sake and small plates in a building that's running out of time.\n📷 @WalkAroundTokyo",
       "image": null,
       "image_urls": [
-        "https://pbs.twimg.com/media/G4V5Q7casAEdhro.jpg",
-        "https://pbs.twimg.com/media/G4V5RjebsAEHaQ0.jpg",
-        "https://pbs.twimg.com/media/G4V5RjebsAAlrTM.jpg",
-        "https://pbs.twimg.com/media/G4V5RjWasAMWyIJ.jpg"
+        "https://pbs.twimg.com/media/G4V5Q7casAEdhro?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G4V5RjebsAEHaQ0?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G4V5RjebsAAlrTM?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G4V5RjWasAMWyIJ?format=jpg&name=orig"
       ],
       "source_url": "https://x.com/WalkAroundTokyo/status/1983124548859113836",
       "source_handle": "@WalkAroundTokyo",
-      "status": "approved",
-      "scheduled_for": "2026-02-07T08:47:00-05:00"
+      "status": "posted",
+      "scheduled_for": "2026-02-09T13:41:00-05:00",
+      "notes": "Rescheduled from Feb 13 back to Feb 10 afternoon gap.",
+      "category": "historic-house",
+      "posted": true,
+      "tweet_id": "2021010825243156513",
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "too old to cross-post, marked during reconciliation",
+      "ig_media_id": "17891790636416632"
     },
     {
       "id": 6,
       "type": "repost-with-credit",
-      "text": "Kyoto International Conference Centre, 1966. Sachio Otani tilted every column 22 degrees off vertical. The whole building follows a hexagonal grid — almost no straight walls. Raw concrete shaped to mirror the mountains across Lake Takaragaike. The Kyoto Protocol was signed here. That's why it's called the Kyoto Protocol.\n📷 @SciFiArchives",
+      "text": "Kyoto International Conference Centre, 1966. Sachio Otani tilted every column 22 degrees off vertical. Hexagonal grid, almost no straight walls. The Kyoto Protocol was signed here. That's why it's called the Kyoto Protocol.\n\n📷 @SciFiArchives",
       "image": null,
       "source_url": "https://x.com/SciFiArchives/status/2019125805478265212",
       "source_handle": "@SciFiArchives",
-      "status": "approved",
-      "scheduled_for": "2026-02-07T12:41:00-05:00",
-      "notes": "Modernist JP architecture. 16K likes on source. Different from traditional content so far.",
+      "status": "posted",
+      "scheduled_for": "2026-02-07T19:17:00-05:00",
+      "notes": "Modernist JP architecture. 16K likes on source. Moved to Feb 7 evening.",
       "image_urls": [
-        "https://pbs.twimg.com/media/G_ICw7mXoAADUS2.jpg",
-        "https://pbs.twimg.com/media/G_ICw7rWoAA3L9s.jpg",
-        "https://pbs.twimg.com/media/G_ICw7qWwAAVU8b.jpg",
-        "https://pbs.twimg.com/media/G_ICw7uWMAE_5OO.png"
-      ]
+        "https://pbs.twimg.com/media/G_ICw7mXoAADUS2?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_ICw7rWoAA3L9s?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_ICw7qWwAAVU8b?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_ICw7uWMAE_5OO?format=png&name=orig"
+      ],
+      "posted_at": "2026-02-08T01:52:59.560304+00:00",
+      "tweet_id": "2020314872492486692",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T05:16:33.528624+00:00",
+      "ig_carousel": true,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "18129862405516217"
     },
     {
       "id": 7,
@@ -89,167 +131,784 @@
       "image": null,
       "source_url": "https://x.com/hitoritabiken/status/2019245216839123012",
       "source_handle": "@hitoritabiken",
-      "status": "approved",
-      "scheduled_for": "2026-02-07T19:27:00-05:00",
+      "status": "posted",
+      "scheduled_for": "2026-02-08T20:29:00-05:00",
       "notes": "UNESCO site but winter snow angle is specific. 5.2K likes. Strong images.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAXM0BgbYAAl2gO.jpg",
-        "https://pbs.twimg.com/media/HAXM0HkaIAAEbQh.jpg",
-        "https://pbs.twimg.com/media/HAXM0HebkAEyTUT.jpg",
-        "https://pbs.twimg.com/media/HAXM0BgacAMi96G.jpg"
-      ]
+        "https://pbs.twimg.com/media/HAXM0BgbYAAl2gO?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAXM0HkaIAAEbQh?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAXM0HebkAEyTUT?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAXM0BgacAMi96G?format=jpg&name=orig"
+      ],
+      "posted_at": "2026-02-09T01:34:21.067508+00:00",
+      "tweet_id": "2020672564691902599",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-11T15:34:08.105933+00:00",
+      "ig_images_attempted": 4,
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-11T15:33:40.188525+00:00",
+      "ig_publish_error": "Carousel publish failed: 403 {\"error\":{\"message\":\"Application request limit reached\",\"type\":\"OAuthException\",\"is_transient\":false,\"code\":4,\"error_subcode\":2207051,\"error_user_title\":\"action is blocked\",\"error_user_msg\":\"We restrict certain activity to protect our community. Tell us if you think we made a mistake.\",\"fbtrace_id\":\"AN0HU_i1wvj-Kc4iiCa7DiS\"}}",
+      "posted": true,
+      "ig_media_id": "18112411201652141"
     },
     {
       "id": 8,
       "type": "repost-with-credit",
-      "text": "Kumiko lattice panels dividing a room without closing it off. Each pattern is assembled from small strips of wood, interlocked by hand. No nails. The lattice filters light differently depending on the time of day. Same room, different light.\n📷 @Kanapi_House",
+      "text": "Kumiko lattice panels. Small strips of wood interlocked by hand, no nails, no glue. Each geometric pattern has a name — there are over 200. Most kumiko craftsmen train for 10+ years before they can cut the joints accurately enough.\n📷 @Kanapi_House",
       "image": null,
       "source_url": "https://x.com/Kanapi_House/status/2019526781754306694",
       "source_handle": "@Kanapi_House",
-      "status": "approved",
-      "scheduled_for": "2026-02-08T08:57:00-05:00",
+      "status": "posted",
+      "scheduled_for": "2026-02-08T15:06:00-05:00",
       "notes": "Perfect niche content. Kumiko woodworking. Lower engagement on source but exactly our audience.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAbM5TbaUAACa7B.jpg",
-        "https://pbs.twimg.com/media/HAbM5T0acAIf_gV.jpg",
-        "https://pbs.twimg.com/media/HAbM5TjaMAAIULT.jpg",
-        "https://pbs.twimg.com/media/HAbM5TubgAA1vWj.jpg"
-      ]
+        "https://pbs.twimg.com/media/HAbM5TbaUAACa7B?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAbM5T0acAIf_gV?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAbM5TjaMAAIULT?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAbM5TubgAA1vWj?format=jpg&name=orig"
+      ],
+      "posted_at": "2026-02-08T20:28:22.784904+00:00",
+      "tweet_id": "2020595568255566097",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-11T15:34:28.155267+00:00",
+      "ig_images_attempted": 4,
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-11T15:34:08.114312+00:00",
+      "ig_publish_error": "Carousel publish failed: 400 {\"error\":{\"message\":\"Media ID is not available\",\"type\":\"OAuthException\",\"code\":9007,\"error_subcode\":2207027,\"is_transient\":false,\"error_user_title\":\"Cannot Publish\",\"error_user_msg\":\"The media is not ready for publishing, please wait for a moment\",\"fbtrace_id\":\"AKiz0mbbIHXRe5DdihJjzRx\"}}",
+      "posted": true,
+      "ig_media_id": "18106446151813068"
     },
     {
       "id": 9,
       "type": "repost-with-credit",
-      "text": "Rotenburo — open-air hot spring baths at Japanese inns. Stone, cedar, no enclosure. The mountain is right there. In winter, you sit in 42°C water while snow falls on your shoulders. The colder the air, the better it works.\n📷 @tadanowanwan",
+      "text": "Rotenburo — open-air hot spring bath. Stone, cedar, no enclosure. 42°C water, snow falling on your shoulders. Most ryokan rotate bath access by gender every few hours. Some have private ones you can book.\n📷 @tadanowanwan",
       "image": null,
       "source_url": "https://x.com/tadanowanwan/status/2019531731792195725",
       "source_handle": "@tadanowanwan",
-      "status": "approved",
-      "scheduled_for": "2026-02-08T12:55:00-05:00",
+      "status": "skipped_low_res",
+      "scheduled_for": "2026-02-10T20:33:00-05:00",
       "notes": "Outdoor bath architecture. Sensory, specific. 604 likes.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAbRaDzb0AAocCF.jpg",
-        "https://pbs.twimg.com/media/HAbRaDtacAI3jTm.jpg",
-        "https://pbs.twimg.com/media/HAbRaDuacAM6JP-.jpg"
-      ]
+        "https://pbs.twimg.com/media/HAbRaDzb0AAocCF?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAbRaDtacAI3jTm?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAbRaDuacAM6JP-?format=jpg&name=orig"
+      ],
+      "category": "ryokan",
+      "skip_reason": "Image ce742502fdad7ed2edc31884c011ebfc.jpg only 487x649",
+      "posted": true,
+      "tweet_id": "2021408890877813108"
     },
     {
       "id": 10,
       "type": "repost-with-credit",
-      "text": "Shimane. Wooden facades, tile roofs, covered walkways built for rain, not tourists. Shimane gets fewer visitors than any other prefecture on Honshu. Home to Izumo Taisha, one of the oldest Shinto shrines in Japan. The architecture is quiet because nobody needed it to be loud.\n📷 @cpgu_b24",
+      "text": "Shimane. Wooden facades, tile roofs, covered walkways built for rain. Fewest visitors of any prefecture on Honshu. Home to Izumo Taisha. Most buildings here haven't been renovated in decades — no tourist money.\n\n📷 @cpgu_b24",
       "image": null,
       "source_url": "https://x.com/cpgu_b24/status/2019407712224977212",
       "source_handle": "@cpgu_b24",
-      "status": "approved",
-      "scheduled_for": "2026-02-08T18:54:00-05:00",
+      "status": "posted",
+      "scheduled_for": "2026-02-09T19:52:00-05:00",
       "notes": "Off-beaten-path. 8 images in source (pick best 4). Authentic small-town architecture.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAZgmAKa8AA_6pH.jpg",
-        "https://pbs.twimg.com/media/HAZgmANbYAE5ufP.jpg",
-        "https://pbs.twimg.com/media/HAZgmALacAEI6FU.jpg",
-        "https://pbs.twimg.com/media/HAZgmAIbIAEt53t.jpg"
-      ]
+        "https://pbs.twimg.com/media/HAZgmAKa8AA_6pH?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZgmANbYAE5ufP?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZgmALacAEI6FU?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZgmAIbIAEt53t?format=jpg&name=orig"
+      ],
+      "category": "other",
+      "posting_started": "2026-02-12T05:26:44.790699+00:00",
+      "posted_at": "2026-02-12T05:26:52.520447+00:00",
+      "tweet_id": "2021818262460203375",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-12T14:52:43.853337+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-12T14:53:09.479233+00:00",
+      "ig_publish_error": "Carousel publish failed: 403 {\"error\":{\"message\":\"Application request limit reached\",\"type\":\"OAuthException\",\"is_transient\":false,\"code\":4,\"error_subcode\":2207051,\"error_user_title\":\"action is blocked\",\"error_user_msg\":\"We restrict certain activity to protect our community. Tell us if you think we made a mistake.\",\"fbtrace_id\":\"Au6n5dU4ZSA3ENfuc4i6Gyq\"}}"
     },
     {
       "id": 11,
       "type": "repost-with-credit",
-      "text": "Entō, on the Oki Islands, 50km off the coast of Shimane. The name means 遠島 — 'exile island.' Oki was where Japan sent emperors it wanted to forget. Mount Fuji Architects Studio built the hotel into the cliff using cross-laminated timber. The rooms are mostly window. UNESCO Global Geopark.\n📷 @sora413s",
+      "text": "Entō, Oki Islands, 50km off Shimane. 遠島 means 'exile island' — where Japan sent emperors it wanted to forget. Mount Fuji Architects Studio built the hotel into the cliff. Cross-laminated timber. Rooms are mostly window.\n\n📷 @sora413s",
       "image": null,
       "source_url": "https://x.com/sora413s/status/2019360656118681815",
       "source_handle": "@sora413s",
       "status": "approved",
-      "scheduled_for": "2026-02-09T08:48:00-05:00",
+      "scheduled_for": "2026-02-11T20:11:00-05:00",
       "notes": "Modern architecture on remote island. Verify: Mount Fuji Architects Studio, opened 2021. 3K likes.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAY1z-cacAQk8HJ.jpg",
-        "https://pbs.twimg.com/media/HAY1z-facAIgw2E.jpg",
-        "https://pbs.twimg.com/media/HAY1z-cbYAARO_J.jpg",
-        "https://pbs.twimg.com/media/HAY1z-cbEAA5iFj.jpg"
-      ]
+        "https://pbs.twimg.com/media/HAY1z-cacAQk8HJ?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAY1z-facAIgw2E?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAY1z-cbYAARO_J?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAY1z-cbEAA5iFj?format=jpg&name=orig"
+      ],
+      "category": "modern-architecture"
     },
     {
       "id": 12,
       "type": "repost-with-credit",
-      "text": "Kikuya (菊屋), Shuzenji, Shizuoka. 400 years old. In 1910, Natsume Sōseki checked in to recover from a stomach ulcer and nearly died here — the 修善寺の大患 (Shuzenji no Taikan). He wrote about it after. The inn still has his room. The building hasn't tried to be anything other than what it is.\n📷 @mm__ii89",
+      "text": "Kikuya (菊屋), Shuzenji, Shizuoka. 400 years old. In 1910, Natsume Sōseki checked in to recover from a stomach ulcer and nearly died here — the 修善寺の大患 (Shuzenji no Taikan). He wrote about it after. The inn still has his room.\n📷 @mm__ii89",
       "image": null,
       "source_url": "https://x.com/mm__ii89/status/2016987734951473238",
       "source_handle": "@mm__ii89",
-      "status": "approved",
-      "scheduled_for": "2026-02-09T13:27:00-05:00",
+      "status": "posted",
+      "scheduled_for": "2026-02-10T08:07:00-05:00",
       "notes": "VERIFIED: Kikuya (湯回廊 菊屋) in Shuzenji. Soseki stayed Aug-Oct 1910, nearly died. 6.3K likes. 3rd mm__ii89 post - space from others.",
       "image_urls": [
-        "https://pbs.twimg.com/media/G_3Hpy_bUAAO5Qg.jpg",
-        "https://pbs.twimg.com/media/G_3HpzFbUAQQq5i.jpg",
-        "https://pbs.twimg.com/media/G_3HpzGbUAc2Ct8.jpg",
-        "https://pbs.twimg.com/media/G_3HpzGbUAE38Km.jpg"
-      ]
+        "https://pbs.twimg.com/media/G_3Hpy_bUAAO5Qg?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_3HpzFbUAQQq5i?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_3HpzGbUAc2Ct8?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_3HpzGbUAE38Km?format=jpg&name=orig"
+      ],
+      "category": "other",
+      "posted": true,
+      "tweet_id": "2021209649903521901",
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "too old to cross-post, marked during reconciliation"
     },
     {
       "id": 13,
       "type": "repost-with-credit",
-      "text": "Kyoto. Temples, wooden gates, stone paths. The kind of city where you turn a corner and the century changes.\n📷 @VERISUKE0805",
+      "text": "Kyoto. Temples, wooden gates, stone paths. Hard to photograph without accidentally catching a UNESCO site in the background.\n📷 @VERISUKE0805",
       "image": null,
       "source_url": "https://x.com/VERISUKE0805/status/2019411778518806819",
       "source_handle": "@VERISUKE0805",
       "status": "approved",
-      "scheduled_for": "2026-02-09T18:46:00-05:00",
+      "scheduled_for": "2026-02-14T13:29:00-05:00",
       "notes": "Backup. 1.6K likes. More travel photography than architecture-specific. Caption needs work after viewing images.",
       "image_urls": [
-        "https://pbs.twimg.com/media/HAZkOh3b0AA4ncN.jpg",
-        "https://pbs.twimg.com/media/HAZkOhgacAE_lbc.jpg",
-        "https://pbs.twimg.com/media/HAZkObOboAEmVDH.jpg",
-        "https://pbs.twimg.com/media/HAZkOeRacAomu61.jpg"
+        "https://pbs.twimg.com/media/HAZkOh3b0AA4ncN?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZkOhgacAE_lbc?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZkObOboAEmVDH?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAZkOeRacAomu61?format=jpg&name=orig"
       ]
     },
     {
       "id": 14,
       "type": "repost-with-credit",
-      "text": "Hiroshi Nakamura carved a library into the ground. The ceiling follows the exact contours of the hillside above — grass, trees, pathways — so when you're inside reading, you're technically underground but it feels like you're inside the earth itself. The building disappears completely from street level. You only know it's there because of the entrance cut into the slope.",
+      "text": "Hiroshi Nakamura built a library underground. The ceiling follows the contours of the hillside above it — grass, trees, pathways on top. From street level the building doesn't exist. Just a slot cut into the slope for the entrance.\n📷 @kiku5445",
       "image": null,
       "image_urls": [
-        "https://pbs.twimg.com/media/HADGbeEbEAQ_zKF.jpg",
-        "https://pbs.twimg.com/media/HADGbVFbEAQsJjK.jpg",
-        "https://pbs.twimg.com/media/HADGbeHbEAIHSks.jpg",
-        "https://pbs.twimg.com/media/HADGbgibQAANtS1.jpg"
+        "https://pbs.twimg.com/media/HADGbeEbEAQ_zKF?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HADGbVFbEAQsJjK?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HADGbeHbEAIHSks?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HADGbgibQAANtS1?format=jpg&name=orig"
       ],
       "source_url": "https://x.com/kiku5445/status/2017830824796950999",
       "source_handle": "@kiku5445",
-      "status": "approved",
+      "status": "posted",
       "scheduled_for": "2026-02-06T13:23:00-05:00",
-      "notes": "From bookmarks. Score 9/10. 1351 likes. Perfect fit - features Hiroshi Nakamura's underground library architecture with "
+      "notes": "From bookmarks. Score 9/10. 1351 likes. Perfect fit - features Hiroshi Nakamura's underground library architecture with ",
+      "posted_at": "2026-02-06T18:42:35.253965+00:00",
+      "tweet_id": "2019844169846370434",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T05:17:08.917192+00:00",
+      "ig_carousel": true,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "not found on IG (deleted or failed)"
     },
     {
       "id": 15,
       "type": "repost-with-credit",
-      "text": "12 tatami mats. That's 216 square feet for two people in a 1LDK apartment. The kitchen counter doubles as a dining table. The bed frame has drawers underneath. Every inch planned because every inch matters. When your entire home is smaller than most American bedrooms, furniture has to earn its place twice. 📷 @3Dcgrooms",
+      "text": "12 tatami mats. 216 square feet, 1LDK, two people. Kitchen counter doubles as the dining table. Bed frame has drawers. In Japan a 40sqm apartment is considered spacious for a couple.\n📷 @3Dcgrooms",
       "image": null,
       "image_urls": [
-        "https://pbs.twimg.com/media/HAeIlz7b0AADOXF.jpg",
-        "https://pbs.twimg.com/media/HAeIlz6boAAcJFv.jpg",
-        "https://pbs.twimg.com/media/HAeIlz7bkAAtZ7N.jpg",
-        "https://pbs.twimg.com/media/HAeIlz4aoAA8o-j.jpg"
+        "https://pbs.twimg.com/media/HAeIlz7b0AADOXF?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAeIlz6boAAcJFv?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAeIlz7bkAAtZ7N?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAeIlz4aoAA8o-j?format=jpg&name=orig"
       ],
       "source_url": "https://x.com/3Dcgrooms/status/2019733148435947812",
       "source_handle": "@3Dcgrooms",
       "status": "approved",
-      "scheduled_for": "2026-02-10T09:27:00-05:00",
+      "scheduled_for": "2026-02-12T12:54:00-05:00",
       "notes": "From bookmarks. Score 7/10. 821 likes. Shows Japanese apartment interior (12畳 1LDK for 2 people) with good engagement. "
     },
     {
       "id": 16,
       "type": "repost-with-credit",
-      "text": "Four Kyoto temples, four ways to frame a view. Kiyomizu-dera's wooden stage juts 13 meters over the hillside with no nails. Arashiyama Yusaitei's borrowed scenery pulls distant mountains into the composition. Shisendo's borrowed light filters through maple leaves before hitting the tatami. Nanzen-ji's dry landscape garden — just 15 rocks in raked gravel — took 500 years to get the spacing right. 📷 @_mint1996",
+      "text": "Four Kyoto temples, each built around a different way of framing what's outside. Kiyomizu-dera hangs 13 meters over the hillside on 139 pillars, no nails. The others use shakkei — borrowed scenery — pulling distant mountains into the frame.\n\n📷 @_mint1996",
       "image": null,
       "image_urls": [
-        "https://pbs.twimg.com/media/HAdpdeEaoAArwKe.jpg",
-        "https://pbs.twimg.com/media/HAdpdn9aIAA1dl3.jpg",
-        "https://pbs.twimg.com/media/HAdpds2aQAAE4jF.jpg",
-        "https://pbs.twimg.com/media/HAdpduhbsAA7Y_Y.jpg"
+        "https://pbs.twimg.com/media/HAdpdeEaoAArwKe?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAdpdn9aIAA1dl3?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAdpds2aQAAE4jF?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAdpduhbsAA7Y_Y?format=jpg&name=orig"
       ],
       "source_url": "https://x.com/_mint1996/status/2019698920558092794",
       "source_handle": "@_mint1996",
+      "status": "posted",
+      "scheduled_for": "2026-02-11T07:45:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 221 likes. High-quality photos of iconic Kyoto temples and traditional architecture across ",
+      "category": "temple",
+      "tweet_id": "2021599445977125050",
+      "posted_at": "2026-02-11T20:56:18.060975+00:00",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-12T00:05:10.373074+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-12T00:05:11.763952+00:00",
+      "ig_publish_error": "Child container 1 failed: 400 {\"error\":{\"message\":\"Only photo or video can be accepted as media type.\",\"type\":\"OAuthException\",\"code\":9004,\"error_subcode\":2207052,\"is_transient\":false,\"error_user_title\":\"Media download has failed. The media URI doesn't meet our requirements.\",\"error_user_msg\":\"The media could not be fetched from this URI: http:\\/\\/35.221.9.93\\/ig\\/6080aca8d1dd.jpg.Please check the limitations section in our development document for more information: https:\\/\\/developers.facebook.com\\/docs\\/instagram-platform\\/instagram-graph-api\\/reference\\/ig-user\\/media#creating\",\"fbtrace_id\":\"AT_jvxFLkXwNqa6juxGcKef\"}}",
+      "posted": true,
+      "ig_skip_reason": "not found on IG (deleted or failed)"
+    },
+    {
+      "id": 17,
+      "type": "repost-with-credit",
+      "text": "HOIKIENG19 House by Hinzstudio in Vietnam. The front facade is almost entirely concrete louvers — vertical fins angled to let air through while blocking direct sun from the street. Behind that screen, the house opens up with full-height glazing and a courtyard that pulls light down through all three floors. The louvers do the privacy work, so the interior walls don't have to.\n\n📷 @illustrarch",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HATjEOoXwAAggpk?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HATjEO1XYAAchcs?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HATjEO0WMAEW69t?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HATjEO4XQAAfvvg?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/illustrarch/status/2019667374618866139",
+      "source_handle": "@illustrarch",
+      "status": "dropped",
+      "scheduled_for": null,
+      "notes": "Dropped — Vietnamese architecture, not Japanese. Score 6/10."
+    },
+    {
+      "id": 18,
+      "type": "repost-with-credit",
+      "text": "A ryokan in Izu built around solo travelers. Six room types, 100% natural hot spring source, and the outdoor rotenburo can be reserved privately at no extra charge. Meals are served in a private dining room using local ingredients — no shared tables, no awkward communal breakfasts. Every part of the stay is designed so you never have to perform sociability.\n\n📷 @mm__ii89",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G_DoyUBWQAAWvKR?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_DoyciXwAA9oFQ?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_Doyb5XYAAem33?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_DoyfvX0AAu5Nf?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/mm__ii89/status/2013364994885484630",
+      "source_handle": "@mm__ii89",
+      "status": "dropped",
+      "scheduled_for": null,
+      "notes": "Dropped — thinning mm__ii89 posts (5 was too many from one account)."
+    },
+    {
+      "id": 19,
+      "type": "repost-with-credit",
+      "text": "Kissaten Julian in Fujisawa. A junkissa — pure coffee, no alcohol. Named after the protagonist of Stendhal's Le Rouge et le Noir. Porthole windows. If you've read 20th Century Boys, this is the kind of place Urasawa based Café San Francisco on.\n\n📷 @creambeefsoda",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAd9N9raMAARYF-?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAd9N9wbQAAVV5Z?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAd9N9ubcAA0F8z?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAd9N9ubwAAnb3u?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/creambeefsoda/status/2019720642518773833",
+      "source_handle": "@creambeefsoda",
+      "status": "posted",
+      "scheduled_for": "2026-02-07T07:54:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 1494 likes.",
+      "posted_at": "2026-02-07T12:55:19.377283+00:00",
+      "tweet_id": "2020119165403631861",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T05:17:44.419346+00:00",
+      "ig_carousel": true,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "18098767609901276"
+    },
+    {
+      "id": 20,
+      "type": "repost-with-credit",
+      "text": "A ryokan in Izu that doesn't accept guests under 12. Thin walls, fusuma, and engawa work better when nobody's running through them. Most places in Izu went family-friendly in the 2010s. This one went the other way.\n\n📷 @mm__ii89",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G-LCCLba0AAZyoo?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G-LCCLbaEAAmiwe?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G-LCCLca0AAZVC5?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G-LCCLea0AAXUBN?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/mm__ii89/status/2009381732332498984",
+      "source_handle": "@mm__ii89",
       "status": "approved",
-      "scheduled_for": "2026-02-10T13:14:00-05:00",
-      "notes": "From bookmarks. Score 8/10. 221 likes. High-quality photos of iconic Kyoto temples and traditional architecture across "
+      "scheduled_for": "2026-02-12T19:27:00-05:00",
+      "notes": "From bookmarks. Score 6/10. 2802 likes. Adult-only ryokan in Izu."
+    },
+    {
+      "id": 21,
+      "type": "repost-with-credit",
+      "text": "Togamiya Ryokan in Kitaibaraki, Ibaraki Prefecture. A fishing port town on the Pacific coast, about 30 minutes from the Fukushima border. The room opens straight onto the harbor — you watch the boats come in from the tatami.\n\n📷 @mido25risen",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAZhZ-3bsAAp7Y-?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/mido25risen/status/2019408591451812155",
+      "source_handle": "@mido25risen",
+      "status": "approved",
+      "scheduled_for": "2026-02-14T19:38:00-05:00",
+      "notes": "From bookmarks. Score 7/10. 847 likes. Ryokan on Pacific coast, Ibaraki."
+    },
+    {
+      "id": 22,
+      "type": "repost-with-credit",
+      "text": "The former Yanashita Residence in Negishi, Yokohama. Taisho era. The bathroom has a goemonburo — cast-iron tub heated from below by fire. The ceiling is oriage gōtenjō, a coffered design normally reserved for formal reception halls. They put it over the bathtub.\n\n📷 @AMFFCRAFTWORK",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAdhkr1bgAEa9nP?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAdhks5bQAAw-S1?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/AMFFCRAFTWORK/status/2019690244522844192",
+      "source_handle": "@AMFFCRAFTWORK",
+      "status": "dropped",
+      "scheduled_for": "2026-02-10T14:18:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 364 likes. Historic Yokohama residence bathroom.",
+      "category": "ryokan",
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "18055950251391316"
+    },
+    {
+      "id": 23,
+      "type": "repost-with-credit",
+      "text": "Former Honda Tadatsugu residence, built 1932 in Tokyo's Setagaya ward. Spanish-style. Disassembled and moved to Okazaki, Aichi piece by piece in 2012. The bathroom still has the original decorative tile and stained glass. A private family home, not a hotel.\n\n📷 @AMFFCRAFTWORK",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAdbK3eacAgkwXu?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAdbK4hbsAA2R3P?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/AMFFCRAFTWORK/status/2019683203792220552",
+      "source_handle": "@AMFFCRAFTWORK",
+      "status": "dropped",
+      "scheduled_for": "2026-02-13T14:47:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 792 likes. 1932 Spanish-style home relocated to Aichi."
+    },
+    {
+      "id": 24,
+      "type": "repost-with-credit",
+      "text": "Opened May 2025 in Shizuoka. The room is basically built around the view — floor-to-ceiling glass on two sides, ceiling height kept low to frame the mountains instead of the sky. The tub sits at the window line so the water surface meets the horizon. No curtains in sight.\n\n📷 @mm__ii89",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G9IPP3Ca4AA3zkA?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9IPP3FaIAAApiU?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9IPP3CbIAApJul?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9IPP3HbgAQqp34?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/mm__ii89/status/2004681554405327181",
+      "source_handle": "@mm__ii89",
+      "status": "dropped",
+      "scheduled_for": null,
+      "notes": "Dropped — thinning mm__ii89 posts (5 was too many from one account)."
+    },
+    {
+      "id": 25,
+      "type": "repost-with-credit",
+      "text": "Vogue Japan's list of aspirational ryokan — the ones Japanese travelers save up for. The photography tells you what these places prioritize: the bath, the garden view, the kaiseki spread. Not the lobby.\n\n📷 @voguejp",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAYsgiPaoAA1IV6?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAYsgsUacAcL6w-?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAYsg38bcAAUm4X?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAYshEqacAQnyns?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/voguejp/status/2019350431768670491",
+      "source_handle": "@voguejp",
+      "status": "approved",
+      "scheduled_for": "2026-02-12T08:38:00-05:00",
+      "notes": "From bookmarks. Score 7/10. 762 likes. Vogue Japan ryokan roundup. Moved to Feb 11 AM."
+    },
+    {
+      "id": 26,
+      "type": "repost-with-credit",
+      "text": "Kyoto under snow. The city gets meaningful snowfall maybe five or six times a winter, and it rarely sticks past midmorning. Locals check the forecast and set alarms — if you want to see the temples white, you have a two-hour window before it melts.\n\n📷 @urapon_pic",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAjQxXUacAAIcZi?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjQxXfacAcl1Hj?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjQxXSbYAAoh6A?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjQxXTacAAcSvn?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/urapon_pic/status/2020093986443264129",
+      "source_handle": "@urapon_pic",
+      "status": "posted",
+      "scheduled_for": "2026-02-07T09:03:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 75 likes. Beautiful snow-covered Kyoto imagery aligns perfectly with Japanese aesthetic co",
+      "posted_at": "2026-02-07T14:15:29.486213+00:00",
+      "tweet_id": "2020139340458811617",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T05:18:19.724364+00:00",
+      "ig_carousel": true,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "17953867355934571"
+    },
+    {
+      "id": 27,
+      "type": "repost-with-credit",
+      "text": "60-year-old Japanese house restored with a circular engawa wrapping the entire exterior. The canopy follows the same curve. One continuous loop of outdoor-indoor space you can walk without turning a corner.\n\n📷 @designboom",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAhcFEWa0AAAOUh?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAhcFQnaIAAU4Yh?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAhcFcdacAMG3nd?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAhcFn_acAALOHO?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/designboom/status/2019965686798512472",
+      "source_handle": "@designboom",
+      "status": "posted",
+      "scheduled_for": "2026-02-11T13:02:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 37 likes. Moved from Feb 7 (too many posts that day).",
+      "category": "garden",
+      "posting_started": "2026-02-12T00:05:04.984476+00:00",
+      "posted_at": "2026-02-12T00:05:07.709483+00:00",
+      "tweet_id": "2021737292960870643",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-12T00:05:11.773884+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-12T00:05:12.220141+00:00",
+      "ig_publish_error": "Child container 1 failed: 400 {\"error\":{\"message\":\"Only photo or video can be accepted as media type.\",\"type\":\"OAuthException\",\"code\":9004,\"error_subcode\":2207052,\"is_transient\":false,\"error_user_title\":\"Media download has failed. The media URI doesn't meet our requirements.\",\"error_user_msg\":\"The media could not be fetched from this URI: http:\\/\\/35.221.9.93\\/ig\\/bf0718e8f9e8.jpg.Please check the limitations section in our development document for more information: https:\\/\\/developers.facebook.com\\/docs\\/instagram-platform\\/instagram-graph-api\\/reference\\/ig-user\\/media#creating\",\"fbtrace_id\":\"A4iuj8xoAC7jaRei8OW0e_c\"}}",
+      "posted": true,
+      "ig_skip_reason": "not found on IG (deleted or failed)"
+    },
+    {
+      "id": 28,
+      "type": "repost-with-credit",
+      "text": "Sauna inside a historic building. Japan has dozens of these now — old structures that couldn't survive as museums getting converted into sauna facilities. Users pay per visit, come back weekly, need little space. Preservation funded by sweat.\n\n📷 @kiwamisauna2",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAiPZRgacAAbbRP?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAiPZRja8AAjJUe?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAiPZRlacAI6RDB?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/kiwamisauna2/status/2020022106898198894",
+      "source_handle": "@kiwamisauna2",
+      "status": "approved",
+      "scheduled_for": "2026-02-13T08:16:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 643 likes. Historic building turned sauna. Moved to Feb 12 AM."
+    },
+    {
+      "id": 29,
+      "type": "repost-with-credit",
+      "text": "Whole-house machiya rental in Kanazawa's samurai district. 70+ sqm, full kitchen. Nagamachi bukeyashiki area — Edo-period samurai residences. Guests buy seafood at Ōmichō Market and cook it here. Split between a group, cheaper than a hotel.\n\n📷 @cobb_room",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAivUdsaAAIPAOm?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAivUdtacAAoupL?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAivUdsacAAzBtY?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAivUdsacAI-gHT?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/cobb_room/status/2020060979011403948",
+      "source_handle": "@cobb_room",
+      "status": "approved",
+      "scheduled_for": "2026-02-13T20:05:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 363 likes. Machiya rental in Kanazawa samurai district."
+    },
+    {
+      "id": 30,
+      "type": "repost-with-credit",
+      "text": "Koji Ide, \"the magician of slopes.\" His firm SUM Design specialized in hillside lots other architects wouldn't touch. This one in Asao-ku, Kawasaki — 117.55 sqm on a grade steep enough to scare off most developers. Ide died years ago. The houses still sell.\n\n📷 @tokyo__r",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G_0jdcub0AAjA0e?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_0jdexaYAAKWBW?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_0jdglbUAcPHKo?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G_0jdi0bUAAbRiV?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/tokyo__r/status/2016807200623382637",
+      "source_handle": "@tokyo__r",
+      "status": "approved",
+      "scheduled_for": "2026-02-14T07:53:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 1079 likes. Koji Ide slope housing in Kawasaki."
+    },
+    {
+      "id": 31,
+      "type": "repost-with-credit",
+      "text": "A preserved estate with both Japanese and Western wings. Shoji hallway in one room, marble fireplace and coffered ceiling in the next. Meiji-era wealthy families built like this. One half for guests, one half for living.\n\n📷 @nori7770",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAiSYACaIAAN3KY?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAiTwQwboAAgdtu?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAiU23AacAY2_DF?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/nori7770/status/2020314890494525663",
+      "source_handle": "@nori7770",
+      "status": "posted",
+      "scheduled_for": "2026-02-08T12:41:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 3287 likes. Caption written based on images — estate with both Japanese and Western rooms.",
+      "posted_at": "2026-02-08T18:00:40.182934+00:00",
+      "tweet_id": "2020558396194259317",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T18:59:27.724563+00:00",
+      "ig_images_attempted": 3,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "17894719206261832"
+    },
+    {
+      "id": 32,
+      "type": "repost-with-credit",
+      "text": "Nishimuraya Honkan in Kinosaki Onsen. Open since 1860. The rooms don't try to impress you — wood, tatami, shoji, garden view. No welcome speech, no guided tour of the room. Staff read distance perfectly. You sit down and two hours vanish.\n\n📷 @fire55miya",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAlYqalawAAbujO?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAlYqambUAA6RbU?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAlYqaiaMAAFf3a?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAlYqaiaAAA2Zcc?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/fire55miya/status/2020243434070774155",
+      "source_handle": "@fire55miya",
+      "status": "posted",
+      "scheduled_for": "2026-02-08T09:52:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 790 likes. High-quality content about traditional Japanese hospitality and interior design ",
+      "posted_at": "2026-02-08T14:54:08.305292+00:00",
+      "tweet_id": "2020511453824925845",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-08T15:27:10.146957+00:00",
+      "ig_carousel": false,
+      "posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "17909308197323670"
+    },
+    {
+      "id": 33,
+      "type": "repost-with-credit",
+      "text": "Office in Hashima by PERMANENT + Atelier Nagara. The roof rolls and dips to match the flat agricultural terrain around it — one continuous form over the whole building. No parapets, no hard edges. Just corrugated steel following the curve.\n\nPhoto: Kenta Hasegawa\n📷 @tecture1",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAjF-gjaIAEMofr?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjF-gibMAElqoL?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjF-gjaEAAz2Cf?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAjF-gzaoAAsMTG?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/tecture1/status/2020097710599336341",
+      "source_handle": "@tecture1",
+      "status": "approved",
+      "scheduled_for": "2026-02-09T08:23:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 120 likes. Perfect fit - high-quality Japanese architecture content with professional photo",
+      "category": "modern-architecture",
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_media_id": "18125721319552762"
+    },
+    {
+      "id": 34,
+      "type": "repost-with-credit",
+      "text": "Hoshinoya Kyoto has no road access. You check in by boarding a boat on the Oi River. The 15-minute ride upstream is the only way to reach the property.\n\n📷 @fire55miya",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAqgLoNaAAAJRFS?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqgLoLa8AAA32O?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqgLoLaUAAXiRw?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqgLoKbsAAbrY8?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/fire55miya/status/2020603577144889606",
+      "source_handle": "@fire55miya",
+      "status": "posted",
+      "scheduled_for": "2026-02-09T16:09:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 79 likes. High-quality content about Hoshinoya Kyoto, a premier Japanese luxury resort kno",
+      "category": "other",
+      "tweet_id": "2021018572193972429",
+      "posted_at": "2026-02-11T20:56:18.060979+00:00",
+      "posted": true,
+      "ig_posted": true,
+      "ig_container_created": true,
+      "ig_skip_reason": "too old to cross-post, marked during reconciliation",
+      "ig_media_id": "17876932710496234"
+    },
+    {
+      "id": 35,
+      "type": "repost-with-credit",
+      "text": "Yayoi House by Takeshi Hosaka Architects in Tokyo. The entire roof is a curved concrete shell, just 200mm thick, that collects rainwater and funnels it into a garden below. The house has no gutters. The roof is the gutter.\n\n📷 @kotecinho",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAqTB8sXsAA0ARP?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqTMh9akAUbmdu?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqUBgjaMAAlmdY?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAqUC7wWUAAwWF9?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/kotecinho/status/2020590181611606254",
+      "source_handle": "@kotecinho",
+      "status": "posted",
+      "scheduled_for": "2026-02-10T11:14:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 562 likes. Perfect content match - Japanese residential architecture by renowned architect ",
+      "category": "modern-architecture",
+      "posted_at": "2026-02-10T16:17:54.000000+00:00",
+      "tweet_id": "2021257326783504780",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-11T16:04:07.212535+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-11T16:04:26.092895+00:00",
+      "ig_publish_error": "Carousel publish failed: 400 {\"error\":{\"message\":\"Media ID is not available\",\"type\":\"OAuthException\",\"code\":9007,\"error_subcode\":2207027,\"is_transient\":false,\"error_user_title\":\"Cannot Publish\",\"error_user_msg\":\"The media is not ready for publishing, please wait for a moment\",\"fbtrace_id\":\"Av7O_7zOioJXYnXuTnqtgAd\"}}",
+      "posted": true,
+      "ig_media_id": "17884149375450910"
+    },
+    {
+      "id": 36,
+      "type": "repost-with-credit",
+      "text": "Oku-Yugawara Yui. A ryokan tucked into the deepest part of the Yugawara valley — past the other onsen, past the last convenience store. Only 8 rooms. Every one faces the river. No day-use visitors allowed. Guests only.\n\n📷 @fire55miya",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G9SNlU-a0AAXCGu?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9SNlO8aMAAwX7F?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9SNlO9bQAAidjc?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/fire55miya/status/2005383411507380452",
+      "source_handle": "@fire55miya",
+      "status": "posted",
+      "scheduled_for": "2026-02-11T09:51:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 433 likes. High-quality Japanese hospitality/interior design content about a traditional ry",
+      "category": "ryokan",
+      "posting_started": "2026-02-12T03:19:08.938415+00:00",
+      "posted_at": "2026-02-12T03:19:11.175097+00:00",
+      "tweet_id": "2021786129318506794",
+      "ig_container_created": true,
+      "ig_container_created_at": "2026-02-12T14:53:09.486114+00:00",
+      "ig_posted": true,
+      "ig_posted_at": "2026-02-12T14:53:30.960418+00:00",
+      "ig_publish_error": "Carousel publish failed: 403 {\"error\":{\"message\":\"Application request limit reached\",\"type\":\"OAuthException\",\"is_transient\":false,\"code\":4,\"error_subcode\":2207051,\"error_user_title\":\"action is blocked\",\"error_user_msg\":\"We restrict certain activity to protect our community. Tell us if you think we made a mistake.\",\"fbtrace_id\":\"Amtbx0HGfP4mQleQtX3jn8A\"}}"
+    },
+    {
+      "id": 37,
+      "type": "repost-with-credit",
+      "text": "Gora Kadan in Hakone sits on the former summer villa grounds of the Imperial Shimazu family. The ryokan kept the original stone walls and garden layout from the 1930s estate. Room count: 44. Guest-to-staff ratio: nearly 1:1.\n\n📷 @fire55miya",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/G9XX5uMakAAnL-V?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9XX5oEbYAA9Q-t?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/G9XX5oBbUAE8cyB?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/fire55miya/status/2005746608697401518",
+      "source_handle": "@fire55miya",
+      "status": "approved",
+      "scheduled_for": "2026-02-12T17:02:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 2141 likes. High-quality post about Gora Kadan, a prestigious traditional Japanese inn in Ha"
+    },
+    {
+      "id": 38,
+      "type": "repost-with-credit",
+      "text": "A vacation house in Karuizawa by Mutsue Hayakusa / Cellspace. The roof curves to follow the trunks and branches of the surrounding trees. Inside, one open room under a wooden ceiling that catches green light reflected off the moss garden below.\n\n📷 @JapanArchitects",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAcWO4AaoAA-Ilz?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAcWQETacAcj08q?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/HAcWQZ2a0AADaWe?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/JapanArchitects/status/2019607536236945475",
+      "source_handle": "@JapanArchitects",
+      "status": "approved",
+      "scheduled_for": "2026-02-13T11:46:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 86 likes. Perfect content - Japanese residential architecture with moss garden, curved roo"
+    },
+    {
+      "id": 39,
+      "type": "repost-with-credit",
+      "text": "St. Mary's Cathedral, Tokyo. Kenzo Tange, 1964. Eight hyperbolic parabolic shells clad in stainless steel, shaped so the roof forms a cross visible only from above. The interior has no columns — the walls themselves carry the load.\n\n📷 @luusssso",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/Gmu0mqDWUAE0DTQ?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/Gmu0mqGWEAAs2r_?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/Gmu0mquasAAHVHn?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/Gmu0mqGXoAE9SN2?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/luusssso/status/1903813849981108644",
+      "source_handle": "@luusssso",
+      "status": "approved",
+      "scheduled_for": "2026-02-14T11:18:00-05:00",
+      "notes": "From bookmarks. Score 8/10. 3063 likes. High-quality architectural content featuring iconic Japanese Brutalist design by"
+    },
+    {
+      "id": 40,
+      "type": "repost-with-credit",
+      "text": "Yasuyo Building, Tokyo. Architect Nobumichi Akashi, 1969. Each floor rotates 22.5 degrees from the one below it. Eight floors, 180-degree total rotation from ground to roof.\n\n📷 @4AAAAart",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/GrNibR-WQAEj8mX?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/GrNibPuX0AACrDy?format=jpg&name=orig",
+        "https://pbs.twimg.com/media/GrNibSBXMAAfP7Z?format=jpg&name=orig"
+      ],
+      "source_url": "https://x.com/4AAAAart/status/1923989696708772105",
+      "source_handle": "@4AAAAart",
+      "status": "approved",
+      "scheduled_for": "2026-02-15T19:17:00-05:00",
+      "notes": "From bookmarks. Score 9/10. 2774 likes. Perfect fit - iconic Japanese architecture with strong visual appeal and high en"
+    },
+    {
+      "id": 41,
+      "type": "repost-with-credit",
+      "text": "This ryokan in Atami has private onsen baths available 24 hours. You can soak at sunrise watching the ocean. No reservations, no time limits — just walk in whenever you want.\n\n📷 @mm__ii89",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAbPgf4acAMueiY.jpg",
+        "https://pbs.twimg.com/media/HAbPggTbUAAcK7t.jpg",
+        "https://pbs.twimg.com/media/HAbPgf6bQAEJx0t.jpg",
+        "https://pbs.twimg.com/media/HAbPgfwacAcDoQZ.jpg"
+      ],
+      "source_url": "https://x.com/mm__ii89/status/2019529644752662696",
+      "source_handle": "@mm__ii89",
+      "status": "approved",
+      "score": 7,
+      "scheduled_for": "2026-02-15T11:02:00-05:00",
+      "notes": "From bookmarks. 897 likes. Japanese ryokan/onsen with scenic views and architectural elements. Atami hot sp"
+    },
+    {
+      "id": 42,
+      "type": "repost-with-credit",
+      "text": "A kominka within walking distance of Nagoya Station, bought specifically because the minpaku market got too crowded for cookie-cutter listings. Being converted into a small hotel. The owner's brief: a hideaway that feels isolated from the city noise around it.\n\n📷 @rai703rai",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HA7bnn2bsAUz5VC.jpg",
+        "https://pbs.twimg.com/media/HA7bnnva0AA8qHX.jpg"
+      ],
+      "source_url": "https://x.com/rai703rai/status/2021794770725875992",
+      "source_handle": "@rai703rai",
+      "status": "approved",
+      "score": 8,
+      "scheduled_for": "2026-02-15T13:42:00-05:00",
+      "notes": "From bookmarks. 117 likes. Japanese kominka (old traditional house) renovation project in Nagoya - converti",
+      "image_index": 0
+    },
+    {
+      "id": 43,
+      "type": "repost-with-credit",
+      "text": "Ninnaji's omuro-zakura bloom later than almost every other cherry tree in Kyoto. They grow to about 2 meters — short enough that the flowers hit you at eye level. The temple's been timing its public openings around that late bloom for decades.\n\n📷 @_mint1996",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HA8jAcLbYAANOq5.jpg",
+        "https://pbs.twimg.com/media/HA8jAiEbEAAjjD5.jpg",
+        "https://pbs.twimg.com/media/HA8jAnGbsAMOWUB.jpg",
+        "https://pbs.twimg.com/media/HA8jAskaMAA4mVh.jpg"
+      ],
+      "source_url": "https://x.com/_mint1996/status/2021873255511146723",
+      "source_handle": "@_mint1996",
+      "status": "approved",
+      "score": 8,
+      "scheduled_for": "2026-02-15T21:43:00-05:00",
+      "notes": "From bookmarks. 238 likes. High-quality post featuring iconic Kyoto temples and gardens with seasonal focus"
+    },
+    {
+      "id": 44,
+      "type": "repost-with-credit",
+      "text": "Kinkaku-ji's top two floors are covered in gold leaf. When snow lands on it, the gold doesn't reflect — it glows. The original burned down in 1950. A monk set it on fire. The current one is a 1955 rebuild.\n\n📷 @angelicaio81153",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HA3-uo3WgAE39my.jpg"
+      ],
+      "source_url": "https://x.com/angelicaio81153/status/2021552533244989589",
+      "source_handle": "@angelicaio81153",
+      "status": "approved",
+      "score": 7,
+      "scheduled_for": "2026-02-16T09:52:00-05:00",
+      "notes": "From bookmarks. 48 likes. Kinkaku-ji Temple photography with focus on Japanese aesthetic and landscape des"
+    },
+    {
+      "id": 45,
+      "type": "repost-with-credit",
+      "text": "Murin-an in snow. Yamagata Aritomo — twice Prime Minister — built this garden with 7th-generation landscaper Ogawa Jihei in the 1890s. Kyoto only gets a few real snow days a year. When it hits, the moss garden goes white before noon and green again by evening.\n\n📷 @oniwastagram",
+      "image": null,
+      "image_urls": [
+        "https://pbs.twimg.com/media/HAzslOBbsAAEcil.jpg",
+        "https://pbs.twimg.com/media/HAzslO2aAAA0W_Y.jpg",
+        "https://pbs.twimg.com/media/HAzslO0aAAA5xHV.jpg",
+        "https://pbs.twimg.com/media/HAzslOzbwAAgw4c.jpg"
+      ],
+      "source_url": "https://x.com/oniwastagram/status/2021250487928954971",
+      "source_handle": "@oniwastagram",
+      "status": "approved",
+      "score": 9,
+      "scheduled_for": "2026-02-16T13:30:00-05:00",
+      "notes": "From bookmarks. 43 likes. Perfect match - Japanese garden design masterpiece by renowned landscape archite"
     }
   ]
 }

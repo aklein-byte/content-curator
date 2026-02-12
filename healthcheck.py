@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+"""
+Daily health check for @tatamispaces automation.
+
+Checks: imports, JSON integrity, auth status, log sizes,
+post queue, stale lockfiles, disk space.
+
+Usage:
+    python healthcheck.py          # Run checks, report
+    python healthcheck.py --fix    # Auto-fix: archive old logs, remove stale locks
+"""
+
+import sys
+import os
+import json
+import shutil
+import argparse
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from tools.common import load_json, notify, setup_logging, load_config
+
+log = setup_logging("healthcheck")
+
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+
+
+def check_imports() -> tuple[bool, str]:
+    """Try importing every script module to catch broken dependencies."""
+    modules = [
+        ("tools.common", "tools.common"),
+        ("tools.xkit", "tools.xkit"),
+        ("tools.ig_api", "tools.ig_api"),
+        ("tools.ig_browser", "tools.ig_browser"),
+        ("config.niches", "config.niches"),
+        ("agents.engager", "agents.engager"),
+        ("agents.writer", "agents.writer"),
+    ]
+    failures = []
+    for display_name, module_name in modules:
+        try:
+            __import__(module_name)
+        except Exception as e:
+            failures.append(f"{display_name}: {e}")
+
+    if failures:
+        return False, f"Import failures: {'; '.join(failures)}"
+    return True, f"All {len(modules)} modules import OK"
+
+
+def check_json_files() -> tuple[bool, str]:
+    """Load all data files and verify structure."""
+    issues = []
+
+    # posts.json
+    posts_file = BASE_DIR / "posts.json"
+    if posts_file.exists():
+        try:
+            data = json.loads(posts_file.read_text())
+            if "posts" not in data:
+                issues.append("posts.json missing 'posts' key")
+            elif not isinstance(data["posts"], list):
+                issues.append("posts.json 'posts' is not a list")
+        except json.JSONDecodeError as e:
+            issues.append(f"posts.json corrupt: {e}")
+    else:
+        issues.append("posts.json missing")
+
+    # Log files should be arrays
+    log_files = [
+        "engagement-log.json",
+        "ig-engagement-log.json",
+        "response-log.json",
+        "thread-log.json",
+    ]
+    for lf in log_files:
+        path = BASE_DIR / lf
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+                if not isinstance(data, list):
+                    issues.append(f"{lf} is not a list")
+            except json.JSONDecodeError as e:
+                issues.append(f"{lf} corrupt: {e}")
+
+    # orchestrator status
+    status_file = DATA_DIR / "orchestrator-status.json"
+    if status_file.exists():
+        try:
+            json.loads(status_file.read_text())
+        except json.JSONDecodeError as e:
+            issues.append(f"orchestrator-status.json corrupt: {e}")
+
+    if issues:
+        return False, "; ".join(issues)
+    return True, "All JSON files OK"
+
+
+def check_auth_status() -> tuple[bool, str]:
+    """Check twikit cookie age and IG token expiry."""
+    warnings = []
+
+    # Twikit cookies (stored in data/cookies/<niche>_cookies.json)
+    cookies_dir = DATA_DIR / "cookies"
+    cookie_files = list(cookies_dir.glob("*_cookies.json")) if cookies_dir.exists() else []
+    if cookie_files:
+        for cf in cookie_files:
+            age_days = (datetime.now() - datetime.fromtimestamp(cf.stat().st_mtime)).days
+            if age_days > 7:
+                warnings.append(f"{cf.name} {age_days}d old (may expire)")
+    else:
+        warnings.append("No twikit cookies found in data/cookies/")
+
+    # IG: check for browser profile (primary method) or Graph API token
+    ig_token = os.environ.get("IG_ACCESS_TOKEN", "")
+    if not ig_token:
+        env_file = BASE_DIR / ".env"
+        if env_file.exists():
+            env_text = env_file.read_text()
+            if "IG_ACCESS_TOKEN" not in env_text:
+                pass  # Graph API token optional if using browser
+
+    # Playwright browser profile
+    profile_dir = DATA_DIR / "ig_browser_profile"
+    if not profile_dir.exists():
+        warnings.append("IG browser profile missing (run ig_post.py --login)")
+
+    if warnings:
+        return False, "; ".join(warnings)
+    return True, "Auth OK"
+
+
+def check_log_sizes() -> tuple[bool, str]:
+    """Warn if engagement logs are too large."""
+    warnings = []
+    log_files = [
+        "engagement-log.json",
+        "ig-engagement-log.json",
+        "response-log.json",
+    ]
+    for lf in log_files:
+        path = BASE_DIR / lf
+        if path.exists():
+            size_mb = path.stat().st_size / (1024 * 1024)
+            if size_mb > 10:
+                warnings.append(f"{lf}: {size_mb:.1f}MB (consider archival)")
+
+    if warnings:
+        return False, "; ".join(warnings)
+    return True, "Log sizes OK"
+
+
+def check_posts_queue() -> tuple[bool, str]:
+    """Warn if fewer than 3 approved posts remaining."""
+    posts_file = BASE_DIR / "posts.json"
+    if not posts_file.exists():
+        return False, "posts.json missing"
+
+    try:
+        data = json.loads(posts_file.read_text())
+    except json.JSONDecodeError:
+        return False, "posts.json corrupt"
+
+    now = datetime.now(timezone.utc)
+    approved = [
+        p for p in data.get("posts", [])
+        if p.get("status") == "approved" and p.get("scheduled_for")
+    ]
+
+    # Filter to future-scheduled only
+    future = []
+    for p in approved:
+        try:
+            sched = datetime.fromisoformat(p["scheduled_for"])
+            if sched.tzinfo is None:
+                sched = sched.replace(tzinfo=timezone.utc)
+            if sched > now:
+                future.append(p)
+        except Exception:
+            pass
+
+    if len(future) < 3:
+        return False, f"{len(future)} posts left in queue"
+    return True, f"{len(future)} posts queued"
+
+
+def check_stale_lockfiles() -> tuple[bool, list[Path]]:
+    """Detect lockfiles older than 2 hours (likely from crashed processes)."""
+    stale = []
+    for lock in BASE_DIR.glob(".*.lock"):
+        age_hours = (datetime.now() - datetime.fromtimestamp(lock.stat().st_mtime)).total_seconds() / 3600
+        if age_hours > 2:
+            stale.append(lock)
+
+    if stale:
+        names = [l.name for l in stale]
+        return False, stale
+    return True, []
+
+
+def check_disk_space() -> tuple[bool, str]:
+    """Flag if < 1GB free."""
+    usage = shutil.disk_usage(str(BASE_DIR))
+    free_gb = usage.free / (1024 ** 3)
+    if free_gb < 1.0:
+        return False, f"{free_gb:.1f}GB free"
+    return True, f"{free_gb:.0f}GB free"
+
+
+def archive_old_entries(log_path: Path, days: int = 90) -> int:
+    """Move log entries older than N days to an archive file."""
+    if not log_path.exists():
+        return 0
+
+    try:
+        entries = json.loads(log_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return 0
+
+    if not isinstance(entries, list):
+        return 0
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    keep = []
+    archived = []
+    for e in entries:
+        ts = e.get("timestamp", "")
+        if ts and ts < cutoff:
+            archived.append(e)
+        else:
+            keep.append(e)
+
+    if not archived:
+        return 0
+
+    # Write archive
+    archive_path = log_path.with_suffix(f".archive-{datetime.now().strftime('%Y%m%d')}.json")
+    if archive_path.exists():
+        existing = json.loads(archive_path.read_text())
+        archived = existing + archived
+    archive_path.write_text(json.dumps(archived, indent=2, default=str))
+
+    # Write trimmed log (atomic)
+    tmp = log_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(keep, indent=2, ensure_ascii=False, default=str))
+    tmp.rename(log_path)
+
+    return len(archived) - (len(archived) - len([a for a in archived if a.get("timestamp", "") < cutoff]))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Health check for content-curator")
+    parser.add_argument("--fix", action="store_true", help="Auto-fix: archive old logs, remove stale locks")
+    parser.add_argument("--niche", help="Niche name (accepted for orchestrator compatibility, ignored)")
+    args = parser.parse_args()
+
+    log.info("Running health check...")
+
+    checks = []
+
+    # 1. Imports
+    ok, msg = check_imports()
+    checks.append(("Imports", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Imports: {msg}")
+
+    # 2. JSON integrity
+    ok, msg = check_json_files()
+    checks.append(("JSON", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} JSON: {msg}")
+
+    # 3. Auth status
+    ok, msg = check_auth_status()
+    checks.append(("Auth", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Auth: {msg}")
+
+    # 4. Log sizes
+    ok, msg = check_log_sizes()
+    checks.append(("Logs", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Logs: {msg}")
+
+    # 5. Posts queue
+    ok, msg = check_posts_queue()
+    checks.append(("Queue", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Queue: {msg}")
+
+    # 6. Stale lockfiles
+    ok, stale_locks = check_stale_lockfiles()
+    if stale_locks:
+        lock_names = [l.name for l in stale_locks]
+        msg = f"Stale: {', '.join(lock_names)}"
+        if args.fix:
+            for l in stale_locks:
+                l.unlink()
+                log.info(f"  Removed stale lockfile: {l.name}")
+            msg += " (removed)"
+    else:
+        msg = "No stale locks"
+    checks.append(("Locks", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Locks: {msg}")
+
+    # 7. Disk space
+    ok, msg = check_disk_space()
+    checks.append(("Disk", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Disk: {msg}")
+
+    # Auto-fix: archive old log entries
+    if args.fix:
+        for lf in ["engagement-log.json", "ig-engagement-log.json", "response-log.json"]:
+            path = BASE_DIR / lf
+            count = archive_old_entries(path, days=90)
+            if count > 0:
+                log.info(f"  Archived {count} entries from {lf}")
+
+    # Summary
+    passed = sum(1 for _, ok, _ in checks if ok)
+    total = len(checks)
+    warnings = [f"{name}: {msg}" for name, ok, msg in checks if not ok]
+
+    summary = f"Health: {passed}/{total} OK"
+    if warnings:
+        summary += ". WARN: " + "; ".join(warnings)
+
+    log.info(f"\n  {summary}")
+    notify("tatami health", summary, priority="default" if passed == total else "high")
+
+
+if __name__ == "__main__":
+    main()

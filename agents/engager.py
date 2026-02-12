@@ -12,10 +12,13 @@ from typing import Optional
 
 from anthropic import Anthropic
 from config.niches import get_niche
+from tools.common import load_config
 
 logger = logging.getLogger(__name__)
 
-ENGAGER_MODEL = "claude-sonnet-4-20250514"
+_cfg = load_config().get("models", {})
+EVALUATOR_MODEL = _cfg.get("evaluator", "claude-sonnet-4-20250514")
+REPLY_MODEL = _cfg.get("reply_drafter", "claude-opus-4-6")
 
 client = Anthropic()
 
@@ -48,23 +51,21 @@ def _build_evaluator_prompt(niche_id: str) -> str:
 
     return f"""You evaluate X posts for the account {niche['handle']} ({niche['description']}).
 
-Your job: decide if a post is worth engaging with.
+Your job: decide if a post is worth engaging with. We want to engage BROADLY with anything Japan-related in design, architecture, interiors, furniture, craft, woodworking, ceramics, gardens, and aesthetics. Not just tatami or traditional interiors.
 
-Score each post 1-10 on relevance:
-- 9-10: Perfect fit, high engagement potential, our audience would love this
-- 7-8: Good fit, worth engaging with
-- 5-6: Tangentially related, engage only if we need to fill quota
-- 1-4: Not relevant, skip
+Score each post 1-10:
+- 9-10: Core niche — Japanese architecture, interiors, traditional craft, design
+- 7-8: Adjacent — Japanese furniture, gardens, ceramics, woodwork, aesthetics, renovation, real estate
+- 5-6: Loosely related — Japan travel with architectural focus, Japanese art/culture with design angle
+- 3-4: Wrong topic — food, anime, music, politics, non-Japan content
+- 1-2: Spam or completely irrelevant
 
-Consider:
-- Is this about {niche['description']}? Does it fit our niche?
-- Does it have good imagery our audience would appreciate?
-- Is the author someone worth building a relationship with?
-- Is this post getting traction (likes, reposts)?
-- Would engaging with this make us look knowledgeable, not spammy?
-- Is it recent enough that a reply would still be seen?
+Be GENEROUS with scoring. If it's Japan + any form of design/space/craft/material, score 7+.
+A post about a Japanese café interior? 7+. A ryokan room? 8+. Japanese garden design? 8+. Japanese ceramics or textiles? 7+. Japanese furniture maker? 8+.
 
-Return your evaluation as JSON:
+Only score low if it's clearly NOT about Japan or NOT about any physical space/object/design.
+
+Return JSON:
 {{
   "relevance_score": 8,
   "should_engage": true,
@@ -73,10 +74,9 @@ Return your evaluation as JSON:
 }}
 
 Possible actions: reply, like, repost, follow
-- Always suggest "like" if score >= 6
-- Suggest "reply" if score >= 7 and we have something useful to add
-- Suggest "repost" only for score 9-10 content that perfectly fits our brand
-- Suggest "follow" if the author consistently posts great content in our niche"""
+- Always suggest "like" if score >= 5
+- Suggest "reply" if score >= 6 and we can add something useful
+- Suggest "follow" if the author posts quality Japan design content"""
 
 
 def _build_reply_prompt(niche_id: str) -> str:
@@ -89,31 +89,53 @@ def _build_reply_prompt(niche_id: str) -> str:
 
     return f"""You write replies for the X account {niche['handle']}.
 
-## Voice & Style
+## Voice
 {reply_voice}
 
-{voice_guide if voice_guide else ''}
+## The One Rule That Matters Most
+YOU CANNOT SEE IMAGES. You only have the post text. If you reference anything visual — light, colors, how something looks, proportions, "the way it sits in the landscape" — you are hallucinating. You will be wrong. Stop.
 
-## Reply Guidelines
+If the post is mostly a photo with a short caption, respond to: the location, the architect, the technique, or ask a question. Never describe what you imagine the photo shows.
 
-1. YOU CANNOT SEE IMAGES. This is the most important rule. You only have the post TEXT. You must NEVER:
-   - Reference anything visual: light, colors, proportions, landscapes, views, rooms, spaces
-   - Say "the way [visual thing]..." or "how [thing] looks/feels/sits"
-   - Make vague aesthetic statements that imply you saw something
-   - Describe environments, scenery, buildings, or objects you can't see
-   If the post text is just a photo with minimal caption, ask a QUESTION about it or react to the TOPIC (e.g. the location, the architect, the technique mentioned). Do NOT describe or react to visuals.
+## What a Good Reply Looks Like
 
-2. KEEP IT SHORT — 1-2 sentences max. No hashtags.
+Post: "NAP Architectsの大理石障子。厚さわずか3mm"
+Good: "3mm marble and it still diffuses light? How does it hold up to humidity?"
+Good: "Do they do this on-site or is it pre-cut?"
 
-3. ONLY REPLY TO WHAT THE TEXT SAYS — if the text mentions a specific place, material, architect, cost, or technique, you can respond to that. If the text is just "beautiful" or an emoji with a photo, ask a question like "where is this?" or react to the account's general theme.
+Post: "Tadao Ando's latest — renovating the old Nintendo HQ in Kyoto into a hotel"
+Good: "When does it open?"
+Good: "Ando and concrete I get, but him working with an existing timber building is new"
 
-4. BE HUMAN — a short genuine reaction, a question, or a small detail you know. Not every reply needs to add value. "want to go" is fine.
+Post: "畳縁選び中" (choosing tatami edging)
+Good: "どの柄にしましたか？"
+Good: "How long does the edging last before it needs replacing?"
 
-5. DON'T BE SYCOPHANTIC — no "incredible!", "amazing!", "stunning!". Genuine > performative.
+Post: [photo with just emoji caption, no real text]
+Good: "Where is this?"
+Good: "行きたい"
 
-6. AVOID — delve, tapestry, vibrant, nestled, fostering, leveraging, resonates, testament, beacon, groundbreaking. No em-dashes. No "not just X, it's Y" pattern. No lecturing. No "the way..." constructions about visuals.
+## What a Bad Reply Looks Like (NEVER do these)
 
-Return ONLY the reply text. No quotes, no explanation."""
+BAD: "The way the light filters through those screens creates such a serene atmosphere" (you can't see the image)
+BAD: "The way old timber ages into that deep honey color" (you can't see the image)
+BAD: "That's basically a castle for the price of an apartment" (quippy, formulaic)
+BAD: "The proportions here are just right" (vague, visual, says nothing)
+BAD: "Incredible work! The craftsmanship is stunning!" (sycophantic filler)
+BAD: "Not just a house — it's a philosophy made physical" (AI slop)
+BAD: "There's something about the way these spaces breathe" (meaningless, visual)
+
+## Rules
+- 1-2 sentences. That's it.
+- No hashtags.
+- Always reply in English, even to Japanese posts. The account owner needs to review replies.
+- Mix it up: sometimes ask a question, sometimes add a fact, sometimes just react. Not every reply needs a question.
+- React to specific facts in the text: a price, a dimension, a technique, a name.
+- Short genuine reactions are great: "want to go", "行きたい", "need to see this in person", "wild that this is still standing"
+- Adding context the original poster didn't mention is the best kind of reply
+- No em-dashes. No "not just X, it's Y". No "the way...". No personifying buildings. No "that's basically...". No rule-of-three. No present-participle tack-ons.
+
+Return ONLY the reply text. Nothing else."""
 
 
 def _build_original_post_prompt(niche_id: str) -> str:
@@ -128,11 +150,14 @@ def _build_original_post_prompt(niche_id: str) -> str:
 ## Task
 You're given a source post (often in Japanese) with images. Write an original post that:
 
-1. Downloads and reposts the images with credit (📷 @handle)
+1. Reposts with credit (📷 @handle at the end)
 2. Adds context the English-speaking audience wouldn't know
-3. Follows the voice guide exactly
+3. Follows the voice guide exactly — READ THE BANNED PATTERNS LIST
 4. Includes specific details: measurements, materials, costs, locations, architect names
-5. Ends with the detail that sticks
+5. Ends with a concrete fact, not a quip or philosophical observation
+6. ONE subject per post. Don't list multiple items.
+7. NO rule-of-three punchlines, NO personifying buildings, NO "same X, different Y" kickers, NO "that's basically X" quips
+8. MUST be under 270 characters total including the 📷 @credit line. This is a hard X/Twitter limit. Count carefully.
 
 ## Format
 Return JSON:
@@ -140,6 +165,94 @@ Return JSON:
   "text": "The post text including 📷 @credithandle at the end",
   "credit_handle": "originalauthor"
 }}"""
+
+
+def _build_thread_prompt(niche_id: str) -> str:
+    """Build the system prompt for generating educational threads."""
+    niche = get_niche(niche_id)
+    voice_guide = _load_voice_guide(niche_id)
+
+    return f"""You write educational threads for the X account {niche['handle']}.
+
+{voice_guide if voice_guide else ''}
+
+## Task
+Generate a thread (4-6 tweets) about the given topic. Each tweet must:
+- Be under 280 characters
+- Stand alone as interesting even if someone sees just that one tweet
+- Add real, specific information (dates, names, measurements, locations)
+- Follow the voice guide — no AI slop, no banned patterns
+
+## Thread Structure
+1. Hook tweet — grab attention with a specific fact or question. No "thread 🧵" label.
+2-4. Body tweets — each one teaches something concrete. One fact per tweet.
+5-6. Closer — end on the most surprising detail or a call to action (visit, look up, try).
+
+## Rules
+- No numbering (1/, 2/, etc.) — let the thread flow naturally
+- No "Here's why..." or "Let me explain..." openers
+- No em-dashes, no "not just X, it's Y", no present-participle tack-ons
+- Every tweet must be under 280 characters. Count carefully.
+- Include real details the reader can verify
+
+Return JSON:
+{{
+  "topic": "brief topic label",
+  "tweets": ["tweet 1 text", "tweet 2 text", ...]
+}}"""
+
+
+async def generate_thread(
+    topic: str,
+    niche_id: str,
+) -> dict:
+    """
+    Generate an educational thread about a topic.
+
+    Returns:
+        {"topic": str, "tweets": list[str]}
+    """
+    prompt = f"Write a thread about: {topic}"
+
+    try:
+        response = client.messages.create(
+            model=REPLY_MODEL,
+            max_tokens=1500,
+            system=_build_thread_prompt(niche_id),
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        text = response.content[0].text
+
+        # Parse JSON
+        json_start = text.find("{")
+        if json_start >= 0:
+            depth = 0
+            for i in range(json_start, len(text)):
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            result = json.loads(text[json_start:i + 1])
+                            tweets = result.get("tweets", [])
+                            # Validate lengths
+                            valid = [t for t in tweets if len(t) <= 280]
+                            if len(valid) < len(tweets):
+                                logger.warning(f"Dropped {len(tweets) - len(valid)} tweets over 280 chars")
+                            return {
+                                "topic": result.get("topic", topic),
+                                "tweets": valid,
+                            }
+                        except json.JSONDecodeError:
+                            break
+
+        logger.error("Failed to parse thread JSON from model response")
+        return {"topic": topic, "tweets": []}
+    except Exception as e:
+        logger.error(f"Failed to generate thread about '{topic}': {e}")
+        return {"topic": topic, "tweets": []}
 
 
 async def evaluate_post(
@@ -172,7 +285,7 @@ Is this worth engaging with?"""
 
     try:
         response = client.messages.create(
-            model=ENGAGER_MODEL,
+            model=EVALUATOR_MODEL,
             max_tokens=256,
             system=_build_evaluator_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],
@@ -225,7 +338,7 @@ async def draft_reply(
 
     try:
         response = client.messages.create(
-            model=ENGAGER_MODEL,
+            model=REPLY_MODEL,
             max_tokens=280,
             system=_build_reply_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],
@@ -262,7 +375,7 @@ async def draft_original_post(
 
     try:
         response = client.messages.create(
-            model=ENGAGER_MODEL,
+            model=REPLY_MODEL,
             max_tokens=512,
             system=_build_original_post_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],
@@ -270,15 +383,25 @@ async def draft_original_post(
 
         text = response.content[0].text
 
-        # Try to parse as JSON
+        # Try to parse first JSON object from response
         json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            result = json.loads(text[json_start:json_end])
-            return {
-                "text": result.get("text", ""),
-                "credit_handle": result.get("credit_handle", author),
-            }
+        if json_start >= 0:
+            # Find matching closing brace by counting nesting
+            depth = 0
+            for i in range(json_start, len(text)):
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            result = json.loads(text[json_start:i + 1])
+                            return {
+                                "text": result.get("text", ""),
+                                "credit_handle": result.get("credit_handle", author),
+                            }
+                        except json.JSONDecodeError:
+                            break
 
         # Fallback: use the whole response as text
         return {

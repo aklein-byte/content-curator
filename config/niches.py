@@ -76,16 +76,34 @@ Example captions:
         ],
         "engagement": {
             "search_queries": [
-                # Japanese language searches — high-quality architectural content
-                "(畳 OR 障子 OR 縁側 OR 茶室) filter:images min_faves:200 lang:ja",
-                "(古民家 OR 町家) filter:images min_faves:100 lang:ja",
-                "(建築 OR インテリア) (設計 OR デザイン) filter:images min_faves:500 lang:ja",
-                # English searches
-                "japanese interior design filter:images min_faves:100",
-                "japanese architecture filter:images min_faves:200",
-                "tatami room filter:images min_faves:50",
-                "wabi sabi interior filter:images min_faves:50",
+                # Japanese language — architecture & interiors
+                "(畳 OR 障子 OR 縁側 OR 茶室) has:images -is:retweet lang:ja",
+                "(古民家 OR 町家) has:images -is:retweet lang:ja",
+                "(建築 OR インテリア) (設計 OR デザイン) has:images -is:retweet lang:ja",
+                "(日本庭園 OR 枯山水 OR 坪庭) has:images -is:retweet lang:ja",
+                "(陶芸 OR 焼き物 OR 漆器) has:images -is:retweet lang:ja",
+                "(木工 OR 建具 OR 指物) has:images -is:retweet lang:ja",
+                "(旅館 OR 温泉宿) has:images -is:retweet lang:ja",
+                # English — core
+                "japanese interior design has:images -is:retweet",
+                "japanese architecture has:images -is:retweet",
+                "tatami room has:images -is:retweet",
+                "wabi sabi interior has:images -is:retweet",
+                # English — adjacent
+                "japanese woodworking has:images -is:retweet",
+                "japanese ceramics has:images -is:retweet",
+                "japanese garden design has:images -is:retweet",
+                "ryokan has:images -is:retweet",
+                "machiya has:images -is:retweet",
+                "japanese furniture has:images -is:retweet",
+                "shoji screen has:images -is:retweet",
+                "japanese renovation has:images -is:retweet",
+                "japanese carpentry has:images -is:retweet",
+                "kominka has:images -is:retweet",
+                "engawa has:images -is:retweet",
             ],
+            # min_faves filtering done in engage.py (API v2 doesn't support min_faves)
+            "min_likes": 2,
             "tracked_accounts": [
                 "@naparchitects",
                 "@WalkAroundTokyo",
@@ -114,108 +132,6 @@ Example captions:
         },
     },
 
-    "brutalist": {
-        "handle": "@brutalist_now",
-        "name": "Brutalist Now",
-        "description": "Concrete, social housing, honest materials",
-        "curator_prompt": """You are a brutalist architecture curator who appreciates raw concrete, social housing, and honest materials.
-
-You understand what makes brutalist photography compelling:
-- Raw concrete surfaces with texture and weathering
-- Dramatic shadows and geometric forms
-- Social housing that tells stories of communities
-- The tension between massive scale and human presence
-
-FIND images that are:
-- Showing concrete's material honesty and texture
-- Dramatic lighting that emphasizes form
-- Often overlooked buildings getting their due
-- European social housing, university buildings, civic centers
-- Weathered and aged (patina adds character)
-
-REJECT images that are:
-- Generic or obvious (everyone knows the Barbican)
-- Too pristine or newly renovated
-- AI-generated concrete (the texture is always wrong)
-- Demolition/ruin porn without purpose
-
-Rate 1-10 on impact. Only return 7+.""",
-        "writer_prompt": """Write captions for a brutalist architecture account that:
-
-1. DEFEND brutalism without being defensive
-   - Acknowledge the controversy, but share why it matters
-   - Connect to social history and utopian ideals
-
-2. EDUCATE about context
-   - When was it built? For whom?
-   - What was the architect trying to achieve?
-   - Why does it look the way it does?
-
-3. TONE: Passionate advocate, not academic
-   - Love for raw materials
-   - Appreciation for ambition even when flawed
-
-Example: "The Robin Hood Gardens estate in London, 1972. Alison and Peter Smithson designed streets in the sky—wide walkways where neighbors could meet. Demolished 2017 despite protests. Some saw failure; others saw community."
-""",
-        "hashtags": [
-            "#Brutalism",
-            "#BrutalistArchitecture",
-            "#Concrete",
-            "#SocialHousing",
-            "#ModernistArchitecture",
-        ],
-    },
-
-    "nordic_spaces": {
-        "handle": "@nordic_spaces",
-        "name": "Nordic Spaces",
-        "description": "Scandinavian design and architecture",
-        "curator_prompt": """You are a Scandinavian design curator with deep knowledge of Nordic minimalism.
-
-You understand what makes Nordic design photography compelling:
-- Light as a design element (especially in northern climates)
-- Natural materials: wood, wool, leather, stone
-- Functional beauty—every object earns its place
-- Hygge without being cliché
-
-FIND images that are:
-- Showing genuine Nordic design, not imitations
-- Interesting use of natural light
-- Authentic interiors, not showrooms
-- Mix of vintage and contemporary
-- Finnish, Swedish, Danish, Norwegian design
-
-REJECT images that are:
-- Generic "Scandi-style" from IKEA catalogs
-- All-white-everything without warmth
-- Stock photos of empty rooms
-- AI-generated (lighting is always wrong)
-
-Rate 1-10 on authenticity and beauty. Only return 7+.""",
-        "writer_prompt": """Write captions for a Nordic design account that:
-
-1. Share the philosophy behind the design
-   - Lagom, hygge, connection to nature
-   - Why Nordic designers approach things differently
-
-2. Credit designers and movements
-   - Danish Modern, Finnish functionalism
-   - Alvar Aalto, Arne Jacobsen, etc.
-
-3. TONE: Warm despite the cool aesthetic
-   - Cozy, approachable
-   - Not cold or pretentious
-
-Example: "Natural light floods a Helsinki apartment through floor-to-ceiling windows. In Finland, where winter days are short, maximizing light isn't aesthetic—it's survival. The design follows."
-""",
-        "hashtags": [
-            "#NordicDesign",
-            "#ScandinavianDesign",
-            "#DanishDesign",
-            "#Hygge",
-            "#MinimalistHome",
-        ],
-    },
 }
 
 

@@ -5,13 +5,30 @@ Caption writing is not the bottleneck - curation is.
 """
 
 import os
+import base64
+import logging
+from pathlib import Path
 from anthropic import Anthropic
 from typing import Optional
 
 from config.niches import get_niche
+from tools.common import load_config
 
-# Use Sonnet for writing - efficient and good enough
-WRITER_MODEL = "claude-sonnet-4-20250514"
+logger = logging.getLogger(__name__)
+
+_cfg = load_config().get("models", {})
+
+
+def _load_voice_guide(niche_id: str = "tatamispaces") -> str:
+    """Load the voice/style guide for writing."""
+    voice_path = Path(__file__).parent.parent / "config" / f"voice-{niche_id}.md"
+    if not voice_path.exists():
+        voice_path = Path(__file__).parent.parent / "config" / "voice.md"
+    if voice_path.exists():
+        return voice_path.read_text()
+    return ""
+
+WRITER_MODEL = _cfg.get("writer", "claude-sonnet-4-20250514")
 
 client = Anthropic()
 
@@ -22,39 +39,26 @@ def build_writer_system_prompt(niche_id: str) -> str:
 
     hashtags = " ".join(niche.get("hashtags", [])[:5])
 
+    voice_guide = _load_voice_guide(niche_id)
+
     return f"""You are the caption writer for {niche['name']} ({niche['handle']}).
 
 {niche['writer_prompt']}
 
-## Available Hashtags
-{hashtags}
+## Voice & Style Guide
+{voice_guide if voice_guide else ''}
 
 ## Guidelines
 
-1. KEEP IT SHORT
-   - 1-3 sentences max
-   - X has a 280 character limit
-   - Leave room for hashtags
+1. KEEP IT SHORT — 1-4 sentences. No hashtags. Credit source with 📷 @handle.
 
-2. FOCUS ON VALUE
-   - Educate or inspire, never just describe
-   - Share the "why" not just the "what"
-   - Connect to broader concepts
+2. SPECIFIC OVER GENERAL — real numbers, real names, real places. "3mm marble" not "innovative material."
 
-3. CREDIT SOURCES
-   - If architect/designer is known, credit them
-   - Link back to source when appropriate
+3. ONE SUBJECT PER POST — don't list multiple things.
 
-4. HASHTAG SPARINGLY
-   - 2-3 relevant hashtags max
-   - No hashtag spam
+4. END WITH THE FACT THAT STICKS — a number, a cost, a surprising detail. Not a quip or philosophical observation.
 
-5. AVOID
-   - Emoji overuse
-   - Clickbait
-   - Generic statements
-   - "Check out this..."
-   - Starting with "This is..."
+5. AVOID — see the full banned list in the voice guide above. Key ones: no rule-of-three punchlines, no personifying buildings, no formulaic kickers ("same X, different Y"), no "that's basically X" quips, no present-participle tack-ons, no literary flourishes ("the kind of X where Y").
 """
 
 
@@ -218,3 +222,127 @@ HASHTAGS: [2-3 hashtags, space-separated]
         "caption": caption,
         "hashtags": hashtags,
     }
+
+
+# Use Opus for vision-based thread captions — better at following voice rules
+VISION_MODEL = _cfg.get("vision", "claude-opus-4-6")
+
+THREAD_CAPTION_SYSTEM = """You're @tatamispaces. You post Japanese architecture and design.
+
+Rules:
+- Describe what's IN this specific image — what room, what detail, what material
+- Add one fact the viewer can't see: dimension, cost, age, architect, technique
+- Max 280 characters
+- Short sentences. Fragments ok.
+- No hashtags. No emojis unless the photo earns it.
+- Don't repeat what tweet 1 already said
+- Don't say "in this image" or "here we see" — just describe it
+- No AI slop: no "tapestry", "vibrant", "nestled", "testament to", "delve", "landscape"
+- No "not just X, it's Y" patterns
+- No teaching or lecturing. Describe what's there.
+- End with the detail that sticks — a number, a fact, a thing that surprises.
+- Credit line is already handled — don't add 📷."""
+
+
+def _image_to_base64(image_path: str) -> tuple[str, str]:
+    """Read an image file and return (base64_data, media_type)."""
+    path = Path(image_path)
+    data = path.read_bytes()
+
+    ext = path.suffix.lower()
+    media_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }
+    media_type = media_types.get(ext, "image/jpeg")
+
+    # Resize if >5MB (Anthropic API limit)
+    if len(data) > 5_000_000:
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(io.BytesIO(data))
+            if img.mode == "RGBA":
+                img = img.convert("RGB")
+            img.thumbnail((1920, 1920), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            data = buf.getvalue()
+            media_type = "image/jpeg"
+        except ImportError:
+            logger.warning("Pillow not installed, can't resize large image")
+
+    return base64.b64encode(data).decode("utf-8"), media_type
+
+
+async def generate_thread_captions(
+    main_caption: str,
+    image_paths: list[str],
+    niche_id: str = "tatamispaces",
+) -> list[str]:
+    """
+    Generate per-image captions for a thread post.
+
+    Tweet 1 keeps the original caption. For each subsequent image,
+    Claude Opus Vision generates a follow-up caption.
+
+    Args:
+        main_caption: The original post caption (used for tweet 1)
+        image_paths: List of local image file paths (one per tweet)
+        niche_id: Niche identifier
+
+    Returns:
+        List of captions — index 0 is main_caption, rest are generated.
+    """
+    if len(image_paths) <= 1:
+        return [main_caption]
+
+    captions = [main_caption]
+    n = len(image_paths)
+
+    for i, img_path in enumerate(image_paths[1:], start=2):
+        try:
+            img_b64, media_type = _image_to_base64(img_path)
+
+            response = client.messages.create(
+                model=VISION_MODEL,
+                max_tokens=300,
+                system=THREAD_CAPTION_SYSTEM,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": img_b64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                f"Tweet {i} of {n} in a thread.\n"
+                                f"Tweet 1 said: \"{main_caption[:200]}\"\n"
+                                f"Write the follow-up tweet for this image."
+                            ),
+                        },
+                    ],
+                }],
+            )
+
+            caption = response.content[0].text.strip()
+            # Enforce 280 char limit
+            if len(caption) > 280:
+                caption = caption[:277] + "..."
+            captions.append(caption)
+            logger.info(f"Thread caption {i}/{n}: {caption[:80]}...")
+
+        except Exception as e:
+            logger.error(f"Vision caption failed for image {i}/{n}: {e}")
+            captions.append(f"({i}/{n})")
+
+    return captions

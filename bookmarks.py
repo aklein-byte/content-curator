@@ -10,7 +10,6 @@ import sys
 import os
 import json
 import asyncio
-import logging
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -21,28 +20,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xkit import login, XPost
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from agents.engager import evaluate_post, draft_original_post
 from config.niches import get_niche
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger("bookmarks")
+log = setup_logging("bookmarks")
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
 
+_pw = load_config().get("posting_window", {})
+
 
 def load_posts() -> dict:
-    if POSTS_FILE.exists():
-        return json.loads(POSTS_FILE.read_text())
-    return {"posts": []}
+    return load_json(POSTS_FILE, default={"posts": []})
 
 
 def save_posts(data: dict):
-    POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    save_json(POSTS_FILE, data)
 
 
 def next_post_id(posts_data: dict) -> int:
@@ -50,42 +45,58 @@ def next_post_id(posts_data: dict) -> int:
     return max(existing_ids, default=0) + 1
 
 
-POSTING_HOURS = [9, 13, 19]  # ET slots for 3 posts/day
+MAX_PER_DAY = _pw.get("max_per_day", 4)
+MIN_GAP_HOURS = _pw.get("min_gap_hours", 2)
+WINDOW_START = _pw.get("start_hour_et", 7)
+WINDOW_END = _pw.get("end_hour_et", 22)
 
 
 def next_schedule_slot(posts_data: dict) -> datetime:
-    """Find the next available posting slot (~9am, ~1pm, ~7pm ET with jitter)."""
+    """Find the next available posting slot with random timing across the day."""
     import random
     from zoneinfo import ZoneInfo
     et = ZoneInfo("America/New_York")
 
-    # Collect all scheduled times
-    taken = set()
+    # Collect all scheduled times as datetimes
+    taken_times = []
     for p in posts_data.get("posts", []):
         sf = p.get("scheduled_for")
-        if sf and p.get("status") in ("approved", "posted"):
+        if sf and p.get("status") in ("approved", "posted", "scheduled_native"):
             try:
-                dt = datetime.fromisoformat(sf).astimezone(et)
-                taken.add((dt.date(), dt.hour))
+                taken_times.append(datetime.fromisoformat(sf).astimezone(et))
             except Exception:
                 pass
 
-    # Start from tomorrow if today's slots are past
     now_et = datetime.now(et)
     check_date = now_et.date()
-    if now_et.hour >= POSTING_HOURS[-1]:
+    if now_et.hour >= WINDOW_END:
         check_date += timedelta(days=1)
 
-    # Search up to 30 days out
     for day_offset in range(30):
         d = check_date + timedelta(days=day_offset)
-        for hour in POSTING_HOURS:
-            if (d, hour) not in taken:
-                # Add random jitter (-20 to +35 min) so times aren't identical daily
-                jitter = random.randint(-20, 35)
-                return datetime(d.year, d.month, d.day, hour, 0, tzinfo=et) + timedelta(minutes=jitter)
 
-    # Fallback: 30 days out
+        posts_on_day = sum(1 for t in taken_times if t.date() == d)
+        if posts_on_day >= MAX_PER_DAY:
+            continue
+
+        # Try random times within the window, up to 20 attempts
+        for _ in range(20):
+            hour = random.randint(WINDOW_START, WINDOW_END - 1)
+            minute = random.randint(0, 59)
+            candidate = datetime(d.year, d.month, d.day, hour, minute, tzinfo=et)
+
+            if candidate <= now_et:
+                continue
+
+            too_close = any(
+                abs((candidate - t).total_seconds()) < MIN_GAP_HOURS * 3600
+                for t in taken_times
+            )
+            if too_close:
+                continue
+
+            return candidate
+
     return datetime.now(et) + timedelta(days=30)
 
 
@@ -132,7 +143,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Turn bookmarks into post drafts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
     parser.add_argument("--max-drafts", type=int, default=10, help="Max new drafts to create")
-    parser.add_argument("--min-score", type=int, default=6, help="Minimum relevance score (1-10)")
+    parser.add_argument("--min-score", type=int, default=7, help="Minimum relevance score (1-10)")
     args = parser.parse_args()
 
     niche_id = args.niche
@@ -178,9 +189,13 @@ async def main():
             reposts=post.reposts,
         )
 
-        score = evaluation.get("relevance_score") or 0
+        try:
+            score = int(evaluation.get("relevance_score") or 0)
+        except (TypeError, ValueError):
+            score = 0
+        reason = evaluation.get("reason", "no reason") or "no reason"
         if score < args.min_score:
-            log.info(f"  Skip @{post.author_handle} — score {score}/10: {evaluation['reason'][:50]}")
+            log.info(f"  Skip @{post.author_handle} — score {score}/10: {reason[:50]}")
             continue
 
         log.info(f"  @{post.author_handle} — score {score}/10, {post.likes} likes")
@@ -197,6 +212,10 @@ async def main():
             log.warning(f"  Empty caption for @{post.author_handle}, skipping")
             continue
 
+        if len(caption_text) > 280:
+            log.warning(f"  Caption too long ({len(caption_text)} chars) for @{post.author_handle}, skipping")
+            continue
+
         source_url = f"https://x.com/{post.author_handle}/status/{post.post_id}"
         sched = next_schedule_slot(posts_data)
 
@@ -209,8 +228,9 @@ async def main():
             "source_url": source_url,
             "source_handle": f"@{post.author_handle}",
             "status": "approved",
+            "score": score,
             "scheduled_for": sched.isoformat(),
-            "notes": f"From bookmarks. Score {score}/10. {post.likes} likes. {evaluation['reason'][:80]}",
+            "notes": f"From bookmarks. {post.likes} likes. {evaluation['reason'][:80]}",
         }
 
         posts_data["posts"].append(new_post)
@@ -240,16 +260,16 @@ async def main():
         print(f"Review in {POSTS_FILE}")
         print("Change status to 'approved' and add 'scheduled_for' to publish.")
 
-    # Notify
-    try:
-        os.system(
-            f'terminal-notifier -title "@tatamispaces bookmarks" '
-            f'-message "{drafts_created} new drafts from bookmarks" '
-            f'-sound default -group content-curator 2>/dev/null'
-        )
-    except Exception:
-        pass
+    if drafts_created > 0:
+        notify("@tatamispaces bookmarks", f"{drafts_created} new drafts from bookmarks")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    lock_fd = acquire_lock(BASE_DIR / ".bookmarks.lock")
+    if not lock_fd:
+        log.info("Another bookmarks.py is already running, exiting")
+        sys.exit(0)
+    try:
+        asyncio.run(main())
+    finally:
+        release_lock(lock_fd)

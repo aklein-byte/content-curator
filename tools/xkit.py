@@ -94,7 +94,8 @@ async def login(niche_id: str) -> Client:
         try:
             # Try twikit's native format first
             client.load_cookies(cookies_file)
-            await client.user()
+            # Verify session with a lightweight call (account/settings.json is 404 now)
+            await client.get_user_by_screen_name(username)
             logger.info(f"Loaded existing session for {niche_id}")
             _clients[niche_id] = client
             return client
@@ -104,7 +105,7 @@ async def login(niche_id: str) -> Client:
                 cookie_data = json.loads(Path(cookies_file).read_text())
                 if isinstance(cookie_data, dict) and "auth_token" in cookie_data:
                     client.set_cookies(cookie_data)
-                    await client.user()
+                    await client.get_user_by_screen_name(username)
                     logger.info(f"Loaded Chrome cookies for {niche_id}")
                     _clients[niche_id] = client
                     return client
@@ -149,8 +150,23 @@ async def search_posts(
     Returns:
         List of XPost objects
     """
+    max_retries = 3
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            results = await client.search_tweet(query, product, count=count)
+            break
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait = (attempt + 1) * 5
+                logger.warning(f"Search attempt {attempt + 1} failed ({e}), retrying in {wait}s...")
+                await asyncio.sleep(wait)
+            else:
+                logger.error(f"Search failed after {max_retries} attempts for query '{query}': {e}")
+                return []
+
     try:
-        results = await client.search_tweet(query, product, count=count)
         posts = []
         for tweet in results:
             images = []
@@ -263,14 +279,18 @@ async def post_tweet(
     client: Client,
     text: str,
     image_paths: Optional[list[str]] = None,
+    reply_to: Optional[str] = None,
+    community_id: Optional[str] = None,
 ) -> Optional[str]:
     """
-    Post a tweet with optional images.
+    Post a tweet with optional images, reply chaining, and community targeting.
 
     Args:
         client: Authenticated twikit client
         text: Tweet text
         image_paths: List of local file paths to attach
+        reply_to: Tweet ID to reply to (for threads)
+        community_id: X Community ID to post into
 
     Returns:
         Post ID string, or None on failure
@@ -282,10 +302,16 @@ async def post_tweet(
                 media_id = await client.upload_media(path, wait_for_completion=True)
                 media_ids.append(media_id)
 
-        tweet = await client.create_tweet(
-            text=text,
-            media_ids=media_ids if media_ids else None,
-        )
+        kwargs = {
+            "text": text,
+            "media_ids": media_ids if media_ids else None,
+        }
+        if reply_to:
+            kwargs["reply_to"] = reply_to
+        if community_id:
+            kwargs["community_id"] = community_id
+
+        tweet = await client.create_tweet(**kwargs)
         logger.info(f"Posted tweet: {tweet.id}")
         return tweet.id
     except Exception as e:
@@ -319,6 +345,79 @@ async def reply_to_post(
     except Exception as e:
         logger.error(f"Failed to reply to {post_id}: {e}")
         return None
+
+
+async def post_thread(
+    client: Client,
+    tweets: list[str],
+    image_paths: Optional[list[str]] = None,
+    image_paths_per_tweet: Optional[list[Optional[list[str]]]] = None,
+    community_id: Optional[str] = None,
+    delay_range: tuple[int, int] = (120, 300),
+) -> list[str]:
+    """
+    Post a thread (chain of tweets replying to each other).
+
+    Args:
+        client: Authenticated twikit client
+        tweets: List of tweet texts in order
+        image_paths: Images to attach to the FIRST tweet only (legacy)
+        image_paths_per_tweet: Per-tweet image lists. Index i = images for tweet i.
+            Takes priority over image_paths if provided.
+        community_id: X Community ID to post into
+        delay_range: (min, max) seconds to wait between tweets to avoid error 226
+
+    Returns:
+        List of tweet IDs posted (may be shorter than tweets if some failed)
+    """
+    import random
+
+    if not tweets:
+        return []
+
+    # Build per-tweet image mapping
+    if image_paths_per_tweet:
+        imgs_per = image_paths_per_tweet
+    elif image_paths:
+        # Legacy: all images on first tweet only
+        imgs_per = [image_paths] + [None] * (len(tweets) - 1)
+    else:
+        imgs_per = [None] * len(tweets)
+
+    posted_ids = []
+
+    # Post first tweet
+    first_id = await post_tweet(
+        client, tweets[0],
+        image_paths=imgs_per[0] if len(imgs_per) > 0 else None,
+        community_id=community_id,
+    )
+    if not first_id:
+        logger.error("Thread failed: couldn't post first tweet")
+        return []
+    posted_ids.append(first_id)
+    logger.info(f"Thread 1/{len(tweets)}: {first_id}")
+
+    # Post remaining tweets as replies with delays
+    for i, text in enumerate(tweets[1:], start=2):
+        delay = random.uniform(*delay_range)
+        logger.info(f"Waiting {delay:.0f}s before tweet {i}/{len(tweets)}...")
+        await asyncio.sleep(delay)
+
+        tweet_imgs = imgs_per[i - 1] if i - 1 < len(imgs_per) else None
+        tweet_id = await post_tweet(
+            client, text,
+            image_paths=tweet_imgs,
+            reply_to=posted_ids[-1],
+        )
+        if tweet_id:
+            posted_ids.append(tweet_id)
+            logger.info(f"Thread {i}/{len(tweets)}: {tweet_id}")
+        else:
+            logger.error(f"Thread broken at tweet {i}/{len(tweets)}")
+            break
+
+    return posted_ids
 
 
 async def like_post(client: Client, post_id: str) -> bool:
@@ -382,6 +481,14 @@ async def download_image(url: str, save_dir: str = "data/images") -> Optional[st
     # Skip if already downloaded
     if Path(save_path).exists():
         return save_path
+
+    # Upgrade Twitter image URLs to original resolution
+    if "pbs.twimg.com" in url and "name=orig" not in url:
+        base = url.split("?")[0]
+        if base.endswith((".jpg", ".jpeg", ".png", ".webp")):
+            ext = base.rsplit(".", 1)[-1]
+            base = base.rsplit(".", 1)[0]
+            url = f"{base}?format={ext}&name=orig"
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as http:

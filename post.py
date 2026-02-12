@@ -2,15 +2,15 @@
 Posting script for @tatamispaces.
 Reads posts.json, finds the next approved+scheduled post whose time has passed,
 downloads the image, posts via twikit, and marks it as posted.
+After X post succeeds, cross-posts to Instagram as a carousel via Playwright.
 
-Usage: python post.py [--niche tatamispaces] [--dry-run]
+Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig]
 """
 
 import sys
 import os
 import json
 import asyncio
-import logging
 import argparse
 from pathlib import Path
 from datetime import datetime, timezone
@@ -21,29 +21,30 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, post_tweet, download_image
+from tools.xkit import login, post_thread, download_image
+from tools.xapi import create_tweet, upload_media, get_own_recent_tweets
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.ig_browser import post_to_ig_browser, adapt_caption_for_ig, ensure_jpeg, download_image as ig_download_image, get_ig_browser
+from agents.writer import generate_thread_captions
 from config.niches import get_niche
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger("post")
+log = setup_logging("post")
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
 IMAGES_DIR = BASE_DIR / "data" / "images"
 
+# Posting limits — prevent rapid-fire after downtime
+MAX_POSTS_PER_DAY = 3
+MIN_GAP_HOURS = 2
+
 
 def load_posts() -> dict:
-    if POSTS_FILE.exists():
-        return json.loads(POSTS_FILE.read_text())
-    return {"posts": []}
+    return load_json(POSTS_FILE, default={"posts": []})
 
 
 def save_posts(data: dict):
-    POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    save_json(POSTS_FILE, data)
 
 
 def parse_time(ts: str) -> datetime:
@@ -62,13 +63,90 @@ def parse_time(ts: str) -> datetime:
     return dt
 
 
+def check_posting_limits(posts_data: dict) -> str | None:
+    """Check if we've hit daily max or minimum gap. Returns reason to skip, or None if OK."""
+    now = datetime.now(timezone.utc)
+    today_str = now.strftime("%Y-%m-%d")
+
+    posted_today = []
+    for post in posts_data.get("posts", []):
+        pa = post.get("posted_at")
+        if not pa or post.get("status") != "posted":
+            continue
+        if today_str in pa:
+            posted_today.append(parse_time(pa))
+
+    # Check daily max
+    if len(posted_today) >= MAX_POSTS_PER_DAY:
+        return f"Already posted {len(posted_today)}/{MAX_POSTS_PER_DAY} today"
+
+    # Check minimum gap since last post
+    if posted_today:
+        last_post_time = max(posted_today)
+        hours_since = (now - last_post_time).total_seconds() / 3600
+        if hours_since < MIN_GAP_HOURS:
+            mins_left = int((MIN_GAP_HOURS - hours_since) * 60)
+            return f"Last post was {hours_since:.1f}h ago (min gap: {MIN_GAP_HOURS}h, {mins_left}m remaining)"
+
+    return None
+
+
+CATEGORIES = [
+    "ryokan", "modern-architecture", "historic-house", "temple",
+    "residential", "craft", "adaptive-reuse", "garden", "other",
+]
+
+
+def _get_recent_categories(posts_data: dict, n: int = 2) -> list[str]:
+    """Get categories of the last N posted posts."""
+    posted = [
+        p for p in posts_data.get("posts", [])
+        if p.get("status") == "posted" and p.get("posted_at")
+    ]
+    posted.sort(key=lambda p: p.get("posted_at", ""), reverse=True)
+    return [p.get("category", "other") for p in posted[:n]]
+
+
+def _auto_categorize(post: dict) -> str:
+    """Quick keyword-based categorization from post text."""
+    text = (post.get("text") or "").lower()
+    if any(w in text for w in ["ryokan", "onsen", "rotenburo", "hot spring", "bath"]):
+        return "ryokan"
+    if any(w in text for w in ["temple", "shrine", "jinja", "tera", "karesansui"]):
+        return "temple"
+    if any(w in text for w in ["kominka", "machiya", "taisho", "meiji", "edo-period", "former residence", "preserved"]):
+        return "historic-house"
+    if any(w in text for w in ["architect", "concrete", "steel", "shell", "parabolic", "brutalist", "modernist"]):
+        return "modern-architecture"
+    if any(w in text for w in ["tatami mat", "apartment", "1ldk", "2ldk", "small space"]):
+        return "residential"
+    if any(w in text for w in ["kumiko", "woodwork", "lacquer", "ceramic", "craft", "joinery"]):
+        return "craft"
+    if any(w in text for w in ["sauna", "converted", "repurposed", "adaptive", "pop-up"]):
+        return "adaptive-reuse"
+    if any(w in text for w in ["garden", "engawa", "landscape", "moss", "stone path"]):
+        return "garden"
+    return "other"
+
+
+MIN_POST_SCORE = 7  # Skip bookmarked posts below this score
+
+
 def find_next_post(posts_data: dict) -> dict | None:
-    """Find the next approved post whose scheduled_for time has passed."""
+    """Find the best approved post to publish next.
+
+    Picks from ready posts, preferring:
+    1. Different category from last 2 posts (variety)
+    2. Higher score if available
+    3. Falls back to random if all same category
+
+    Quality gate: bookmarked posts with score < MIN_POST_SCORE get skipped.
+    """
     now = datetime.now(timezone.utc)
 
     ready = []
     for post in posts_data.get("posts", []):
-        if post.get("status") != "approved":
+        if post.get("status") not in ("approved",):
             continue
         scheduled = post.get("scheduled_for")
         if not scheduled:
@@ -76,16 +154,41 @@ def find_next_post(posts_data: dict) -> dict | None:
         try:
             scheduled_dt = parse_time(scheduled)
             if scheduled_dt <= now:
-                ready.append((scheduled_dt, post))
+                # Quality gate: skip low-score bookmarked posts
+                score = post.get("score")
+                if score is not None and score < MIN_POST_SCORE:
+                    log.info(f"Skipping post #{post.get('id')} — score {score} below threshold {MIN_POST_SCORE}")
+                    post["status"] = "skipped_low_quality"
+                    post["skip_reason"] = f"Score {score}/10 below minimum {MIN_POST_SCORE}"
+                    continue
+                # Auto-categorize if not already tagged
+                if not post.get("category"):
+                    post["category"] = _auto_categorize(post)
+                ready.append(post)
         except Exception as e:
             log.warning(f"Bad scheduled_for on post #{post.get('id')}: {e}")
 
     if not ready:
         return None
 
-    # Return the earliest-scheduled ready post
-    ready.sort(key=lambda x: x[0])
-    return ready[0][1]
+    recent_cats = _get_recent_categories(posts_data)
+    log.info(f"Recent categories: {recent_cats}")
+    log.info(f"Ready posts: {[(p['id'], p.get('category')) for p in ready]}")
+
+    # Prefer posts NOT in recent categories
+    diverse = [p for p in ready if p.get("category") not in recent_cats]
+    if diverse:
+        # Pick highest score, or random if no scores
+        scored = [p for p in diverse if p.get("score")]
+        if scored:
+            scored.sort(key=lambda p: p.get("score", 0), reverse=True)
+            return scored[0]
+        import random
+        return random.choice(diverse)
+
+    # All same category — just pick random from ready
+    import random
+    return random.choice(ready)
 
 
 async def download_post_images(post: dict) -> list[str]:
@@ -121,20 +224,62 @@ async def download_post_images(post: dict) -> list[str]:
     return paths
 
 
-def notify(title: str, message: str):
+
+
+async def cross_post_to_ig(post: dict, image_paths: list[str], niche: dict):
+    """Cross-post to Instagram as a carousel after X post succeeds."""
     try:
-        os.system(
-            f'terminal-notifier -title "{title}" -message "{message}" '
-            f'-sound default -group content-curator 2>/dev/null'
-        )
-    except Exception:
-        pass
+        from playwright.async_api import async_playwright
+    except ImportError:
+        log.warning("IG cross-post skipped: playwright not installed")
+        return
+
+    log.info("Cross-posting to Instagram...")
+
+    # Prepare IG images — ensure JPEG, download if needed
+    ig_dir = BASE_DIR / "data" / "ig_images"
+    ig_paths = []
+    for p in image_paths:
+        ig_paths.append(str(ensure_jpeg(Path(p))))
+
+    # If no local images but we have image_urls, download them all
+    if not ig_paths and post.get("image_urls"):
+        for url in post["image_urls"]:
+            path = await ig_download_image(url, ig_dir)
+            if path:
+                ig_paths.append(str(ensure_jpeg(path)))
+
+    if not ig_paths:
+        log.warning("  No images for IG, skipping cross-post")
+        return
+
+    caption = adapt_caption_for_ig(post["text"], niche)
+
+    try:
+        async with async_playwright() as pw:
+            context = await get_ig_browser(pw)
+            page = context.pages[0] if context.pages else await context.new_page()
+            await page.goto("https://www.instagram.com/", wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(5000)
+
+            await post_to_ig_browser(page, ig_paths, caption)
+            post["ig_posted"] = True
+            post["ig_posted_at"] = datetime.now(timezone.utc).isoformat()
+            # Note: carousel may have fallen back to single image inside post_to_ig_browser
+            post["ig_images_attempted"] = len(ig_paths)
+            log.info(f"  IG cross-post done ({len(ig_paths)} images)")
+
+            await context.close()
+
+    except Exception as e:
+        log.error(f"  IG cross-post failed: {e}")
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Post next scheduled content")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be posted without posting")
+    parser.add_argument("--no-ig", action="store_true", help="Skip Instagram cross-post")
     args = parser.parse_args()
 
     niche_id = args.niche
@@ -144,7 +289,32 @@ async def main():
     log.info(f"Checking post queue for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
 
     posts_data = load_posts()
+
+    # Recovery: if any post is stuck in "posting" for 30+ min, mark it failed
+    for p in posts_data.get("posts", []):
+        if p.get("status") == "posting":
+            stuck_since = p.get("posting_started")
+            if stuck_since:
+                try:
+                    started = parse_time(stuck_since)
+                    stuck_min = (datetime.now(timezone.utc) - started).total_seconds() / 60
+                    if stuck_min > 30:
+                        log.warning(f"Post #{p['id']} stuck in 'posting' for {stuck_min:.0f}m — marking failed")
+                        p["status"] = "failed"
+                        p["fail_reason"] = "Stuck in posting state (tweet may have been sent but not recorded)"
+                        save_posts(posts_data)
+                except Exception:
+                    pass
+
+    # Rate limiting — skip if we've hit daily max or gap is too short
+    if not dry_run:
+        skip_reason = check_posting_limits(posts_data)
+        if skip_reason:
+            log.info(f"Skipping: {skip_reason}")
+            return
+
     post = find_next_post(posts_data)
+    save_posts(posts_data)  # persist any quality-gate skips
 
     if not post:
         log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
@@ -171,46 +341,189 @@ async def main():
     # Download images
     image_paths = await download_post_images(post)
     if image_paths:
+        log.info(f"  Images: {len(image_paths)} downloaded")
+
+        # Image selection: use image_index for specific image, image_count for limit
+        img_index = post.get("image_index")
+        img_count = post.get("image_count")
+        if img_index is not None and 0 <= img_index < len(image_paths):
+            image_paths = [image_paths[img_index]]
+            log.info(f"  Selected image #{img_index}: {Path(image_paths[0]).name}")
+        elif img_count is not None and img_count < len(image_paths):
+            image_paths = image_paths[:img_count]
+            log.info(f"  Limited to first {img_count} image(s)")
+
         log.info(f"  Images: {len(image_paths)} ready")
     else:
         log.info("  No images -- will post text-only")
 
+    # Check image quality — skip if too low resolution
+    if image_paths:
+        from PIL import Image
+        MIN_DIMENSION = 800  # minimum pixels on longest side
+        for img_path in image_paths:
+            try:
+                with Image.open(img_path) as img:
+                    w, h = img.size
+                    longest = max(w, h)
+                    log.info(f"  Image {Path(img_path).name}: {w}x{h}")
+                    if longest < MIN_DIMENSION:
+                        log.warning(f"  Image too small: {w}x{h} (min {MIN_DIMENSION}px)")
+                        if not dry_run:
+                            post["status"] = "skipped_low_res"
+                            post["skip_reason"] = f"Image {Path(img_path).name} only {w}x{h}"
+                            save_posts(posts_data)
+                            notify("@tatamispaces post skipped", f"Post #{post['id']} image too small ({w}x{h})")
+                            return
+                        else:
+                            print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would skip in live mode")
+            except Exception as e:
+                log.warning(f"  Could not check image {img_path}: {e}")
+
+    # Determine if this is a thread post
+    is_thread = post.get("thread") and len(image_paths) >= 2
+
     if dry_run:
         print("\n" + "=" * 60)
-        print("DRY RUN -- would post:")
-        print("=" * 60)
-        print(post["text"])
-        if image_paths:
-            print(f"\nWith {len(image_paths)} image(s):")
-            for p in image_paths:
-                print(f"  {p}")
+        if is_thread:
+            print(f"DRY RUN -- would post THREAD ({len(image_paths)} tweets):")
+            print("=" * 60)
+            log.info("Generating thread captions via Vision API...")
+            captions = await generate_thread_captions(
+                main_caption=post["text"],
+                image_paths=image_paths,
+                niche_id=niche_id,
+            )
+            for i, (cap, img) in enumerate(zip(captions, image_paths), start=1):
+                print(f"\n--- Tweet {i}/{len(captions)} ---")
+                print(f"Text: {cap}")
+                print(f"Image: {img}")
+        else:
+            print("DRY RUN -- would post:")
+            print("=" * 60)
+            print(post["text"])
+            if image_paths:
+                print(f"\nWith {len(image_paths)} image(s):")
+                for p in image_paths:
+                    print(f"  {p}")
         print("=" * 60)
         return
 
-    # Login and post
-    client = await login(niche_id)
-    log.info("Logged in, posting now...")
-
-    tweet_id = await post_tweet(
-        client=client,
-        text=post["text"],
-        image_paths=image_paths if image_paths else None,
-    )
-
-    if tweet_id:
-        # Mark as posted
-        post["status"] = "posted"
-        post["posted_at"] = datetime.now(timezone.utc).isoformat()
-        post["tweet_id"] = tweet_id
+    # Check character limit (only for non-thread, since thread tweet 1 = original caption)
+    if len(post["text"]) > 280:
+        log.error(f"Post #{post['id']} is {len(post['text'])} chars (max 280). Marking as failed.")
+        post["status"] = "failed"
+        post["fail_reason"] = f"Too long: {len(post['text'])} chars"
         save_posts(posts_data)
+        notify("@tatamispaces post FAILED", f"Post #{post['id']} too long ({len(post['text'])} chars)")
+        return
 
-        post_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{tweet_id}"
-        log.info(f"Posted successfully: {post_url}")
-        notify("@tatamispaces posted", f"Post #{post['id']} is live")
+    # Dedup check — pull recent tweets from timeline and compare against this post
+    log.info("Checking timeline for duplicates...")
+    recent_tweets = get_own_recent_tweets(max_results=20)
+    post_text_norm = post["text"].strip().lower()[:80]
+    for tw in recent_tweets:
+        tw_text_norm = tw.get("text", "").strip().lower()[:80]
+        if post_text_norm == tw_text_norm:
+            existing_id = tw["id"]
+            log.warning(f"DUPLICATE DETECTED — post #{post['id']} already live as tweet {existing_id}")
+            post["status"] = "posted"
+            post["tweet_id"] = existing_id
+            post["posted_at"] = tw.get("created_at", datetime.now(timezone.utc).isoformat())
+            post["dedup_recovered"] = True
+            save_posts(posts_data)
+            notify("@tatamispaces dedup", f"Post #{post['id']} was already live (tweet {existing_id}), marked as posted")
+            return
+
+    # Post via official API (no twikit login needed for single tweets)
+    log.info("Posting via official API...")
+
+    # Mark as "posting" BEFORE sending — prevents duplicate posts if save fails after tweeting
+    post["status"] = "posting"
+    post["posting_started"] = datetime.now(timezone.utc).isoformat()
+    save_posts(posts_data)
+
+    if is_thread:
+        # Thread path still uses twikit (needs login)
+        client = await login(niche_id)
+        community_id = niche.get("community_id")
+        log.info(f"Posting as thread ({len(image_paths)} images)...")
+        captions = await generate_thread_captions(
+            main_caption=post["text"],
+            image_paths=image_paths,
+            niche_id=niche_id,
+        )
+        image_paths_per_tweet = [[p] for p in image_paths]
+
+        tweet_ids = await post_thread(
+            client=client,
+            tweets=captions,
+            image_paths_per_tweet=image_paths_per_tweet,
+            community_id=community_id,
+            delay_range=(120, 300),
+        )
+
+        if tweet_ids:
+            post["status"] = "posted"
+            post["posted_at"] = datetime.now(timezone.utc).isoformat()
+            post["tweet_id"] = tweet_ids[0]
+            post["thread_tweet_ids"] = tweet_ids
+            post["thread_captions"] = captions
+            save_posts(posts_data)
+
+            post_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{tweet_ids[0]}"
+            log.info(f"Thread posted ({len(tweet_ids)} tweets): {post_url}")
+            notify("@tatamispaces thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread")
+        else:
+            post["status"] = "failed"
+            post["fail_reason"] = "Thread posting returned no tweet IDs"
+            save_posts(posts_data)
+            log.error("Failed to post thread. Check logs above.")
+            notify("@tatamispaces post FAILED", f"Post #{post['id']} thread failed")
+
     else:
-        log.error("Failed to post. Check logs above for details.")
-        notify("@tatamispaces post FAILED", f"Post #{post['id']} failed to publish")
+        # Single tweet via official API v2
+        media_ids = []
+        if image_paths:
+            for img_path in image_paths:
+                mid = upload_media(img_path)
+                if mid:
+                    media_ids.append(mid)
+                    log.info(f"  Uploaded media: {Path(img_path).name}")
+                else:
+                    log.warning(f"  Failed to upload: {img_path}")
+
+        tweet_id = create_tweet(
+            text=post["text"],
+            media_ids=media_ids if media_ids else None,
+        )
+
+        if tweet_id:
+            post["status"] = "posted"
+            post["posted_at"] = datetime.now(timezone.utc).isoformat()
+            post["tweet_id"] = tweet_id
+            save_posts(posts_data)
+
+            post_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{tweet_id}"
+            log.info(f"Posted successfully: {post_url}")
+            notify("@tatamispaces posted", f"Post #{post['id']} is live")
+        else:
+            post["status"] = "failed"
+            post["fail_reason"] = "create_tweet returned no tweet ID"
+            save_posts(posts_data)
+            log.error("Failed to post. Check logs above for details.")
+            notify("@tatamispaces post FAILED", f"Post #{post['id']} failed to publish")
+
+    # IG cross-posting is handled by ig_post.py (Graph API) — no longer done here
+    # to avoid double-posting. ig_post.py picks up any posted tweet missing ig_posted flag.
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    lock_fd = acquire_lock(BASE_DIR / ".post.lock")
+    if not lock_fd:
+        log.info("Another post.py is already running, exiting")
+        sys.exit(0)
+    try:
+        asyncio.run(main())
+    finally:
+        release_lock(lock_fd)

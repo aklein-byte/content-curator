@@ -36,13 +36,23 @@ Not every post needs all four. Some images only need 1-2 sentences. But when we'
 - Don't open with a philosophical statement ("The beauty of Japanese design is...")
 - Don't use "not just X, it's Y" or "more than just"
 - Don't explain why something is significant. Describe it. People will decide if it's significant.
-- Don't use: delve, tapestry, vibrant, landscape (figurative), nestled, fostering, leveraging, resonates, testament, beacon, groundbreaking
+- Don't use: delve, tapestry, vibrant, landscape (figurative), nestled, fostering, leveraging, resonates, testament, beacon, groundbreaking, reimagine, curate (as verb), elevate, embark, multifaceted, intricate, pivotal, nuanced, arguably
 - Don't use em-dashes more than once per post
 - Don't write "the real X isn't Y, it's Z"
 - Don't start with "Most people think..." or "Everyone says..."
 - Don't add a moral or lesson at the end
 - Don't use formulaic hook → context → significance → call-to-action structure
 - Don't over-explain Japanese concepts. Use the word. Move on.
+- Don't use rule-of-three lists as punchlines ("You X there, Y there, Z there")
+- Don't personify buildings or architecture ("the building tries to...", "the architecture is quiet because...")
+- Don't end with formulaic contrast kickers ("Same X, different Y", "The colder the X, the better the Y")
+- Don't use "that's basically X with a bonus Y" or "X for the price of Y" quips
+- Don't tack on present-participle phrases ("...showcasing the...", "...highlighting its...")
+- Don't use "the kind of X where Y" literary constructions
+- Don't write listicle-style posts covering 4+ items — one subject per post
+- Don't use vague superlatives without specifics ("remarkable", "extraordinary")
+- Don't hedge with "arguably" or "perhaps" — have an opinion or don't
+- Don't use "stands as" or "serves as" — just say what it is
 
 ### Emoji
 - Sparingly. One per post max.

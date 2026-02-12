@@ -44,3 +44,19 @@ cookies/
 # Downloaded images (large, re-downloadable)
 data/images/
 images/
+
+# Lock files
+*.lock
+
+# Runtime state
+ig-engagement-log.json
+response-log.json
+config.json
+
+# Browser profile (IG login sessions)
+data/ig_browser_profile/
+data/follower-audit.json
+data/ig_images/
+data/ig_staging/
+data/orchestrator-status.json
+data/respond-since-id.txt

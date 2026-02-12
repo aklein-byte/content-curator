@@ -11,8 +11,8 @@ import os
 import json
 import asyncio
 import random
-import logging
 import argparse
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -22,16 +22,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, search_posts, like_post, follow_user, reply_to_post, XPost
+from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger("engage")
+log = setup_logging("engage")
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
@@ -39,29 +35,25 @@ ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(BASE_DIR / "engagemen
 ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / "engagement-drafts.json")))
 
 # Limits
-MAX_LIKES_PER_RUN = 15
-MAX_REPLIES_PER_RUN = 5
-MAX_FOLLOWS_PER_RUN = 3
-POSTS_PER_QUERY = 15
+MAX_LIKES_PER_RUN = 25
+MAX_REPLIES_PER_RUN = 15
+MAX_FOLLOWS_PER_RUN = 5
+POSTS_PER_QUERY = 50
 
-# Delay range between actions (seconds)
-DELAY_MIN = 30
-DELAY_MAX = 120
-
-
-def load_json(path: Path) -> list | dict:
-    if path.exists():
-        return json.loads(path.read_text())
-    return []
+# Time budget — exit gracefully before orchestrator kills us
+MAX_RUNTIME_SECONDS = 1000  # orchestrator timeout is 1200s, leave 200s buffer
 
 
-def save_json(path: Path, data):
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
-def already_engaged(log_entries: list, post_id: str) -> bool:
-    """Check if we already liked/replied to this post."""
-    return any(e["post_id"] == post_id for e in log_entries)
+def already_liked(log_entries: list, post_id: str) -> bool:
+    """Check if we already liked this post."""
+    return any(e["post_id"] == post_id and e["action"] == "like" for e in log_entries)
+
+
+def already_replied(log_entries: list, post_id: str) -> bool:
+    """Check if we already replied to this post."""
+    return any(e["post_id"] == post_id and e["action"] == "reply" for e in log_entries)
 
 
 def load_source_tweet_ids() -> set:
@@ -83,30 +75,22 @@ def load_source_tweet_ids() -> set:
     return ids
 
 
-async def random_delay(label: str = ""):
-    """Sleep a random duration to look human."""
-    wait = random.uniform(DELAY_MIN, DELAY_MAX)
-    if label:
-        log.info(f"Waiting {wait:.0f}s before {label}...")
-    await asyncio.sleep(wait)
-
-
-def notify(title: str, message: str):
-    """macOS notification, fails silently if terminal-notifier not installed."""
-    try:
-        os.system(
-            f'terminal-notifier -title "{title}" -message "{message}" '
-            f'-sound default -group content-curator 2>/dev/null'
-        )
-    except Exception:
-        pass
 
 
 async def main():
+    global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
+
     parser = argparse.ArgumentParser(description="Engage with JP architecture posts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
     parser.add_argument("--dry-run", action="store_true", help="Evaluate only, no actions")
+    parser.add_argument("--max-likes", type=int, default=MAX_LIKES_PER_RUN, help="Max likes per run")
+    parser.add_argument("--max-replies", type=int, default=MAX_REPLIES_PER_RUN, help="Max replies per run")
+    parser.add_argument("--max-follows", type=int, default=MAX_FOLLOWS_PER_RUN, help="Max follows per run")
     args = parser.parse_args()
+
+    MAX_LIKES_PER_RUN = args.max_likes
+    MAX_REPLIES_PER_RUN = args.max_replies
+    MAX_FOLLOWS_PER_RUN = args.max_follows
 
     niche_id = args.niche
     dry_run = args.dry_run
@@ -120,9 +104,12 @@ async def main():
 
     log.info(f"Starting engagement for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
 
-    # Login
-    client = await login(niche_id)
-    log.info("Logged in successfully")
+    start_time = time.time()
+
+    def time_left() -> float:
+        return MAX_RUNTIME_SECONDS - (time.time() - start_time)
+
+    # No login needed — official API uses OAuth from .env
 
     # Load existing logs
     engagement_log = load_json(ENGAGEMENT_LOG)
@@ -132,33 +119,72 @@ async def main():
     # Gather posts from all queries
     all_posts: list[XPost] = []
     seen_ids = set()
+    min_likes = engagement_cfg.get("min_likes", 20)
 
-    # Shuffle queries so we don't always hit the same ones first
-    shuffled_queries = random.sample(queries, min(len(queries), 4))
+    # Run a random subset of queries each run (covers different ground each time)
+    max_queries = min(10, len(queries))
+    shuffled_queries = random.sample(queries, max_queries)
+    failed_searches = 0
 
-    for query in shuffled_queries:
+    for i, query in enumerate(shuffled_queries):
+        if time_left() < 120:
+            log.warning(f"Time budget low ({time_left():.0f}s left), stopping searches")
+            break
+
         log.info(f"Searching: {query[:60]}...")
-        posts = await search_posts(client, query, count=POSTS_PER_QUERY, product="Top")
+        posts = search_posts(query, max_results=POSTS_PER_QUERY)
+
+        if not posts:
+            failed_searches += 1
+            log.warning(f"Search returned 0 results ({failed_searches} failures)")
+            if failed_searches >= 3:
+                log.warning("3+ search failures, API issue — skipping remaining queries")
+                break
+            time.sleep(5)
+            continue
+
+        # Filter by min likes (API v2 doesn't support min_faves operator)
+        before = len(posts)
+        posts = [p for p in posts if p.likes >= min_likes]
+        log.info(f"  {len(posts)}/{before} posts with >= {min_likes} likes")
+
         for p in posts:
             if p.post_id not in seen_ids:
                 seen_ids.add(p.post_id)
                 all_posts.append(p)
-        await random_delay("next search")
+
+        # Brief delay between searches (API handles rate limiting, no need for long waits)
+        if i < len(shuffled_queries) - 1:
+            time.sleep(random.uniform(3, 8))
 
     log.info(f"Found {len(all_posts)} unique posts across {len(shuffled_queries)} queries")
 
     # Skip tweets we've used as sources for our own posts
     source_ids = load_source_tweet_ids()
 
-    # Evaluate all posts with Claude
+    # Skip our own tweets (don't engage with ourselves)
+    our_handle = niche["handle"].lstrip("@").lower()
+
+    # Evaluate posts with Claude (shuffle so each run sees different posts first)
+    random.shuffle(all_posts)
     scored_posts = []
+    eval_count = 0
     for post in all_posts:
-        if already_engaged(engagement_log, post.post_id):
+        if time_left() < 300:
+            log.warning(f"Time budget low ({time_left():.0f}s), stopping evaluations ({eval_count} done)")
+            break
+        liked = already_liked(engagement_log, post.post_id)
+        replied = already_replied(engagement_log, post.post_id)
+        if liked and replied:
+            continue  # Fully engaged, skip
+        if post.author_handle.lower() == our_handle:
+            log.info(f"  Skip @{post.author_handle} — our own tweet")
             continue
         if post.post_id in source_ids:
             log.info(f"  Skip @{post.author_handle} — source tweet for our content")
             continue
 
+        eval_count += 1
         evaluation = await evaluate_post(
             post_text=post.text,
             author=post.author_handle,
@@ -181,14 +207,20 @@ async def main():
     for post, eval_data in scored_posts:
         if likes_done >= MAX_LIKES_PER_RUN:
             break
-        if eval_data["relevance_score"] < 7:
+        if time_left() < 60:
+            log.warning(f"Time budget low ({time_left():.0f}s), stopping likes")
+            break
+        if eval_data["relevance_score"] < 5:
+            continue
+        if already_liked(engagement_log, post.post_id):
             continue
 
         if dry_run:
             log.info(f"[DRY RUN] Would like post by @{post.author_handle} (score {eval_data['relevance_score']})")
+            likes_done += 1
         else:
-            await random_delay("like")
-            success = await like_post(client, post.post_id)
+            time.sleep(random.uniform(2, 8))
+            success = like_post(post.post_id)
             if success:
                 likes_done += 1
                 engagement_log.append({
@@ -206,9 +238,12 @@ async def main():
     for post, eval_data in scored_posts:
         if replies_done >= MAX_REPLIES_PER_RUN:
             break
-        if eval_data["relevance_score"] < 7:
+        if time_left() < 120:
+            log.warning(f"Time budget low ({time_left():.0f}s), stopping replies")
+            break
+        if eval_data["relevance_score"] < 6:
             continue
-        if "reply" not in eval_data.get("suggested_actions", []):
+        if already_replied(engagement_log, post.post_id):
             continue
         if post.author_handle in replied_authors:
             continue
@@ -226,8 +261,8 @@ async def main():
                 replies_done += 1
                 replied_authors.add(post.author_handle)
             else:
-                await random_delay("reply")
-                reply_id = await reply_to_post(client, post.post_id, reply_text)
+                time.sleep(random.uniform(3, 10))
+                reply_id = reply_to_post(post.post_id, reply_text)
                 if reply_id:
                     replies_done += 1
                     replied_authors.add(post.author_handle)
@@ -252,9 +287,10 @@ async def main():
     for post, eval_data in scored_posts:
         if follows_done >= MAX_FOLLOWS_PER_RUN:
             break
-        if eval_data["relevance_score"] < 8:
-            continue
-        if "follow" not in eval_data.get("suggested_actions", []):
+        if time_left() < 30:
+            log.warning(f"Time budget low ({time_left():.0f}s), stopping follows")
+            break
+        if eval_data["relevance_score"] < 7:
             continue
         if post.author_handle in followed_handles or post.author_handle in seen_follow_handles:
             continue
@@ -264,8 +300,8 @@ async def main():
             log.info(f"[DRY RUN] Would follow @{post.author_handle}")
             follows_done += 1
         else:
-            await random_delay("follow")
-            success = await follow_user(client, post.author_handle)
+            time.sleep(random.uniform(2, 8))
+            success = follow_user(post.author_id)
             if success:
                 follows_done += 1
                 followed_handles.add(post.author_handle)
@@ -282,8 +318,9 @@ async def main():
     save_json(ENGAGEMENT_LOG, engagement_log)
 
     # Summary
+    elapsed = int(time.time() - start_time)
     summary = (
-        f"Done. Likes: {likes_done}, Replies: {replies_done}, "
+        f"Done in {elapsed}s. Likes: {likes_done}, Replies: {replies_done}, "
         f"Follows: {follows_done}"
     )
     log.info(summary)
@@ -292,4 +329,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    lock_fd = acquire_lock(BASE_DIR / ".engage.lock")
+    if not lock_fd:
+        log.info("Another engage.py is already running, exiting")
+        sys.exit(0)
+    try:
+        asyncio.run(main())
+    finally:
+        release_lock(lock_fd)
