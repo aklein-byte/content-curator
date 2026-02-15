@@ -355,13 +355,17 @@ def generate_story(obj: MuseumObject, fmt: str) -> dict | None:
     if fmt == "single":
         format_instructions = """Write a SINGLE TWEET (max 280 characters).
 Include one image URL from the available images.
-Must end with a signature line on the same tweet: "Artist, Title, Year. Museum." """
+Must end with a signature line on the same tweet: "Artist, Title, Year. Museum."
+Do NOT use em-dashes (—). Use periods or commas instead."""
     else:
         format_instructions = """Write a THREAD of 2-3 tweets.
 Each tweet must be under 280 characters.
-Each tweet should have a different image (never repeat).
+CRITICAL: Each tweet MUST use a DIFFERENT image. NEVER repeat the same image URL across tweets.
+If you only have crops of the same photo, write a single tweet instead.
+If you reference another artwork or comparison, you MUST include it as an image. Don't mention things you can't show.
 The LAST tweet must end with: "Artist, Title, Year. Museum."
-Text-only tweets (no image) are fine if the story needs it."""
+Don't pad. Every tweet must advance the story. 2 strong tweets > 3 weak ones.
+Do NOT use em-dashes (—). Use periods or commas instead."""
 
     prompt = f"""## OBJECT METADATA
 {metadata_block}
@@ -425,11 +429,19 @@ No markdown, no explanation, just the JSON."""
             return None
 
         # Validate: reject banned words
-        banned = ["delve", "tapestry", "vibrant", "realm", "nestled", "testament", "beacon", "multifaceted"]
+        banned = ["delve", "tapestry", "vibrant", "realm", "nestled", "testament", "beacon",
+                  "multifaceted", "landscape", "groundbreaking", "fostering", "leveraging"]
+        banned_phrases = ["not just", "more than just", "isn't merely", "a testament to",
+                         "a beacon of", "at the heart of", "rich tapestry"]
         all_text = " ".join(t["text"] for t in story["tweets"])
+        all_lower = all_text.lower()
         for word in banned:
-            if word.lower() in all_text.lower():
+            if word.lower() in all_lower:
                 log.warning(f"Banned word '{word}' in generated post for {obj.title} — rejecting")
+                return None
+        for phrase in banned_phrases:
+            if phrase in all_lower:
+                log.warning(f"Banned phrase '{phrase}' in generated post for {obj.title} — rejecting")
                 return None
 
         # Validate: reject any tweet over 280 chars (truncation would break signature lines)
@@ -437,6 +449,18 @@ No markdown, no explanation, just the JSON."""
             if len(tweet["text"]) > 280:
                 log.warning(f"Tweet {i+1} is {len(tweet['text'])} chars for {obj.title} — rejecting")
                 return None
+
+        # Validate: no duplicate images across tweets in a thread
+        if len(story["tweets"]) > 1:
+            image_urls = [t.get("image_url") for t in story["tweets"] if t.get("image_url")]
+            if len(image_urls) != len(set(image_urls)):
+                log.warning(f"Duplicate images in thread for {obj.title} — rejecting")
+                return None
+
+        # Validate: em-dashes
+        if "\u2014" in all_text or "—" in all_text:
+            log.warning(f"Em-dash found in generated post for {obj.title} — rejecting")
+            return None
 
         # Add metadata
         story["metadata"] = {
