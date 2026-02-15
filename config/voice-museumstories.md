@@ -38,8 +38,8 @@ Example: "Jacques-Louis David, The Death of Socrates, 1787. The Met."
 - 2-3 tweets max. Don't pad.
 
 ## Single Tweet Rules
-- Max 280 chars
-- One image, one story, one hook
+- Premium account, no 280 char limit. Write as long as the story needs (300-500 typical).
+- One or more images, one story, one hook
 - Perfectly fine format. Don't stretch to a thread just for format.
 
 ## Banned Words

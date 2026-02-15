@@ -353,13 +353,14 @@ def generate_story(obj: MuseumObject, fmt: str) -> dict | None:
     metadata_block = "\n".join(meta_parts)
 
     if fmt == "single":
-        format_instructions = """Write a SINGLE TWEET (max 280 characters).
-Include one image URL from the available images.
-Must end with a signature line on the same tweet: "Artist, Title, Year. Museum."
+        format_instructions = """Write a SINGLE TWEET. This is a Premium account, no 280 char limit.
+Write as long as the story needs. 300-500 chars is typical. Let the story breathe.
+Include one or more image URLs from the available images.
+Must end with a signature line: "Artist, Title, Year. Museum."
 Do NOT use em-dashes (—). Use periods or commas instead."""
     else:
-        format_instructions = """Write a THREAD of 2-3 tweets.
-Each tweet must be under 280 characters.
+        format_instructions = """Write a THREAD of 2-3 tweets. Premium account, no 280 char limit.
+Keep each tweet under 500 chars for readability. Threads should be punchy.
 CRITICAL: Each tweet MUST use a DIFFERENT image. NEVER repeat the same image URL across tweets.
 If you only have crops of the same photo, write a single tweet instead.
 If you reference another artwork or comparison, you MUST include it as an image. Don't mention things you can't show.
@@ -444,11 +445,14 @@ No markdown, no explanation, just the JSON."""
                 log.warning(f"Banned phrase '{phrase}' in generated post for {obj.title} — rejecting")
                 return None
 
-        # Validate: reject any tweet over 280 chars (truncation would break signature lines)
-        for i, tweet in enumerate(story["tweets"]):
-            if len(tweet["text"]) > 280:
-                log.warning(f"Tweet {i+1} is {len(tweet['text'])} chars for {obj.title} — rejecting")
-                return None
+        # Validate tweet length. Account is Premium (25k limit) so no hard 280 cap.
+        # Thread tweets: keep under 600 for readability (threads should be punchy)
+        # Singles: no limit (let the story breathe)
+        if len(story["tweets"]) > 1:
+            for i, tweet in enumerate(story["tweets"]):
+                if len(tweet["text"]) > 600:
+                    log.warning(f"Thread tweet {i+1} is {len(tweet['text'])} chars for {obj.title} — rejecting")
+                    return None
 
         # Validate: no duplicate images across tweets in a thread
         if len(story["tweets"]) > 1:
