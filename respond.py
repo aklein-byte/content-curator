@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xapi import get_mentions, reply_to_post, _get_user_id
+from tools.xapi import get_mentions, reply_to_post, _get_user_id, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config
 from config.niches import get_niche
 from anthropic import Anthropic
@@ -201,6 +201,7 @@ async def main():
     dry_run = args.dry_run
     max_responses = args.max_responses
     niche = get_niche(niche_id)
+    set_xapi_niche(niche_id)
     handle = niche["handle"].lstrip("@")
 
     log.info(f"Checking replies for @{handle} ({'DRY RUN' if dry_run else 'LIVE'})")

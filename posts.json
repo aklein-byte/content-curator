@@ -280,7 +280,8 @@
         "https://pbs.twimg.com/media/HAZkOhgacAE_lbc?format=jpg&name=orig",
         "https://pbs.twimg.com/media/HAZkObOboAEmVDH?format=jpg&name=orig",
         "https://pbs.twimg.com/media/HAZkOeRacAomu61?format=jpg&name=orig"
-      ]
+      ],
+      "category": "temple"
     },
     {
       "id": 14,
@@ -322,7 +323,8 @@
       "source_handle": "@3Dcgrooms",
       "status": "approved",
       "scheduled_for": "2026-02-12T12:54:00-05:00",
-      "notes": "From bookmarks. Score 7/10. 821 likes. Shows Japanese apartment interior (12畳 1LDK for 2 people) with good engagement. "
+      "notes": "From bookmarks. Score 7/10. 821 likes. Shows Japanese apartment interior (12畳 1LDK for 2 people) with good engagement. ",
+      "category": "residential"
     },
     {
       "id": 16,
@@ -425,7 +427,8 @@
       "source_handle": "@mm__ii89",
       "status": "approved",
       "scheduled_for": "2026-02-12T19:27:00-05:00",
-      "notes": "From bookmarks. Score 6/10. 2802 likes. Adult-only ryokan in Izu."
+      "notes": "From bookmarks. Score 6/10. 2802 likes. Adult-only ryokan in Izu.",
+      "category": "ryokan"
     },
     {
       "id": 21,
@@ -439,7 +442,8 @@
       "source_handle": "@mido25risen",
       "status": "approved",
       "scheduled_for": "2026-02-14T19:38:00-05:00",
-      "notes": "From bookmarks. Score 7/10. 847 likes. Ryokan on Pacific coast, Ibaraki."
+      "notes": "From bookmarks. Score 7/10. 847 likes. Ryokan on Pacific coast, Ibaraki.",
+      "category": "ryokan"
     },
     {
       "id": 22,
@@ -507,7 +511,8 @@
       "source_handle": "@voguejp",
       "status": "approved",
       "scheduled_for": "2026-02-12T08:38:00-05:00",
-      "notes": "From bookmarks. Score 7/10. 762 likes. Vogue Japan ryokan roundup. Moved to Feb 11 AM."
+      "notes": "From bookmarks. Score 7/10. 762 likes. Vogue Japan ryokan roundup. Moved to Feb 11 AM.",
+      "category": "ryokan"
     },
     {
       "id": 26,
@@ -576,7 +581,8 @@
       "source_handle": "@kiwamisauna2",
       "status": "approved",
       "scheduled_for": "2026-02-13T08:16:00-05:00",
-      "notes": "From bookmarks. Score 8/10. 643 likes. Historic building turned sauna. Moved to Feb 12 AM."
+      "notes": "From bookmarks. Score 8/10. 643 likes. Historic building turned sauna. Moved to Feb 12 AM.",
+      "category": "adaptive-reuse"
     },
     {
       "id": 29,
@@ -593,7 +599,8 @@
       "source_handle": "@cobb_room",
       "status": "approved",
       "scheduled_for": "2026-02-13T20:05:00-05:00",
-      "notes": "From bookmarks. Score 9/10. 363 likes. Machiya rental in Kanazawa samurai district."
+      "notes": "From bookmarks. Score 9/10. 363 likes. Machiya rental in Kanazawa samurai district.",
+      "category": "historic-house"
     },
     {
       "id": 30,
@@ -610,7 +617,8 @@
       "source_handle": "@tokyo__r",
       "status": "approved",
       "scheduled_for": "2026-02-14T07:53:00-05:00",
-      "notes": "From bookmarks. Score 9/10. 1079 likes. Koji Ide slope housing in Kawasaki."
+      "notes": "From bookmarks. Score 9/10. 1079 likes. Koji Ide slope housing in Kawasaki.",
+      "category": "modern-architecture"
     },
     {
       "id": 31,
@@ -773,7 +781,8 @@
       "source_handle": "@fire55miya",
       "status": "approved",
       "scheduled_for": "2026-02-12T17:02:00-05:00",
-      "notes": "From bookmarks. Score 8/10. 2141 likes. High-quality post about Gora Kadan, a prestigious traditional Japanese inn in Ha"
+      "notes": "From bookmarks. Score 8/10. 2141 likes. High-quality post about Gora Kadan, a prestigious traditional Japanese inn in Ha",
+      "category": "ryokan"
     },
     {
       "id": 38,
@@ -789,7 +798,8 @@
       "source_handle": "@JapanArchitects",
       "status": "approved",
       "scheduled_for": "2026-02-13T11:46:00-05:00",
-      "notes": "From bookmarks. Score 9/10. 86 likes. Perfect content - Japanese residential architecture with moss garden, curved roo"
+      "notes": "From bookmarks. Score 9/10. 86 likes. Perfect content - Japanese residential architecture with moss garden, curved roo",
+      "category": "modern-architecture"
     },
     {
       "id": 39,
@@ -806,7 +816,8 @@
       "source_handle": "@luusssso",
       "status": "approved",
       "scheduled_for": "2026-02-14T11:18:00-05:00",
-      "notes": "From bookmarks. Score 8/10. 3063 likes. High-quality architectural content featuring iconic Japanese Brutalist design by"
+      "notes": "From bookmarks. Score 8/10. 3063 likes. High-quality architectural content featuring iconic Japanese Brutalist design by",
+      "category": "modern-architecture"
     },
     {
       "id": 40,

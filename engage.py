@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost
+from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost, get_liking_users, get_own_recent_tweets, get_user_recent_tweets, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
@@ -77,6 +77,65 @@ def load_source_tweet_ids() -> set:
 
 
 
+def engage_back(eng_log: list, dry_run: bool = False) -> int:
+    """Like tweets from users who recently liked our posts. Highest-ROI engagement."""
+    log.info("Checking who engaged with our recent posts...")
+    our_tweets = get_own_recent_tweets(max_results=10)
+    if not our_tweets:
+        log.info("  No recent tweets to check")
+        return 0
+
+    # Collect likers we haven't engaged back with
+    already_liked_authors = {e.get("author_handle") or e.get("author") for e in eng_log if e.get("action") == "like"}
+    likers = {}
+    for tweet in our_tweets[:5]:  # Check last 5 posts (save API credits)
+        users = get_liking_users(tweet["id"], max_results=10)
+        for u in users:
+            handle = u.get("username", "")
+            if handle and handle not in likers and handle not in already_liked_authors:
+                likers[handle] = u
+
+    if not likers:
+        log.info("  No new likers to engage back with")
+        return 0
+
+    log.info(f"  Found {len(likers)} users who liked our posts")
+
+    # Like 1-2 of their recent tweets
+    engaged = 0
+    import random as _rand
+    import time as _time
+    for handle, user_info in list(likers.items())[:5]:
+        user_id = user_info.get("id")
+        if not user_id:
+            continue
+        their_tweets = get_user_recent_tweets(user_id, max_results=5)
+        if not their_tweets:
+            continue
+
+        tweet_to_like = their_tweets[0]  # Most recent
+        if dry_run:
+            log.info(f"  [DRY] Would like @{handle}'s tweet: {tweet_to_like.get('text', '')[:50]}...")
+            engaged += 1
+        else:
+            delay = _rand.randint(15, 45)
+            log.info(f"  Waiting {delay}s before engaging back with @{handle}...")
+            _time.sleep(delay)
+            if like_post(tweet_to_like["id"]):
+                engaged += 1
+                eng_log.append({
+                    "action": "like",
+                    "post_id": tweet_to_like["id"],
+                    "author_handle": handle,
+                    "reason": "engage_back",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
+                log.info(f"  Liked @{handle}'s tweet (engage-back {engaged})")
+
+    log.info(f"  Engage-back: {engaged} likes")
+    return engaged
+
+
 async def main():
     global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
 
@@ -95,6 +154,7 @@ async def main():
     niche_id = args.niche
     dry_run = args.dry_run
     niche = get_niche(niche_id)
+    set_xapi_niche(niche_id)
     engagement_cfg = niche.get("engagement", {})
     queries = engagement_cfg.get("search_queries", [])
 
@@ -121,8 +181,11 @@ async def main():
     seen_ids = set()
     min_likes = engagement_cfg.get("min_likes", 20)
 
+    # Engage back with people who liked our posts (highest ROI)
+    engage_back(eng_log, dry_run)
+
     # Run a random subset of queries each run (covers different ground each time)
-    max_queries = min(10, len(queries))
+    max_queries = min(load_config().get("max_queries_per_run", 5), len(queries))
     shuffled_queries = random.sample(queries, max_queries)
     failed_searches = 0
 
@@ -200,7 +263,8 @@ async def main():
         )
 
     # Sort by relevance score descending
-    scored_posts.sort(key=lambda x: x[1]["relevance_score"], reverse=True)
+    # Sort by relevance first, then by views (bigger audience = more exposure)
+    scored_posts.sort(key=lambda x: (x[1]["relevance_score"], x[0].views), reverse=True)
 
     # --- Auto-like posts scoring 7+ ---
     likes_done = 0

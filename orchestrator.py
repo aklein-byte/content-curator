@@ -26,10 +26,13 @@ from datetime import datetime, timedelta, date, time as dt_time
 from zoneinfo import ZoneInfo
 
 BASE_DIR = Path(__file__).parent
-CONFIG_FILE = BASE_DIR / "config.json"
+DEFAULT_CONFIG_FILE = BASE_DIR / "config.json"
 STATUS_FILE = BASE_DIR / "data" / "orchestrator-status.json"
 LOCKFILE = BASE_DIR / ".orchestrator.lock"
 LOG_DIR = BASE_DIR / "logs"
+
+# Set by main() from --config flag
+CONFIG_FILE = DEFAULT_CONFIG_FILE
 
 ET = ZoneInfo("America/New_York")
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -698,11 +701,20 @@ def heartbeat(config: dict, dry_run: bool = False):
 # --- Main ---
 
 def main():
-    parser = argparse.ArgumentParser(description="Tatamispaces orchestrator")
+    parser = argparse.ArgumentParser(description="Social media orchestrator")
     parser.add_argument("command", nargs="?", default="run", choices=["run", "status"],
                         help="'run' for heartbeat, 'status' for today's summary")
     parser.add_argument("--dry-run", action="store_true", help="Show what would run without running")
+    parser.add_argument("--config", default=None, help="Config file (default: config.json)")
     args = parser.parse_args()
+
+    global CONFIG_FILE, STATUS_FILE, LOCKFILE
+    if args.config:
+        CONFIG_FILE = BASE_DIR / args.config
+        # Derive status file and lockfile from config name for isolation
+        config_stem = Path(args.config).stem
+        STATUS_FILE = BASE_DIR / "data" / f"orchestrator-status-{config_stem}.json"
+        LOCKFILE = BASE_DIR / f".orchestrator-{config_stem}.lock"
 
     config = load_config()
 

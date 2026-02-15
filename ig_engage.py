@@ -11,6 +11,7 @@ Usage: python ig_engage.py [--niche tatamispaces] [--dry-run]
 import sys
 import os
 import json
+import re
 import asyncio
 import random
 import argparse
@@ -96,88 +97,106 @@ def already_engaged(log_entries: list, shortcode: str, action: str) -> bool:
 
 
 async def scrape_hashtag_posts(page, hashtag: str, max_posts: int = 9) -> list[IGPost]:
-    """Navigate to a hashtag page and scrape the top posts."""
+    """Navigate to a hashtag page, collect shortcodes, then visit each post page."""
     url = f"https://www.instagram.com/explore/tags/{hashtag}/"
     log.info(f"Browsing #{hashtag}...")
     await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-    await page.wait_for_timeout(3000)
+    await page.wait_for_timeout(4000)
 
-    # Click on each of the top posts and extract info
-    posts = []
-    # Get all post links from the grid
+    # Dismiss any dialogs that might be blocking
+    try:
+        not_now = page.locator('button:has-text("Not now"), div[role="button"]:has-text("Not now")').first
+        if await not_now.count() > 0:
+            await not_now.click()
+            await page.wait_for_timeout(1000)
+    except Exception:
+        pass
+
+    # Collect shortcodes from the grid
+    shortcodes = []
     links = await page.locator('a[href*="/p/"]').all()
-    links = links[:max_posts]
-
-    for i, link in enumerate(links):
+    for link in links[:max_posts]:
         try:
             href = await link.get_attribute("href")
-            if not href or "/p/" not in href:
-                continue
-            shortcode = href.split("/p/")[1].strip("/")
+            if href and "/p/" in href:
+                sc = href.split("/p/")[1].strip("/")
+                if sc and sc not in shortcodes:
+                    shortcodes.append(sc)
+        except Exception:
+            pass
 
-            # Open the post
-            await link.click()
+    log.info(f"  Found {len(shortcodes)} post links on #{hashtag}")
+
+    # Visit each post page directly (more reliable than modal extraction)
+    posts = []
+    for sc in shortcodes:
+        try:
+            post_url = f"https://www.instagram.com/p/{sc}/"
+            await page.goto(post_url, wait_until="domcontentloaded", timeout=20000)
             await page.wait_for_timeout(2000)
 
-            # Extract data from the overlay/modal
-            caption = ""
             author = ""
+            caption = ""
             likes = 0
 
-            # Author
-            try:
-                author_el = page.locator('article header a[href*="/"]').first
-                author = (await author_el.get_attribute("href") or "").strip("/")
-            except Exception:
-                pass
-
-            # Caption — try multiple selectors
-            try:
-                # IG puts captions in h1 or in the first list item's span
-                for selector in [
-                    'article h1',
-                    'article ul li:first-child span:not(a span)',
-                    'article div[role="presentation"] span',
-                    'article ul li span',
-                ]:
-                    el = page.locator(selector).first
+            # Author — look for profile link in header
+            for sel in ['header a[href*="/"]', 'article header a', 'a[role="link"][href*="/"]']:
+                try:
+                    el = page.locator(sel).first
                     if await el.count() > 0:
-                        text = await el.inner_text()
-                        if text and len(text.strip()) > 3 and text.strip() != author:
-                            caption = text.strip()[:500]
-                            break
+                        href = await el.get_attribute("href")
+                        if href and href.count("/") <= 3:
+                            author = href.strip("/").split("/")[-1]
+                            if author and author not in ("p", "explore", "reels"):
+                                break
+                            author = ""
+                except Exception:
+                    pass
+
+            # Caption — og:description is the most reliable source
+            try:
+                og = await page.locator('meta[property="og:description"]').get_attribute("content")
+                if og:
+                    # Strip the "X likes, Y comments - username on DATE: " prefix
+                    m = re.search(r'on \w+ \d+, \d{4}.{0,5}[:"]\s*(.+)', og, re.DOTALL)
+                    caption = (m.group(1) if m else og).strip().strip('"').strip()[:500]
             except Exception:
                 pass
+            if not caption:
+                # Fallback: second h1 (first is always "Post")
+                try:
+                    h1s = await page.locator('h1').all()
+                    for h in h1s:
+                        text = (await h.inner_text()).strip()
+                        if text and text != "Post" and len(text) > 3:
+                            caption = text[:500]
+                            break
+                except Exception:
+                    pass
 
             # Like count
             try:
-                like_el = page.locator('section span, button span').filter(has_text=" like")
-                like_text = await like_el.first.inner_text()
-                likes = int(like_text.replace(",", "").split()[0])
+                like_el = page.locator('section span, button span').filter(has_text="like")
+                if await like_el.count() > 0:
+                    like_text = await like_el.first.inner_text()
+                    num = like_text.replace(",", "").split()[0]
+                    likes = int(num)
             except Exception:
                 pass
 
             if author:
                 posts.append(IGPost(
-                    shortcode=shortcode,
+                    shortcode=sc,
                     author=author,
                     caption=caption,
                     likes=likes,
-                    url=f"https://www.instagram.com/p/{shortcode}/",
+                    url=post_url,
                 ))
-
-            # Close the overlay
-            await page.keyboard.press("Escape")
-            await page.wait_for_timeout(1000)
+            else:
+                log.debug(f"  Skipping {sc}: no author found")
 
         except Exception as e:
-            log.warning(f"  Failed to scrape post {i}: {e}")
-            # Try to close any open overlay
-            try:
-                await page.keyboard.press("Escape")
-                await page.wait_for_timeout(500)
-            except Exception:
-                pass
+            log.warning(f"  Failed to scrape post {sc}: {e}")
 
     log.info(f"  Scraped {len(posts)} posts from #{hashtag}")
     return posts
@@ -389,6 +408,8 @@ async def main():
     parser.add_argument("--max-likes", type=int, default=MAX_LIKES)
     parser.add_argument("--max-comments", type=int, default=MAX_COMMENTS)
     parser.add_argument("--max-follows", type=int, default=MAX_FOLLOWS)
+    parser.add_argument("--headless", action="store_true", default=True, help="Run browser headless (default)")
+    parser.add_argument("--no-headless", dest="headless", action="store_false", help="Show browser window")
     args = parser.parse_args()
 
     niche_id = args.niche
@@ -412,12 +433,22 @@ async def main():
     seen_shortcodes = set()
 
     async with async_playwright() as pw:
-        context = await get_ig_browser(pw)
+        context = await get_ig_browser(pw, headless=args.headless)
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Go to IG home to confirm login
         await page.goto("https://www.instagram.com/", wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(4000)
+
+        # Dismiss "Save your login info?" dialog if present
+        try:
+            not_now = page.locator('button:has-text("Not now"), div[role="button"]:has-text("Not now")').first
+            if await not_now.count() > 0:
+                await not_now.click()
+                await page.wait_for_timeout(2000)
+                log.info("Dismissed 'Save login info' dialog")
+        except Exception:
+            pass
 
         # Scrape posts from hashtag pages
         for hashtag in hashtags:

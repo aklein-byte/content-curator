@@ -4,9 +4,9 @@ X/Twitter Official API v2 client.
 Uses OAuth 1.0a (user context) for search, like, reply, follow.
 Replaces twikit for engagement — more reliable, no cookie expiry, no 404 flakiness.
 
-Requires in .env:
-  X_API_CONSUMER_KEY, X_API_CONSUMER_SECRET,
-  X_API_ACCESS_TOKEN, X_API_ACCESS_TOKEN_SECRET
+Credentials are resolved per-niche via x_api_env in config/niches.py.
+Call set_niche("museumstories") before API calls to switch accounts.
+Default (tatamispaces): X_API_CONSUMER_KEY, X_API_CONSUMER_SECRET, etc.
 """
 
 import os
@@ -20,6 +20,22 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 API_BASE = "https://api.twitter.com/2"
+
+# Per-niche credential support. Call set_niche("museumstories") before using
+# any API functions to switch X API accounts.
+# Env var names are configured per-niche in config/niches.py under x_api_env.
+_active_niche: str | None = None
+_niche_env_map: dict | None = None  # cached from niches.py
+
+
+def set_niche(niche_id: str | None):
+    """Set the active niche for credential resolution. Clears user ID cache."""
+    global _active_niche, _niche_env_map
+    _active_niche = niche_id
+    _niche_env_map = None  # reset so it re-reads from config
+    # Clear cached user ID since it's per-account
+    if hasattr(_get_user_id, "_cached"):
+        del _get_user_id._cached
 
 
 def _to_orig_url(url: str) -> str:
@@ -40,12 +56,40 @@ def _to_orig_url(url: str) -> str:
     return url
 
 
+def _get_env_map() -> dict:
+    """Get env var name mapping for the active niche."""
+    global _niche_env_map
+    if _niche_env_map is not None:
+        return _niche_env_map
+
+    # Default env var names (tatamispaces)
+    defaults = {
+        "consumer_key": "X_API_CONSUMER_KEY",
+        "consumer_secret": "X_API_CONSUMER_SECRET",
+        "access_token": "X_API_ACCESS_TOKEN",
+        "access_token_secret": "X_API_ACCESS_TOKEN_SECRET",
+    }
+
+    if _active_niche:
+        try:
+            from config.niches import get_niche
+            niche = get_niche(_active_niche)
+            _niche_env_map = niche.get("x_api_env", defaults)
+        except Exception:
+            _niche_env_map = defaults
+    else:
+        _niche_env_map = defaults
+
+    return _niche_env_map
+
+
 def _get_auth() -> OAuth1:
+    env_map = _get_env_map()
     return OAuth1(
-        os.environ["X_API_CONSUMER_KEY"],
-        os.environ["X_API_CONSUMER_SECRET"],
-        os.environ["X_API_ACCESS_TOKEN"],
-        os.environ["X_API_ACCESS_TOKEN_SECRET"],
+        os.environ[env_map["consumer_key"]],
+        os.environ[env_map["consumer_secret"]],
+        os.environ[env_map["access_token"]],
+        os.environ[env_map["access_token_secret"]],
     )
 
 
@@ -242,13 +286,17 @@ def upload_media(file_path: str) -> str | None:
         return None
 
 
-def create_tweet(text: str, media_ids: list[str] | None = None, reply_to: str | None = None) -> str | None:
+def create_tweet(text: str, media_ids: list[str] | None = None, reply_to: str | None = None, community_id: str | None = None, quote_tweet_id: str | None = None) -> str | None:
     """Create a tweet via v2 API. Returns tweet ID or None."""
     payload = {"text": text}
     if media_ids:
         payload["media"] = {"media_ids": media_ids}
     if reply_to:
         payload["reply"] = {"in_reply_to_tweet_id": reply_to}
+    if community_id:
+        payload["community_id"] = community_id
+    if quote_tweet_id:
+        payload["quote_tweet_id"] = quote_tweet_id
 
     r = requests.post(
         f"{API_BASE}/tweets",
@@ -469,6 +517,84 @@ def get_user_recent_tweets(user_id: str, max_results: int = 5) -> list[dict]:
         log.warning(f"Failed to fetch tweets for user {user_id}: {r.status_code}")
         return []
     return r.json().get("data", [])
+
+
+def get_liking_users(tweet_id: str, max_results: int = 20) -> list[dict]:
+    """Get users who liked a tweet. Returns list of {id, username, name}."""
+    r = requests.get(
+        f"{API_BASE}/tweets/{tweet_id}/liking_users",
+        params={
+            "max_results": min(max_results, 100),
+            "user.fields": "username,name,public_metrics",
+        },
+        auth=_get_auth(),
+        timeout=15,
+    )
+    if r.status_code == 429:
+        log.warning("Rate limited on liking_users")
+        return []
+    if r.status_code != 200:
+        log.warning(f"Liking users failed for {tweet_id}: {r.status_code}")
+        return []
+    return r.json().get("data", [])
+
+
+def post_thread(
+    tweets: list[dict],
+    delay_seconds: tuple[int, int] = (120, 300),
+) -> list[str]:
+    """Post a thread (chain of tweets) via X API v2.
+
+    Each entry in tweets should have:
+      - "text": tweet text (required)
+      - "image_paths": list of local image file paths (optional)
+
+    Returns list of posted tweet IDs. May be shorter than tweets if a post fails.
+    """
+    import time as _time
+    import random
+
+    if not tweets:
+        return []
+
+    posted_ids = []
+
+    for i, tweet_data in enumerate(tweets):
+        text = tweet_data["text"]
+        image_paths = tweet_data.get("image_paths", [])
+
+        # Upload images
+        media_ids = []
+        for img_path in image_paths:
+            mid = upload_media(img_path)
+            if mid:
+                media_ids.append(mid)
+            else:
+                log.warning(f"Thread tweet {i+1}: failed to upload {img_path}")
+
+        # Reply to previous tweet (except first)
+        reply_to = posted_ids[-1] if posted_ids else None
+
+        tweet_id = create_tweet(
+            text=text,
+            media_ids=media_ids if media_ids else None,
+            reply_to=reply_to,
+        )
+
+        if tweet_id:
+            posted_ids.append(tweet_id)
+            log.info(f"Thread {i+1}/{len(tweets)}: {tweet_id}")
+        else:
+            log.error(f"Thread broken at tweet {i+1}/{len(tweets)}")
+            break
+
+        # Delay between tweets (skip after last)
+        if i < len(tweets) - 1:
+            delay = random.uniform(*delay_seconds)
+            log.info(f"Waiting {delay:.0f}s before next tweet...")
+            _time.sleep(delay)
+
+    return posted_ids
 
 
 def get_user_id_by_handle(handle: str) -> str | None:

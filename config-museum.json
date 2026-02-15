@@ -1,0 +1,30 @@
+{
+  "niche": "museumstories",
+  "python": "venv/bin/python",
+  "notifications": {
+    "on_failure": true,
+    "consecutive_failures_alert": 3
+  },
+  "scripts": {
+    "museum_fetch": {
+      "type": "scheduled",
+      "file": "museum_fetch.py",
+      "times_et": ["08:00"],
+      "jitter_minutes": 30,
+      "enabled": true,
+      "timeout_seconds": 600,
+      "extra_args": ["--batch-size", "4", "--auto-approve"],
+      "limits": {}
+    },
+    "post": {
+      "type": "scheduled",
+      "file": "post.py",
+      "times_et": ["11:00", "18:00"],
+      "jitter_minutes": 45,
+      "enabled": true,
+      "timeout_seconds": 300,
+      "limits": {},
+      "extra_args": ["--no-ig"]
+    }
+  }
+}

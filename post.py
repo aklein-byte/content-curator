@@ -1,8 +1,11 @@
 """
-Posting script for @tatamispaces.
-Reads posts.json, finds the next approved+scheduled post whose time has passed,
-downloads the image, posts via twikit, and marks it as posted.
-After X post succeeds, cross-posts to Instagram as a carousel via Playwright.
+Posting script — niche-agnostic.
+Reads posts file, finds the next approved+scheduled post whose time has passed,
+downloads the image, posts via X API, and marks it as posted.
+
+Supports two post formats:
+  1. Flat (tatami): single text + image_urls, thread via twikit auto-caption
+  2. Museum: pre-written tweets array with per-tweet images, thread via X API v2
 
 Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig]
 """
@@ -22,7 +25,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xkit import login, post_thread, download_image
-from tools.xapi import create_tweet, upload_media, get_own_recent_tweets
+from tools.xapi import create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche
+from tools.xapi import post_thread as post_thread_xapi
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from tools.ig_browser import post_to_ig_browser, adapt_caption_for_ig, ensure_jpeg, download_image as ig_download_image, get_ig_browser
 from agents.writer import generate_thread_captions
@@ -31,20 +35,32 @@ from config.niches import get_niche
 log = setup_logging("post")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
 IMAGES_DIR = BASE_DIR / "data" / "images"
 
 # Posting limits — prevent rapid-fire after downtime
 MAX_POSTS_PER_DAY = 3
 MIN_GAP_HOURS = 2
 
+# Resolved once by main(), used by load_posts/save_posts
+_resolved_posts_file: Path | None = None
+
+
+def _resolve_posts_file(niche_id: str) -> Path:
+    """Resolve the posts file path for a niche. Called once by main()."""
+    env_file = os.environ.get("POSTS_FILE")
+    if env_file:
+        return Path(env_file)
+    niche = get_niche(niche_id)
+    filename = niche.get("posts_file", "posts.json")
+    return BASE_DIR / filename
+
 
 def load_posts() -> dict:
-    return load_json(POSTS_FILE, default={"posts": []})
+    return load_json(_resolved_posts_file, default={"posts": []})
 
 
 def save_posts(data: dict):
-    save_json(POSTS_FILE, data)
+    save_json(_resolved_posts_file, data)
 
 
 def parse_time(ts: str) -> datetime:
@@ -275,6 +291,40 @@ async def cross_post_to_ig(post: dict, image_paths: list[str], niche: dict):
         log.error(f"  IG cross-post failed: {e}")
 
 
+def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
+    """Cross-post to a relevant X Community via official API."""
+    communities = niche.get("communities")
+    if not communities:
+        return
+
+    category = post.get("category", "other")
+    community_id = communities.get("by_category", {}).get(category) or communities.get("default")
+    if not community_id:
+        return
+
+    try:
+        media_ids = []
+        if image_paths:
+            for img_path in image_paths:
+                mid = upload_media(img_path)
+                if mid:
+                    media_ids.append(mid)
+
+        tweet_id = create_tweet(
+            text=post["text"],
+            media_ids=media_ids if media_ids else None,
+            community_id=community_id,
+        )
+        if tweet_id:
+            post["community_tweet_id"] = tweet_id
+            post["community_id"] = community_id
+            log.info(f"  Community cross-post: {tweet_id} (community {community_id})")
+        else:
+            log.warning("  Community cross-post returned no tweet")
+    except Exception as e:
+        log.warning(f"  Community cross-post failed (non-fatal): {e}")
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Post next scheduled content")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -286,7 +336,14 @@ async def main():
     dry_run = args.dry_run
     niche = get_niche(niche_id)
 
-    log.info(f"Checking post queue for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
+    # Set X API credentials for this niche
+    set_xapi_niche(niche_id)
+
+    # Resolve posts file for this niche (must happen before any load_posts/save_posts calls)
+    global _resolved_posts_file
+    _resolved_posts_file = _resolve_posts_file(niche_id)
+
+    log.info(f"Checking post queue for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'}) — {_resolved_posts_file.name}")
 
     posts_data = load_posts()
 
@@ -373,19 +430,32 @@ async def main():
                             post["status"] = "skipped_low_res"
                             post["skip_reason"] = f"Image {Path(img_path).name} only {w}x{h}"
                             save_posts(posts_data)
-                            notify("@tatamispaces post skipped", f"Post #{post['id']} image too small ({w}x{h})")
+                            notify(f"{niche['handle']} post skipped", f"Post #{post['id']} image too small ({w}x{h})")
                             return
                         else:
                             print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would skip in live mode")
             except Exception as e:
                 log.warning(f"  Could not check image {img_path}: {e}")
 
-    # Determine if this is a thread post
-    is_thread = post.get("thread") and len(image_paths) >= 2
+    # Determine post format
+    # Museum posts have type="museum" and a pre-written "tweets" array
+    is_museum = post.get("type") == "museum" and post.get("tweets")
+    is_museum_thread = is_museum and len(post.get("tweets", [])) > 1
+    is_thread = is_museum_thread or (post.get("thread") and len(image_paths) >= 2)
 
     if dry_run:
         print("\n" + "=" * 60)
-        if is_thread:
+        if is_museum:
+            n = len(post['tweets'])
+            label = f"THREAD ({n} pre-written tweets)" if n > 1 else "SINGLE TWEET (museum)"
+            print(f"DRY RUN -- would post {label}:")
+            print("=" * 60)
+            for i, tw in enumerate(post["tweets"], 1):
+                print(f"\n--- Tweet {i}/{n} [{len(tw['text'])}c] ---")
+                print(tw['text'])
+                if tw.get("image_url"):
+                    print(f"  Image: {tw['image_url'][:80]}...")
+        elif is_thread:
             print(f"DRY RUN -- would post THREAD ({len(image_paths)} tweets):")
             print("=" * 60)
             log.info("Generating thread captions via Vision API...")
@@ -409,13 +479,15 @@ async def main():
         print("=" * 60)
         return
 
-    # Check character limit (only for non-thread, since thread tweet 1 = original caption)
-    if len(post["text"]) > 280:
+    handle = niche['handle']
+
+    # Check character limit (only for non-thread single tweets)
+    if not is_thread and len(post["text"]) > 280:
         log.error(f"Post #{post['id']} is {len(post['text'])} chars (max 280). Marking as failed.")
         post["status"] = "failed"
         post["fail_reason"] = f"Too long: {len(post['text'])} chars"
         save_posts(posts_data)
-        notify("@tatamispaces post FAILED", f"Post #{post['id']} too long ({len(post['text'])} chars)")
+        notify(f"{handle} post FAILED", f"Post #{post['id']} too long ({len(post['text'])} chars)")
         return
 
     # Dedup check — pull recent tweets from timeline and compare against this post
@@ -432,10 +504,10 @@ async def main():
             post["posted_at"] = tw.get("created_at", datetime.now(timezone.utc).isoformat())
             post["dedup_recovered"] = True
             save_posts(posts_data)
-            notify("@tatamispaces dedup", f"Post #{post['id']} was already live (tweet {existing_id}), marked as posted")
+            notify(f"{handle} dedup", f"Post #{post['id']} was already live (tweet {existing_id}), marked as posted")
             return
 
-    # Post via official API (no twikit login needed for single tweets)
+    # Post via official API
     log.info("Posting via official API...")
 
     # Mark as "posting" BEFORE sending — prevents duplicate posts if save fails after tweeting
@@ -443,8 +515,62 @@ async def main():
     post["posting_started"] = datetime.now(timezone.utc).isoformat()
     save_posts(posts_data)
 
-    if is_thread:
-        # Thread path still uses twikit (needs login)
+    if is_museum:
+        # Museum format: pre-written tweets with per-tweet images, posted via X API v2
+        n_tweets = len(post['tweets'])
+        log.info(f"Posting museum {'thread' if n_tweets > 1 else 'single'} ({n_tweets} tweet{'s' if n_tweets > 1 else ''}) via X API v2...")
+
+        # Download per-tweet images
+        thread_data = []
+        for i, tw in enumerate(post["tweets"]):
+            img_url = tw.get("image_url")
+            local_paths = []
+            if img_url:
+                save_dir = str(IMAGES_DIR / "museum")
+                local_path = await download_image(img_url, save_dir=save_dir)
+                if local_path:
+                    local_paths.append(local_path)
+                else:
+                    log.error(f"  Tweet {i+1}: failed to download image {img_url[:80]}")
+                    post["status"] = "failed"
+                    post["fail_reason"] = f"Image download failed for tweet {i+1}"
+                    save_posts(posts_data)
+                    notify(f"{handle} post FAILED", f"Post #{post['id']} image download failed")
+                    return
+
+            thread_data.append({
+                "text": tw["text"],
+                "image_paths": local_paths,
+            })
+
+        tweet_ids = post_thread_xapi(
+            tweets=thread_data,
+            delay_seconds=(120, 300),
+        )
+
+        if tweet_ids:
+            post["status"] = "posted"
+            post["posted_at"] = datetime.now(timezone.utc).isoformat()
+            post["tweet_id"] = tweet_ids[0]
+            post["thread_tweet_ids"] = tweet_ids
+            save_posts(posts_data)
+
+            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
+            fmt_label = f"{len(tweet_ids)}-tweet thread" if len(tweet_ids) > 1 else "single tweet"
+            log.info(f"Posted ({fmt_label}): {post_url}")
+            notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}")
+
+            cross_post_to_community(post, [], niche)
+            save_posts(posts_data)
+        else:
+            post["status"] = "failed"
+            post["fail_reason"] = "Thread posting returned no tweet IDs"
+            save_posts(posts_data)
+            log.error("Failed to post thread.")
+            notify(f"{handle} post FAILED", f"Post #{post['id']} thread failed")
+
+    elif is_thread:
+        # Tatami format: auto-generate captions from images via twikit
         client = await login(niche_id)
         community_id = niche.get("community_id")
         log.info(f"Posting as thread ({len(image_paths)} images)...")
@@ -471,15 +597,19 @@ async def main():
             post["thread_captions"] = captions
             save_posts(posts_data)
 
-            post_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{tweet_ids[0]}"
+            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
             log.info(f"Thread posted ({len(tweet_ids)} tweets): {post_url}")
-            notify("@tatamispaces thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread")
+            notify(f"{handle} thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread")
+
+            first_image = [image_paths[0]] if image_paths else []
+            cross_post_to_community(post, first_image, niche)
+            save_posts(posts_data)
         else:
             post["status"] = "failed"
             post["fail_reason"] = "Thread posting returned no tweet IDs"
             save_posts(posts_data)
-            log.error("Failed to post thread. Check logs above.")
-            notify("@tatamispaces post FAILED", f"Post #{post['id']} thread failed")
+            log.error("Failed to post thread.")
+            notify(f"{handle} post FAILED", f"Post #{post['id']} thread failed")
 
     else:
         # Single tweet via official API v2
@@ -493,9 +623,12 @@ async def main():
                 else:
                     log.warning(f"  Failed to upload: {img_path}")
 
+        quote_tweet_id = post.get("quote_tweet_id")
+
         tweet_id = create_tweet(
             text=post["text"],
             media_ids=media_ids if media_ids else None,
+            quote_tweet_id=quote_tweet_id,
         )
 
         if tweet_id:
@@ -504,18 +637,18 @@ async def main():
             post["tweet_id"] = tweet_id
             save_posts(posts_data)
 
-            post_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{tweet_id}"
+            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_id}"
             log.info(f"Posted successfully: {post_url}")
-            notify("@tatamispaces posted", f"Post #{post['id']} is live")
+            notify(f"{handle} posted", f"Post #{post['id']} is live")
+
+            cross_post_to_community(post, image_paths, niche)
+            save_posts(posts_data)
         else:
             post["status"] = "failed"
             post["fail_reason"] = "create_tweet returned no tweet ID"
             save_posts(posts_data)
-            log.error("Failed to post. Check logs above for details.")
-            notify("@tatamispaces post FAILED", f"Post #{post['id']} failed to publish")
-
-    # IG cross-posting is handled by ig_post.py (Graph API) — no longer done here
-    # to avoid double-posting. ig_post.py picks up any posted tweet missing ig_posted flag.
+            log.error("Failed to post.")
+            notify(f"{handle} post FAILED", f"Post #{post['id']} failed to publish")
 
 
 if __name__ == "__main__":
