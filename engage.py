@@ -182,7 +182,7 @@ async def main():
     min_likes = engagement_cfg.get("min_likes", 20)
 
     # Engage back with people who liked our posts (highest ROI)
-    engage_back(eng_log, dry_run)
+    engage_back(engagement_log, dry_run)
 
     # Run a random subset of queries each run (covers different ground each time)
     max_queries = min(load_config().get("max_queries_per_run", 5), len(queries))

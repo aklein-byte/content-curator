@@ -28,7 +28,6 @@ from tools.xkit import login, post_thread, download_image
 from tools.xapi import create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche
 from tools.xapi import post_thread as post_thread_xapi
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
-from tools.ig_browser import post_to_ig_browser, adapt_caption_for_ig, ensure_jpeg, download_image as ig_download_image, get_ig_browser
 from agents.writer import generate_thread_captions
 from config.niches import get_niche
 
@@ -242,55 +241,6 @@ async def download_post_images(post: dict) -> list[str]:
 
 
 
-async def cross_post_to_ig(post: dict, image_paths: list[str], niche: dict):
-    """Cross-post to Instagram as a carousel after X post succeeds."""
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        log.warning("IG cross-post skipped: playwright not installed")
-        return
-
-    log.info("Cross-posting to Instagram...")
-
-    # Prepare IG images — ensure JPEG, download if needed
-    ig_dir = BASE_DIR / "data" / "ig_images"
-    ig_paths = []
-    for p in image_paths:
-        ig_paths.append(str(ensure_jpeg(Path(p))))
-
-    # If no local images but we have image_urls, download them all
-    if not ig_paths and post.get("image_urls"):
-        for url in post["image_urls"]:
-            path = await ig_download_image(url, ig_dir)
-            if path:
-                ig_paths.append(str(ensure_jpeg(path)))
-
-    if not ig_paths:
-        log.warning("  No images for IG, skipping cross-post")
-        return
-
-    caption = adapt_caption_for_ig(post["text"], niche)
-
-    try:
-        async with async_playwright() as pw:
-            context = await get_ig_browser(pw)
-            page = context.pages[0] if context.pages else await context.new_page()
-            await page.goto("https://www.instagram.com/", wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_timeout(5000)
-
-            await post_to_ig_browser(page, ig_paths, caption)
-            post["ig_posted"] = True
-            post["ig_posted_at"] = datetime.now(timezone.utc).isoformat()
-            # Note: carousel may have fallen back to single image inside post_to_ig_browser
-            post["ig_images_attempted"] = len(ig_paths)
-            log.info(f"  IG cross-post done ({len(ig_paths)} images)")
-
-            await context.close()
-
-    except Exception as e:
-        log.error(f"  IG cross-post failed: {e}")
-
-
 def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
     """Cross-post to a relevant X Community via official API."""
     communities = niche.get("communities")
@@ -455,6 +405,10 @@ async def main():
                 print(tw['text'])
                 if tw.get("image_url"):
                     print(f"  Image: {tw['image_url'][:80]}...")
+                elif tw.get("images") and post.get("allImages"):
+                    for idx in tw["images"]:
+                        if idx < len(post["allImages"]):
+                            print(f"  Image [{idx}]: {post['allImages'][idx][:80]}...")
         elif is_thread:
             print(f"DRY RUN -- would post THREAD ({len(image_paths)} tweets):")
             print("=" * 60)
@@ -523,9 +477,15 @@ async def main():
         # Download per-tweet images
         thread_data = []
         for i, tw in enumerate(post["tweets"]):
-            img_url = tw.get("image_url")
+            # Resolve image URLs: direct image_url OR indices into allImages
+            image_urls = []
+            if tw.get("image_url"):
+                image_urls = [tw["image_url"]]
+            elif tw.get("images") and post.get("allImages"):
+                image_urls = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
+
             local_paths = []
-            if img_url:
+            for img_url in image_urls:
                 save_dir = str(IMAGES_DIR / "museum")
                 local_path = await download_image(img_url, save_dir=save_dir)
                 if local_path:
