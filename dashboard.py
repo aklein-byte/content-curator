@@ -1,9 +1,11 @@
 """
-Post management dashboard for @tatamispaces.
+Post management dashboard for @tatamispaces and Museum Stories.
 Simple web UI to preview, approve, skip posts, and pick images.
 
 Usage: python dashboard.py [--port 8080]
 Opens at http://localhost:8080
+  /          — tatami dashboard
+  /museum/   — museum stories dashboard
 """
 
 import json
@@ -30,206 +32,21 @@ def save_posts(data):
     POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
 
-HTML_TEMPLATE = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tatamispaces — post manager</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, system-ui, sans-serif; background: #111; color: #ddd; padding: 20px; }
-  h1 { font-size: 18px; font-weight: 500; margin-bottom: 16px; color: #888; }
-  .filters { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .filters button { padding: 6px 14px; border: 1px solid #333; background: #1a1a1a; color: #aaa;
-    border-radius: 4px; cursor: pointer; font-size: 13px; }
-  .filters button.active { border-color: #666; color: #fff; background: #2a2a2a; }
-  .post { border: 1px solid #222; border-radius: 8px; margin-bottom: 12px; padding: 16px;
-    background: #1a1a1a; display: flex; gap: 16px; }
-  .post.posted { opacity: 0.5; }
-  .post.dropped { opacity: 0.3; }
-  .post-images { flex-shrink: 0; display: flex; gap: 4px; flex-wrap: wrap; max-width: 260px; }
-  .post-images .img-wrap { position: relative; }
-  .post-images .img-wrap img { width: 120px; height: 120px; object-fit: cover; border-radius: 4px;
-    cursor: pointer; transition: outline 0.1s; }
-  .post-images .img-wrap img:hover { outline: 2px solid #6ac; outline-offset: 1px; }
-  .post-images .img-wrap .img-num { position: absolute; top: 3px; left: 3px; background: rgba(0,0,0,0.7);
-    color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
-  .post-images .img-wrap.selected img { outline: 2px solid #6ac; outline-offset: 1px; }
-  .post-images .img-wrap.dimmed img { opacity: 0.3; }
-  .img-controls { font-size: 11px; color: #666; margin-top: 4px; width: 100%; }
-  .img-controls button { font-size: 10px; padding: 2px 8px; background: #222; border: 1px solid #333;
-    color: #888; border-radius: 3px; cursor: pointer; }
-  .img-controls button:hover { color: #fff; border-color: #555; }
-  .post-body { flex: 1; min-width: 0; }
-  .post-id { font-size: 11px; color: #555; margin-bottom: 4px; }
-  .post-text { font-size: 14px; line-height: 1.5; margin-bottom: 8px; white-space: pre-wrap; }
-  .post-meta { font-size: 12px; color: #555; margin-bottom: 8px; }
-  .post-meta span { margin-right: 12px; }
-  .post-actions { display: flex; gap: 6px; align-items: center; }
-  .post-actions button { padding: 4px 12px; border: 1px solid #333; background: #222;
-    color: #aaa; border-radius: 4px; cursor: pointer; font-size: 12px; }
-  .post-actions button:hover { border-color: #555; color: #fff; }
-  .post-actions button.btn-approve { border-color: #2a5a2a; color: #6c6; }
-  .post-actions button.btn-skip { border-color: #5a2a2a; color: #c66; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px;
-    font-weight: 500; margin-right: 6px; }
-  .badge-posted { background: #1a3a1a; color: #6c6; }
-  .badge-approved { background: #1a2a3a; color: #6ac; }
-  .badge-dropped { background: #3a1a1a; color: #c66; }
-  .badge-skipped { background: #3a3a1a; color: #cc6; }
-  .badge-ig { background: #2a1a3a; color: #a6c; }
-  .badge-x { background: #1a2a2a; color: #6cc; }
-  .toast { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px; background: #2a2a2a;
-    border: 1px solid #444; border-radius: 6px; font-size: 13px; display: none; z-index: 100; }
+TEMPLATES_DIR = BASE_DIR / "templates"
+MUSEUM_POSTS_FILE = BASE_DIR / "posts-museum-curated.json"
 
-  /* Lightbox */
-  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200;
-    justify-content: center; align-items: center; cursor: zoom-out; }
-  .lightbox.open { display: flex; }
-  .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
-  .lightbox .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); font-size: 36px;
-    color: #888; cursor: pointer; padding: 20px; user-select: none; }
-  .lightbox .lb-nav:hover { color: #fff; }
-  .lightbox .lb-prev { left: 10px; }
-  .lightbox .lb-next { right: 10px; }
-  .lightbox .lb-info { position: absolute; bottom: 20px; color: #888; font-size: 13px; }
-  .lightbox .lb-select { position: absolute; top: 20px; right: 20px; padding: 8px 16px;
-    background: #2a2a2a; border: 1px solid #555; color: #6ac; border-radius: 4px; cursor: pointer;
-    font-size: 13px; }
-  .lightbox .lb-select:hover { color: #fff; border-color: #6ac; }
-</style>
-</head>
-<body>
-<h1>@tatamispaces — post manager</h1>
-<div class="filters">
-  <button class="active" onclick="filter('all')">All (POST_COUNT_ALL)</button>
-  <button onclick="filter('approved')">Ready (POST_COUNT_APPROVED)</button>
-  <button onclick="filter('posted')">Posted (POST_COUNT_POSTED)</button>
-  <button onclick="filter('dropped')">Dropped (POST_COUNT_DROPPED)</button>
-</div>
-<div id="posts">POSTS_HTML</div>
-<div class="toast" id="toast"></div>
 
-<!-- Lightbox overlay -->
-<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
-  <span class="lb-nav lb-prev" onclick="lbNav(event,-1)">&lsaquo;</span>
-  <img id="lb-img" src="" onclick="event.stopPropagation()">
-  <span class="lb-nav lb-next" onclick="lbNav(event,1)">&rsaquo;</span>
-  <div class="lb-info" id="lb-info"></div>
-  <button class="lb-select" id="lb-select" onclick="lbSelect(event)">Use this image only</button>
-</div>
+def load_museum_posts():
+    if not MUSEUM_POSTS_FILE.exists():
+        return {"posts": []}
+    data = json.loads(MUSEUM_POSTS_FILE.read_text())
+    if isinstance(data, list):
+        data = {"posts": data}
+    return data
 
-<script>
-let lbImages = [];
-let lbIndex = 0;
-let lbPostId = null;
 
-function filter(status) {
-  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  document.querySelectorAll('.post').forEach(p => {
-    if (status === 'all') { p.style.display = ''; return; }
-    p.style.display = p.dataset.status === status ? '' : 'none';
-  });
-}
-
-function openLightbox(postId, urls, startIdx) {
-  lbImages = urls;
-  lbIndex = startIdx;
-  lbPostId = postId;
-  showLbImage();
-  document.getElementById('lightbox').classList.add('open');
-}
-
-function closeLightbox(e) {
-  if (e.target === document.getElementById('lightbox')) {
-    document.getElementById('lightbox').classList.remove('open');
-  }
-}
-
-function lbNav(e, dir) {
-  e.stopPropagation();
-  lbIndex = (lbIndex + dir + lbImages.length) % lbImages.length;
-  showLbImage();
-}
-
-function showLbImage() {
-  document.getElementById('lb-img').src = lbImages[lbIndex];
-  document.getElementById('lb-info').textContent = 'Image ' + (lbIndex+1) + ' of ' + lbImages.length;
-}
-
-async function lbSelect(e) {
-  e.stopPropagation();
-  const r = await fetch('/api/image-select', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: lbPostId, image_index: lbIndex})
-  });
-  const data = await r.json();
-  if (data.ok) {
-    showToast('#' + lbPostId + ' → image ' + (lbIndex+1) + ' of ' + lbImages.length);
-    document.getElementById('lightbox').classList.remove('open');
-    setTimeout(() => location.reload(), 500);
-  }
-}
-
-async function selectImage(id, idx, total) {
-  const r = await fetch('/api/image-select', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: id, image_index: idx})
-  });
-  const data = await r.json();
-  if (data.ok) {
-    showToast('#' + id + ' → image ' + (idx+1) + ' of ' + total);
-    setTimeout(() => location.reload(), 500);
-  }
-}
-
-async function resetImages(id) {
-  const r = await fetch('/api/image-select', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: id, image_index: null, image_count: null})
-  });
-  const data = await r.json();
-  if (data.ok) {
-    showToast('#' + id + ' → all images');
-    setTimeout(() => location.reload(), 500);
-  }
-}
-
-async function setStatus(id, status) {
-  const r = await fetch('/api/status', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: id, status: status})
-  });
-  const data = await r.json();
-  if (data.ok) {
-    showToast('#' + id + ' → ' + status);
-    setTimeout(() => location.reload(), 500);
-  }
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2000);
-}
-
-// Keyboard nav for lightbox
-document.addEventListener('keydown', (e) => {
-  if (!document.getElementById('lightbox').classList.contains('open')) return;
-  if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
-  if (e.key === 'ArrowLeft') { lbIndex = (lbIndex - 1 + lbImages.length) % lbImages.length; showLbImage(); }
-  if (e.key === 'ArrowRight') { lbIndex = (lbIndex + 1) % lbImages.length; showLbImage(); }
-});
-</script>
-</body>
-</html>"""
+def save_museum_posts(data):
+    MUSEUM_POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def render_post_html(post, index):
@@ -292,12 +109,15 @@ def render_post_html(post, index):
 
     # Badges
     badges = ""
-    badge_class = f"badge-{status}" if status in ("posted", "approved", "dropped") else "badge-skipped"
+    badge_class = f"badge-{status}" if status in ("posted", "approved", "dropped", "draft") else "badge-skipped"
     if status.startswith("skipped"):
         badges += f'<span class="badge badge-skipped">skipped</span>'
     else:
         badges += f'<span class="badge {badge_class}">{status}</span>'
 
+    post_type = post.get("type", "")
+    if post_type == "quote-tweet":
+        badges += '<span class="badge" style="background:#1d9bf0;color:#fff">QT</span>'
     if tweet_id:
         badges += '<span class="badge badge-x">X</span>'
     if ig_posted:
@@ -309,6 +129,10 @@ def render_post_html(post, index):
         meta += f'<span>from: {source_handle}</span>'
     elif source:
         meta += f'<span>source: {source}</span>'
+    quote_id = post.get("quote_tweet_id")
+    if quote_id:
+        qt_handle = (source_handle or "").lstrip("@") or "i"
+        meta += f'<span>quoting: <a href="https://x.com/{qt_handle}/status/{quote_id}" target="_blank" style="color:#1d9bf0">view original</a></span>'
     if category:
         meta += f'<span>category: {category}</span>'
     if posted_at:
@@ -322,7 +146,9 @@ def render_post_html(post, index):
 
     # Actions
     actions = ""
-    if status == "approved":
+    if status == "draft":
+        actions = f'<button class="btn-approve" onclick="setStatus({pid},\'approved\')">Approve</button> <button class="btn-skip" onclick="setStatus({pid},\'dropped\')">Delete</button>'
+    elif status == "approved":
         actions = f'<button class="btn-skip" onclick="setStatus({pid},\'dropped\')">Skip</button>'
     elif status == "dropped" or status.startswith("skipped"):
         actions = f'<button class="btn-approve" onclick="setStatus({pid},\'approved\')">Approve</button>'
@@ -347,6 +173,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self.serve_dashboard()
+        elif self.path == "/museum/" or self.path == "/museum" or self.path.startswith("/museum/?"):
+            self.serve_museum_dashboard()
         else:
             self.send_error(404)
 
@@ -409,8 +237,102 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 self.send_json({"ok": False, "error": "post not found"})
 
+        elif self.path == "/museum/api/status":
+            self.handle_museum_status(body)
+
+        elif self.path == "/museum/api/tweet-edit":
+            self.handle_museum_tweet_edit(body)
+
+        elif self.path == "/museum/api/image-assign":
+            self.handle_museum_image_assign(body)
+
+        elif self.path == "/museum/api/notes":
+            self.handle_museum_notes(body)
+
         else:
             self.send_error(404)
+
+    # === Museum API handlers ===
+
+    def handle_museum_status(self, body):
+        post_id = body.get("id")
+        new_status = body.get("status")
+        if not post_id or not new_status:
+            self.send_json({"ok": False, "error": "missing id or status"})
+            return
+        data = load_museum_posts()
+        for p in data["posts"]:
+            if p["id"] == post_id:
+                p["status"] = new_status
+                save_museum_posts(data)
+                self.send_json({"ok": True})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    def handle_museum_tweet_edit(self, body):
+        post_id = body.get("id")
+        tweet_index = body.get("tweet_index")
+        text = body.get("text")
+        if post_id is None or tweet_index is None or text is None:
+            self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
+            return
+        data = load_museum_posts()
+        for p in data["posts"]:
+            if p["id"] == post_id:
+                if 0 <= tweet_index < len(p.get("tweets", [])):
+                    p["tweets"][tweet_index]["text"] = text
+                    save_museum_posts(data)
+                    self.send_json({"ok": True})
+                    return
+                self.send_json({"ok": False, "error": "invalid tweet_index"})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    def handle_museum_image_assign(self, body):
+        post_id = body.get("post_id")
+        tweet_index = body.get("tweet_index")
+        image_index = body.get("image_index")
+        action = body.get("action")
+        if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
+            self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
+            return
+        data = load_museum_posts()
+        for p in data["posts"]:
+            if p["id"] == post_id:
+                if 0 <= tweet_index < len(p.get("tweets", [])):
+                    tweet = p["tweets"][tweet_index]
+                    if "images" not in tweet:
+                        tweet["images"] = []
+                    if action == "add":
+                        if image_index not in tweet["images"]:
+                            tweet["images"].append(image_index)
+                    elif action == "remove":
+                        tweet["images"] = [i for i in tweet["images"] if i != image_index]
+                    save_museum_posts(data)
+                    self.send_json({"ok": True})
+                    return
+                self.send_json({"ok": False, "error": "invalid tweet_index"})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    def handle_museum_notes(self, body):
+        post_id = body.get("id")
+        if post_id is None:
+            self.send_json({"ok": False, "error": "missing id"})
+            return
+        data = load_museum_posts()
+        for p in data["posts"]:
+            if p["id"] == post_id:
+                if "vote" in body:
+                    p["vote"] = body["vote"]
+                if "notes" in body:
+                    p["notes"] = body["notes"]
+                save_museum_posts(data)
+                self.send_json({"ok": True})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    # === Dashboard serve methods ===
 
     def serve_dashboard(self):
         data = load_posts()
@@ -430,13 +352,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for i, p in enumerate(posts):
             posts_html += render_post_html(p, i)
 
-        html = HTML_TEMPLATE
+        html = (TEMPLATES_DIR / "tatami.html").read_text()
         html = html.replace("POSTS_HTML", posts_html)
         html = html.replace("POST_COUNT_ALL", str(counts["all"]))
         html = html.replace("POST_COUNT_APPROVED", str(counts["approved"]))
         html = html.replace("POST_COUNT_POSTED", str(counts["posted"]))
         html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
 
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(html.encode())
+
+    def serve_museum_dashboard(self):
+        data = load_museum_posts()
+        posts_json = json.dumps(data.get("posts", []), ensure_ascii=False)
+        html = (TEMPLATES_DIR / "museum.html").read_text()
+        html = html.replace("__POSTS_DATA__", posts_json)
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
