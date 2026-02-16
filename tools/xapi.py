@@ -1,8 +1,8 @@
 """
 X/Twitter Official API v2 client.
 
-Uses OAuth 1.0a (user context) for search, like, reply, follow.
-Replaces twikit for engagement — more reliable, no cookie expiry, no 404 flakiness.
+Uses OAuth 1.0a (user context) for posting, search, like, reply, follow.
+Uses OAuth 2.0 PKCE for bookmarks.
 
 Credentials are resolved per-niche via x_api_env in config/niches.py.
 Call set_niche("museumstories") before API calls to switch accounts.
@@ -10,9 +10,11 @@ Default (tatamispaces): X_API_CONSUMER_KEY, X_API_CONSUMER_SECRET, etc.
 """
 
 import os
+import hashlib
 import logging
 import time
 import requests
+from pathlib import Path
 from requests_oauthlib import OAuth1
 from dataclasses import dataclass
 from typing import Optional
@@ -104,7 +106,7 @@ def _get_user_id() -> str:
 
 @dataclass
 class XPost:
-    """A post from X with metadata. Same shape as xkit.XPost for compatibility."""
+    """A post from X with metadata."""
     post_id: str
     author_handle: str
     author_name: str
@@ -117,6 +119,7 @@ class XPost:
     views: int
     language: Optional[str]
     created_at: Optional[str]
+    author_followers: int = 0
 
 
 def search_posts(query: str, max_results: int = 15) -> list[XPost]:
@@ -141,7 +144,7 @@ def search_posts(query: str, max_results: int = 15) -> list[XPost]:
             "tweet.fields": "public_metrics,author_id,created_at,lang,attachments",
             "expansions": "author_id,attachments.media_keys",
             "media.fields": "url,type,preview_image_url",
-            "user.fields": "username,name",
+            "user.fields": "username,name,public_metrics",
         },
         auth=auth,
         timeout=15,
@@ -180,6 +183,7 @@ def search_posts(query: str, max_results: int = 15) -> list[XPost]:
                 if url:
                     image_urls.append(_to_orig_url(url))
 
+        user_metrics = user.get("public_metrics", {})
         posts.append(XPost(
             post_id=tweet["id"],
             author_handle=user.get("username", ""),
@@ -193,6 +197,7 @@ def search_posts(query: str, max_results: int = 15) -> list[XPost]:
             views=metrics.get("impression_count", 0),
             language=tweet.get("lang"),
             created_at=tweet.get("created_at"),
+            author_followers=user_metrics.get("followers_count", 0),
         ))
 
     remaining = r.headers.get("x-rate-limit-remaining", "?")
@@ -539,15 +544,52 @@ def get_liking_users(tweet_id: str, max_results: int = 20) -> list[dict]:
     return r.json().get("data", [])
 
 
+def download_image(url: str, save_dir: str = "data/images") -> str | None:
+    """Download image from URL to local path. Returns local file path or None."""
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
+
+    ext = ".jpg"
+    if ".png" in url:
+        ext = ".png"
+    elif ".webp" in url:
+        ext = ".webp"
+    filename = hashlib.md5(url.encode()).hexdigest() + ext
+    save_path = str(Path(save_dir) / filename)
+
+    if Path(save_path).exists():
+        return save_path
+
+    # Upgrade Twitter image URLs to original resolution
+    url = _to_orig_url(url)
+
+    try:
+        resp = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+            timeout=30,
+            allow_redirects=True,
+        )
+        if resp.status_code == 200 and len(resp.content) > 10_000:
+            with open(save_path, "wb") as f:
+                f.write(resp.content)
+            return save_path
+    except Exception as e:
+        log.error(f"Failed to download image {url}: {e}")
+    return None
+
+
 def post_thread(
     tweets: list[dict],
     delay_seconds: tuple[int, int] = (120, 300),
+    community_id: str | None = None,
 ) -> list[str]:
     """Post a thread (chain of tweets) via X API v2.
 
     Each entry in tweets should have:
       - "text": tweet text (required)
       - "image_paths": list of local image file paths (optional)
+
+    community_id is applied to the first tweet only (X Communities).
 
     Returns list of posted tweet IDs. May be shorter than tweets if a post fails.
     """
@@ -579,6 +621,7 @@ def post_thread(
             text=text,
             media_ids=media_ids if media_ids else None,
             reply_to=reply_to,
+            community_id=community_id if i == 0 else None,
         )
 
         if tweet_id:
@@ -609,3 +652,186 @@ def get_user_id_by_handle(handle: str) -> str | None:
         return r.json().get("data", {}).get("id")
     log.warning(f"User lookup failed for @{handle}: {r.status_code}")
     return None
+
+
+def pin_tweet(tweet_id: str) -> bool:
+    """Pin a tweet to the profile via v1.1 API. Returns True on success."""
+    r = requests.post(
+        "https://api.twitter.com/1.1/account/pin_tweet.json",
+        data={"id": tweet_id},
+        auth=_get_auth(),
+        timeout=10,
+    )
+    if r.status_code == 200:
+        log.info(f"Pinned tweet {tweet_id}")
+        return True
+    log.error(f"Pin tweet failed: {r.status_code} {r.text[:200]}")
+    return False
+
+
+# ---------------------------------------------------------------------------
+# OAuth 2.0 PKCE — required for bookmarks endpoint
+# ---------------------------------------------------------------------------
+
+_OAUTH2_TOKEN_FILE = Path(__file__).parent.parent / "data" / ".oauth2_tokens.json"
+_OAUTH2_TOKEN_URL = "https://api.x.com/2/oauth2/token"
+OAUTH2_CALLBACK_URL = "http://127.0.0.1:9876/callback"
+OAUTH2_SCOPES = "bookmark.read tweet.read users.read offline.access"
+
+
+def _get_oauth2_creds() -> tuple[str, str]:
+    """Get OAuth 2.0 Client ID and Client Secret from env."""
+    env_map = _get_env_map()
+    client_id = os.environ.get(env_map.get("oauth2_client_id", "X_OAUTH2_CLIENT_ID"), "")
+    client_secret = os.environ.get(env_map.get("oauth2_client_secret", "X_OAUTH2_CLIENT_SECRET"), "")
+    if not client_id or not client_secret:
+        raise ValueError(
+            "OAuth 2.0 credentials missing. Set X_OAUTH2_CLIENT_ID and X_OAUTH2_CLIENT_SECRET "
+            "in .env, then run: python bookmarks_auth.py"
+        )
+    return client_id, client_secret
+
+
+def _load_oauth2_tokens() -> dict | None:
+    """Load saved OAuth 2.0 tokens from disk."""
+    if _OAUTH2_TOKEN_FILE.exists():
+        try:
+            import json
+            return json.loads(_OAUTH2_TOKEN_FILE.read_text())
+        except Exception:
+            pass
+    return None
+
+
+def _save_oauth2_tokens(tokens: dict):
+    """Persist OAuth 2.0 tokens to disk."""
+    import json
+    _OAUTH2_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _OAUTH2_TOKEN_FILE.write_text(json.dumps(tokens, indent=2))
+    _OAUTH2_TOKEN_FILE.chmod(0o600)
+
+
+def _refresh_oauth2_token() -> str:
+    """Refresh the OAuth 2.0 access token using the stored refresh token.
+
+    Returns the new access token, or raises if refresh fails.
+    """
+    tokens = _load_oauth2_tokens()
+    if not tokens or "refresh_token" not in tokens:
+        raise ValueError(
+            "No OAuth 2.0 refresh token found. Run: python bookmarks_auth.py"
+        )
+
+    client_id, client_secret = _get_oauth2_creds()
+
+    r = requests.post(
+        _OAUTH2_TOKEN_URL,
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": tokens["refresh_token"],
+            "client_id": client_id,
+        },
+        auth=(client_id, client_secret),
+        timeout=15,
+    )
+
+    if r.status_code != 200:
+        log.error(f"OAuth 2.0 token refresh failed: {r.status_code} {r.text[:300]}")
+        raise ValueError(f"Token refresh failed ({r.status_code}). Re-run: python bookmarks_auth.py")
+
+    new_tokens = r.json()
+    _save_oauth2_tokens(new_tokens)
+    log.info("OAuth 2.0 token refreshed")
+    return new_tokens["access_token"]
+
+
+def _get_oauth2_bearer() -> str:
+    """Get a valid OAuth 2.0 bearer token, refreshing if needed."""
+    tokens = _load_oauth2_tokens()
+    if not tokens:
+        raise ValueError("No OAuth 2.0 tokens. Run: python bookmarks_auth.py")
+
+    # Try the stored access token first
+    access_token = tokens.get("access_token", "")
+    if access_token:
+        # Test if it's still valid with a lightweight call
+        r = requests.get(
+            f"{API_BASE}/users/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            return access_token
+        if r.status_code == 401:
+            log.info("OAuth 2.0 access token expired, refreshing...")
+
+    return _refresh_oauth2_token()
+
+
+def get_bookmarks(max_results: int = 40) -> list[XPost]:
+    """Fetch bookmarked tweets via X API v2 (requires OAuth 2.0).
+
+    Returns list of XPost objects with image URLs.
+    """
+    bearer = _get_oauth2_bearer()
+    user_id = _get_user_id()
+
+    r = requests.get(
+        f"{API_BASE}/users/{user_id}/bookmarks",
+        params={
+            "max_results": min(max_results, 100),
+            "tweet.fields": "public_metrics,author_id,created_at,lang,attachments,text",
+            "expansions": "author_id,attachments.media_keys",
+            "media.fields": "url,type,preview_image_url",
+            "user.fields": "username,name",
+        },
+        headers={"Authorization": f"Bearer {bearer}"},
+        timeout=15,
+    )
+
+    if r.status_code == 429:
+        log.warning("Rate limited on bookmarks")
+        return []
+    if r.status_code != 200:
+        log.error(f"Bookmarks failed: {r.status_code} {r.text[:300]}")
+        return []
+
+    data = r.json()
+    if "data" not in data:
+        log.info("No bookmarks found")
+        return []
+
+    users = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+    media_map = {m["media_key"]: m for m in data.get("includes", {}).get("media", [])}
+
+    posts = []
+    for tweet in data["data"]:
+        user = users.get(tweet.get("author_id"), {})
+        metrics = tweet.get("public_metrics", {})
+
+        image_urls = []
+        media_keys = tweet.get("attachments", {}).get("media_keys", [])
+        for mk in media_keys:
+            m = media_map.get(mk, {})
+            if m.get("type") == "photo":
+                url = m.get("url") or m.get("preview_image_url")
+                if url:
+                    image_urls.append(_to_orig_url(url))
+
+        posts.append(XPost(
+            post_id=tweet["id"],
+            author_handle=user.get("username", ""),
+            author_name=user.get("name", ""),
+            author_id=tweet.get("author_id", ""),
+            text=tweet.get("text", ""),
+            image_urls=image_urls,
+            likes=metrics.get("like_count", 0),
+            reposts=metrics.get("retweet_count", 0),
+            replies=metrics.get("reply_count", 0),
+            views=metrics.get("impression_count", 0),
+            language=tweet.get("lang"),
+            created_at=tweet.get("created_at"),
+        ))
+
+    log.info(f"Fetched {len(posts)} bookmarks")
+    return posts

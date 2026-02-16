@@ -27,6 +27,17 @@ from tools.common import load_json, save_json, notify, acquire_lock, release_loc
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
 
+# Daily caps — hard limits across all runs
+DAILY_MAX_REPLIES = 12
+DAILY_MAX_LIKES = 30
+DAILY_MAX_FOLLOWS = 5
+
+# Minimum author followers to reply to (smaller accounts = wasted visibility)
+MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 1000
+
+# Minimum post likes to reply to (more eyeballs on our reply)
+MIN_POST_LIKES_FOR_REPLY = 5
+
 log = setup_logging("engage")
 
 BASE_DIR = Path(__file__).parent
@@ -54,6 +65,15 @@ def already_liked(log_entries: list, post_id: str) -> bool:
 def already_replied(log_entries: list, post_id: str) -> bool:
     """Check if we already replied to this post."""
     return any(e["post_id"] == post_id and e["action"] == "reply" for e in log_entries)
+
+
+def count_today_actions(log_entries: list, action: str) -> int:
+    """Count how many of a given action type were taken today (UTC)."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    return sum(
+        1 for e in log_entries
+        if e.get("action") == action and e.get("timestamp", "").startswith(today)
+    )
 
 
 def load_source_tweet_ids() -> set:
@@ -266,15 +286,19 @@ async def main():
     # Sort by relevance first, then by views (bigger audience = more exposure)
     scored_posts.sort(key=lambda x: (x[1]["relevance_score"], x[0].views), reverse=True)
 
-    # --- Auto-like posts scoring 7+ ---
+    # --- Auto-like posts scoring 6+ ---
     likes_done = 0
+    daily_likes = count_today_actions(engagement_log, "like")
     for post, eval_data in scored_posts:
         if likes_done >= MAX_LIKES_PER_RUN:
+            break
+        if daily_likes + likes_done >= DAILY_MAX_LIKES:
+            log.info(f"Daily like cap reached ({DAILY_MAX_LIKES}), stopping likes")
             break
         if time_left() < 60:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping likes")
             break
-        if eval_data["relevance_score"] < 5:
+        if eval_data["relevance_score"] < 6:
             continue
         if already_liked(engagement_log, post.post_id):
             continue
@@ -283,7 +307,7 @@ async def main():
             log.info(f"[DRY RUN] Would like post by @{post.author_handle} (score {eval_data['relevance_score']})")
             likes_done += 1
         else:
-            time.sleep(random.uniform(2, 8))
+            time.sleep(random.uniform(5, 25))
             success = like_post(post.post_id)
             if success:
                 likes_done += 1
@@ -298,21 +322,33 @@ async def main():
 
     # --- Reply to top posts ---
     replies_done = 0
+    daily_replies = count_today_actions(engagement_log, "reply")
     replied_authors = set()  # avoid replying to same author twice
     for post, eval_data in scored_posts:
         if replies_done >= MAX_REPLIES_PER_RUN:
             break
+        if daily_replies + replies_done >= DAILY_MAX_REPLIES:
+            log.info(f"Daily reply cap reached ({DAILY_MAX_REPLIES}), stopping replies")
+            break
         if time_left() < 120:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping replies")
             break
-        if eval_data["relevance_score"] < 6:
+        if eval_data["relevance_score"] < 8:
             continue
         if already_replied(engagement_log, post.post_id):
             continue
         if post.author_handle in replied_authors:
             continue
+        # Only reply to accounts with enough followers for visibility
+        if post.author_followers < MIN_AUTHOR_FOLLOWERS_FOR_REPLY:
+            log.info(f"  Skip @{post.author_handle} — {post.author_followers} followers (need {MIN_AUTHOR_FOLLOWERS_FOR_REPLY}+)")
+            continue
+        # Only reply to posts with enough likes (more eyeballs)
+        if post.likes < MIN_POST_LIKES_FOR_REPLY:
+            log.info(f"  Skip @{post.author_handle} — {post.likes} likes (need {MIN_POST_LIKES_FOR_REPLY}+)")
+            continue
 
-        log.info(f"Drafting reply to @{post.author_handle}...")
+        log.info(f"Drafting reply to @{post.author_handle} ({post.author_followers} followers, {post.likes} likes)...")
         reply_text = await draft_reply(
             post_text=post.text,
             author=post.author_handle,
@@ -325,7 +361,7 @@ async def main():
                 replies_done += 1
                 replied_authors.add(post.author_handle)
             else:
-                time.sleep(random.uniform(3, 10))
+                time.sleep(random.uniform(45, 180))
                 reply_id = reply_to_post(post.post_id, reply_text)
                 if reply_id:
                     replies_done += 1
@@ -346,10 +382,14 @@ async def main():
         e["author"] for e in engagement_log if e.get("action") == "follow"
     }
     follows_done = 0
+    daily_follows = count_today_actions(engagement_log, "follow")
     seen_follow_handles = set()  # dedup within this run
 
     for post, eval_data in scored_posts:
         if follows_done >= MAX_FOLLOWS_PER_RUN:
+            break
+        if daily_follows + follows_done >= DAILY_MAX_FOLLOWS:
+            log.info(f"Daily follow cap reached ({DAILY_MAX_FOLLOWS}), stopping follows")
             break
         if time_left() < 30:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping follows")
@@ -364,7 +404,7 @@ async def main():
             log.info(f"[DRY RUN] Would follow @{post.author_handle}")
             follows_done += 1
         else:
-            time.sleep(random.uniform(2, 8))
+            time.sleep(random.uniform(20, 60))
             success = follow_user(post.author_id)
             if success:
                 follows_done += 1

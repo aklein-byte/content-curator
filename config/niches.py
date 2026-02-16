@@ -124,7 +124,7 @@ Example captions:
                 "residential architecture has:images -is:retweet lang:en",
             ],
             # min_faves filtering done in engage.py (API v2 doesn't support min_faves)
-            "min_likes": 2,
+            "min_likes": 5,
             "tracked_accounts": [
                 # Japanese-language (original sources)
                 "@naparchitects",
