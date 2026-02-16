@@ -218,27 +218,42 @@ def score_novelty(obj: MuseumObject, post_history: list[dict]) -> float:
 
 
 def apply_diversity_boost(candidates: list[MuseumObject], post_history: list[dict]) -> list[MuseumObject]:
-    """Boost scores for underrepresented categories."""
+    """Boost scores for underrepresented categories and museums."""
     recent = post_history[-30:] if post_history else []
     if not recent:
         return candidates
 
-    museum_counts = Counter(p.get("museum") for p in recent)
-    total = len(recent)
+    museum_counts = Counter(p.get("museum") for p in recent if p.get("museum"))
+    category_counts = Counter(p.get("category") for p in recent if p.get("category"))
+    total = len(recent) or 1
 
     for obj in candidates:
-        # Boost underrepresented museums
-        freq = museum_counts.get(obj.museum, 0) / total if total else 0
-        if freq < 0.15:
-            obj._diversity_boost = 1.3
-        elif freq > 0.4:
-            obj._diversity_boost = 0.8
-        else:
-            obj._diversity_boost = 1.0
+        boost = 1.0
 
-        # Boost non-paintings (they're overrepresented in most collections)
+        # Museum diversity: penalize overrepresented, boost underrepresented
+        museum_freq = museum_counts.get(obj.museum, 0) / total
+        if museum_freq < 0.1:
+            boost *= 1.4  # Never seen this museum, big boost
+        elif museum_freq < 0.2:
+            boost *= 1.2
+        elif museum_freq > 0.4:
+            boost *= 0.6  # Too many from this museum
+        elif museum_freq > 0.3:
+            boost *= 0.8
+
+        # Category diversity: penalize paintings, boost rare types
+        cat = _classify_category(obj)
+        cat_freq = category_counts.get(cat, 0) / total
+        if cat == "painting" and cat_freq > 0.3:
+            boost *= 0.7  # Too many paintings
+        elif cat_freq < 0.1:
+            boost *= 1.3  # Rare category, boost it
+
+        # Boost non-paintings generically (they're underrepresented in APIs)
         if obj.medium and "oil on canvas" not in (obj.medium or "").lower():
-            obj._diversity_boost *= 1.1
+            boost *= 1.1
+
+        obj._diversity_boost = boost
 
     return candidates
 
@@ -276,7 +291,8 @@ def filter_and_rank(candidates: list[MuseumObject], post_history: list[dict], mi
 # --- Format decision ---
 
 def decide_format(obj: MuseumObject) -> str:
-    """Decide single tweet vs thread based on available material."""
+    """Decide single tweet vs thread based on available material.
+    Thread when: enough images AND enough story to fill 2-3 tweets without padding."""
     image_count = 1 + len(obj.additional_images)
 
     has_rich_story = (
@@ -285,7 +301,17 @@ def decide_format(obj: MuseumObject) -> str:
         (obj.wall_description and len(obj.wall_description) > 200)
     )
 
-    if image_count >= 3 and has_rich_story:
+    # Thread if we have 2+ distinct images and a rich story
+    if image_count >= 2 and has_rich_story:
+        return "thread"
+
+    # Also thread if story material is very rich, even with 1 image
+    # (the prompt will still assign different crops/angles if available)
+    very_rich = (
+        (obj.description and len(obj.description) > 500) and
+        (obj.fun_fact or obj.did_you_know or (obj.wall_description and len(obj.wall_description) > 100))
+    )
+    if very_rich:
         return "thread"
 
     return "single"
@@ -377,14 +403,61 @@ Do NOT use em-dashes (—). Use periods or commas instead."""
 ## FORMAT
 {format_instructions}
 
+## IMAGE AWARENESS
+You have {len(images)} image(s). {"The single image is a full-object shot. Do NOT describe fine details the viewer cannot see (engravings, inscriptions, brush strokes, small carvings). Describe what IS visible at normal zoom: overall shape, scale, color, material, condition. Save the detail for things the viewer can verify." if len(images) == 1 else "Multiple images available. If a detail image shows a close-up, you can describe fine details. Otherwise stick to what's visible."}
+
 ## INSTRUCTIONS
 
 1. HOOK FIRST. Don't start with "This is [title]." Start with what makes this object interesting.
 2. Include context the viewer can't see: backstory, technique, scandal, how it got to the museum.
 3. Specific details: dates, dimensions, materials, names, costs.
-4. End with the fact that sticks.
-5. Explain anything a layperson wouldn't know (but don't lecture).
-6. If you reference another work, it must be in an image. Don't mention things you can't show.
+4. Explain anything a layperson wouldn't know (but don't lecture).
+5. If you reference another work, it must be in an image. Don't mention things you can't show.
+6. Match your description to what the image actually shows. Don't oversell details the viewer can't verify.
+
+## ENDING (before the signature line)
+
+The last sentence before the attribution line is the most important. It's the line someone repeats at a dinner party. Use ONE of these patterns:
+
+- A specific number that recontextualizes the story ("It sold for $3.2 million. The artist was paid $50.")
+- A flat, deadpan status update ("It's now a parking garage." / "Nobody has tried since.")
+- A zoom-out that reveals surprising scale ("This was one of 4,000 tiles. Each one different.")
+- A genuine unanswered mystery, not a rhetorical question ("Why he stopped painting, nobody knows.")
+- A connection to the present day in one concrete sentence ("The family still owns the building.")
+- A brief gut reaction, 1-5 words max, that only works after the full story ("Gone. All of it.")
+
+NEVER end with: abstract lessons, empty superlatives ("remarkable", "incredible"), "And that's the story of...", rhetorical questions, philosophy, platitudes ("some things never change"), or telling the reader what to feel.
+
+## CRITICAL: AVOID AI WRITING PATTERNS
+
+Your writing WILL be rejected if it contains any of these. Read this section carefully.
+
+STRUCTURAL PATTERNS THAT ARE INSTANT REJECTS:
+- "The real X isn't Y, it's Z" or any variant ("The real journey isn't...", "The real story isn't...")
+- "Not X. It's Y." or "Isn't X. It's Y." — negative parallelism for fake profundity
+- "More than just a [noun]" or "Not just a [noun]"
+- Present-participle tack-ons: "...creating a sense of...", "...making it one of...", "...transforming the..."
+- Starting sentences with "This" referring to the previous idea ("This wasn't just..." "This single act...")
+- Rhetorical questions meant to sound profound ("But what makes this truly remarkable?")
+- "Whether you're X or Y, this Z..."
+- Significance claims: "highlighting the importance of", "underscoring", "a reminder that"
+- Philosophical wrap-ups: "perhaps the real...", "in a way, it...", "it reminds us that..."
+- "What makes this X special/remarkable/unique is..."
+- Excessive compound sentences that try to do two things at once
+
+BAD (AI-sounding):
+- "The real journey isn't the one shown. It's the cultural path these stories traveled across continents."
+- "This wasn't just a painting. It was an act of artistic rebellion, one that would forever transform the Parisian art world."
+- "More than just a decorative object, this 14th-century flask represents the pinnacle of Islamic metalwork, combining artistry with function."
+- "What makes this piece truly remarkable is not its beauty, but the story of how it survived."
+
+GOOD (human-sounding):
+- "William is 4,000 years old, 8 inches long, and the most famous hippo in New York."
+- "A painter with no commission destroyed France's most famous living artist. The weapon: this painting."
+- "This flask weighs 3 pounds. Every inch is inlaid with silver. It took a metalworker in Damascus roughly 6 months."
+- "The British Museum bought it in 1897 for 12 pounds. It's now worth more than most houses in London."
+
+Notice the difference: good writing SHOWS with facts. Bad writing TELLS you what to think.
 
 ## OUTPUT
 Return valid JSON only:
@@ -395,6 +468,7 @@ Return valid JSON only:
   ]
 }}
 
+CRITICAL: The image_url goes in the JSON field ONLY. Do NOT paste image URLs into the tweet text. The text should contain zero URLs.
 No markdown, no explanation, just the JSON."""
 
     system = f"""You write posts for @museumstories on X/Twitter. Compelling narrator voice.
@@ -405,7 +479,7 @@ No markdown, no explanation, just the JSON."""
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-opus-4-6",
             max_tokens=1500,
             system=system,
             messages=[{"role": "user", "content": prompt}],
@@ -429,11 +503,23 @@ No markdown, no explanation, just the JSON."""
             log.error(f"No tweets in response for {obj.title}")
             return None
 
+        # Clean: strip any URLs that Claude embedded in tweet text
+        import re
+        for tweet in story["tweets"]:
+            cleaned = re.sub(r'\s*https?://\S+', '', tweet["text"]).strip()
+            if cleaned != tweet["text"]:
+                log.info(f"Stripped URL from tweet text for {obj.title}")
+                tweet["text"] = cleaned
+
         # Validate: reject banned words
         banned = ["delve", "tapestry", "vibrant", "realm", "nestled", "testament", "beacon",
-                  "multifaceted", "landscape", "groundbreaking", "fostering", "leveraging"]
+                  "multifaceted", "landscape", "groundbreaking", "fostering", "leveraging",
+                  "spearheading", "navigating", "game-changer", "revolutionize", "cutting-edge"]
         banned_phrases = ["not just", "more than just", "isn't merely", "a testament to",
-                         "a beacon of", "at the heart of", "rich tapestry"]
+                         "a beacon of", "at the heart of", "rich tapestry", "diverse range",
+                         "in today's", "it's important to note", "it's worth noting",
+                         "stands as a", "whether you're", "valuable insights",
+                         "resonate with", "align with"]
         all_text = " ".join(t["text"] for t in story["tweets"])
         all_lower = all_text.lower()
         for word in banned:
@@ -443,6 +529,25 @@ No markdown, no explanation, just the JSON."""
         for phrase in banned_phrases:
             if phrase in all_lower:
                 log.warning(f"Banned phrase '{phrase}' in generated post for {obj.title} — rejecting")
+                return None
+
+        # Validate: reject AI structural patterns (regex)
+        ai_patterns = [
+            (r"the real \w+ (?:isn't|wasn't|isn't|wasn't)", "the real X isn't Y"),
+            (r"(?:not|isn't|wasn't|isn't|wasn't) [\w\s,]+\. it'?s ", "negative parallelism (not X. it's Y)"),
+            (r"more than (?:just )?(?:a|an) \w+", "more than just a"),
+            (r"what makes (?:this|it) [\w\s]+ (?:remarkable|special|unique|extraordinary)", "what makes this remarkable"),
+            (r"(?:creating|making|transforming|establishing|forging|cementing|solidifying) (?:a|an|the|it) [\w\s]*(?:sense|space|legacy|symbol|reminder|testament)", "participle tack-on"),
+            (r"perhaps (?:the|what|that)", "philosophical wrap-up"),
+            (r"(?:it |this )reminds us", "philosophical wrap-up"),
+            (r"in (?:a|some) (?:way|sense),", "hedging significance"),
+            (r"(?:highlighting|underscoring|illustrating|demonstrating|showcasing) the (?:importance|significance|power|beauty)", "significance claim"),
+            (r"(?:truly|genuinely) (?:remarkable|extraordinary|unique|special)", "vague superlative"),
+            (r"but what (?:makes|made) (?:this|it)", "rhetorical question for profundity"),
+        ]
+        for pattern, label in ai_patterns:
+            if re.search(pattern, all_lower):
+                log.warning(f"AI pattern '{label}' in generated post for {obj.title} — rejecting")
                 return None
 
         # Validate tweet length. Account is Premium (25k limit) so no hard 280 cap.
@@ -510,6 +615,7 @@ def get_post_history(posts_data: dict) -> list[dict]:
             "culture": p.get("culture"),
             "period": p.get("period"),
             "medium": p.get("medium"),
+            "category": p.get("category"),
         }
         for p in posts_data.get("posts", [])
     ]
@@ -638,6 +744,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Show candidates without generating stories")
     parser.add_argument("--batch-size", type=int, default=4, help="Number of posts to generate")
     parser.add_argument("--auto-approve", action="store_true", help="Set status to approved instead of draft")
+    parser.add_argument("--force", action="store_true", help="Bypass queue size check")
     args = parser.parse_args()
 
     niche = get_niche(args.niche)
@@ -647,7 +754,7 @@ def main():
     pending = [p for p in posts_data["posts"] if p.get("status") in ("draft", "approved")]
 
     min_queue = museum_config.get("min_queue_size", 6)
-    if len(pending) >= min_queue and not args.dry_run:
+    if len(pending) >= min_queue and not args.dry_run and not args.force:
         log.info(f"Queue has {len(pending)} pending posts (min {min_queue}). No fetch needed.")
         return
 

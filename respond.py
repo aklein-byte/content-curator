@@ -133,7 +133,7 @@ Should we respond?"""
 
     try:
         response = anthropic.messages.create(
-            model=_models.get("evaluator", "claude-sonnet-4-20250514"),
+            model=_models.get("evaluator", "claude-opus-4-6"),
             max_tokens=200,
             system=_build_eval_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],

@@ -227,7 +227,7 @@ Possible actions: like, comment, follow
 
     try:
         response = client.messages.create(
-            model=_cfg.get("models", {}).get("evaluator", "claude-sonnet-4-20250514"),
+            model=_cfg.get("models", {}).get("evaluator", "claude-opus-4-6"),
             max_tokens=256,
             messages=[{"role": "user", "content": prompt}],
         )

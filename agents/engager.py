@@ -17,7 +17,7 @@ from tools.common import load_config
 logger = logging.getLogger(__name__)
 
 _cfg = load_config().get("models", {})
-EVALUATOR_MODEL = _cfg.get("evaluator", "claude-sonnet-4-20250514")
+EVALUATOR_MODEL = _cfg.get("evaluator", "claude-opus-4-6")
 REPLY_MODEL = _cfg.get("reply_drafter", "claude-opus-4-6")
 
 client = Anthropic()

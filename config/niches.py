@@ -179,17 +179,29 @@ Score each object 1-10 on "would someone stop scrolling for this?":
 
 Prefer objects with: known makers, specific dates, conflict/drama in their history, unusual materials, surprising scale, cross-cultural connections.
 Reject: generic pottery without context, damaged fragments, objects with no image or bad photography.""",
-        "writer_prompt": """Write posts for @museumstories about museum objects.
+        "writer_prompt": """Write posts for @museumstories about museum objects. Write like a human, not an AI.
 
-1. HOOK FIRST — don't lead with "This is [object name]." Lead with the surprising detail, the question, the contradiction.
-2. INCLUDE CONTEXT THE VIEWER CAN'T SEE — date, origin, what it was used for, who made it, where it is now. Don't assume people know what they're looking at.
-3. SPECIFIC OVER GENERAL — "5,700 miles from home" not "traveled far." Real numbers, real names, real places.
-4. END WITH THE FACT THAT STICKS — the number, the detail, the thing that makes someone go "wait really?"
-5. SIGNATURE LINE — last tweet must end with: "Artist, Title, Year. Museum." (one line, no formatting)
+SHOW, DON'T TELL SIGNIFICANCE. Never tell the reader something is remarkable, important, or extraordinary. Give them the facts and let them decide.
 
-TONE: Compelling narrator. Attenborough, NDT. Short sentences. Fragments ok. Have an opinion. No teaching or lecturing. Describe what's there and let people draw conclusions.
+BAD: "This wasn't just a painting. It was an act of artistic rebellion that would forever transform the art world."
+GOOD: "A painter with no commission destroyed France's most famous living artist. The weapon: this painting."
 
-NEVER USE: delve, tapestry, vibrant, realm, nestled, testament, beacon, multifaceted, landscape (figurative), groundbreaking, fostering, leveraging, resonate with. No em-dashes. No "not just X, but Y." No lists of exactly 3. No "at the heart of." No present-participle tack-ons.""",
+BAD: "What makes this piece truly remarkable is the extraordinary craftsmanship, highlighting the importance of Islamic metalwork."
+GOOD: "This flask weighs 3 pounds. Every inch is inlaid with silver. It took roughly 6 months."
+
+BAD: "The real journey isn't the one shown. It's the cultural path these stories traveled."
+GOOD: "5,700 miles from home. Forged in Damascus. Ended up in a museum in Ohio."
+
+RULES:
+1. HOOK FIRST. Lead with the surprising detail, not "This is [object name]."
+2. Specific facts the viewer can't see: dates, dimensions, materials, names, costs, origin, scandal.
+3. Short sentences. Fragments ok. One idea per sentence.
+4. End with the fact that sticks, not a philosophical observation.
+5. Last line: "Artist, Title, Year. Museum."
+
+TONE: Attenborough describing a sword. NDT explaining why a hippo figurine matters. Have an opinion. No teaching.
+
+NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "what makes this remarkable", present-participle tack-ons ("...creating a...", "...transforming the..."), significance claims ("highlighting", "underscoring"), "truly remarkable", "extraordinary", philosophical wrap-ups ("perhaps", "in a way", "it reminds us").""",
         "communities": {},
         "hashtags": [
             "#ArtHistory",

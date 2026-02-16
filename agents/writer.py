@@ -28,7 +28,7 @@ def _load_voice_guide(niche_id: str = "tatamispaces") -> str:
         return voice_path.read_text()
     return ""
 
-WRITER_MODEL = _cfg.get("writer", "claude-sonnet-4-20250514")
+WRITER_MODEL = _cfg.get("writer", "claude-opus-4-6")
 
 client = Anthropic()
 

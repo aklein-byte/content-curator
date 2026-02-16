@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Post Manager</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --surface2: #1a1a1a; --surface3: #222;
+    --border: #2a2a2a; --border2: #333; --text: #e0e0e0; --text2: #999; --text3: #666;
+    --blue: #1d9bf0; --green: #4caf50; --orange: #f0a020; --red: #e53935; --purple: #9c27b0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  /* === TOP BAR === */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 32px; display: flex; align-items: center; gap: 16px;
+  }
+  .niche-toggle { display: flex; gap: 0; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+  .niche-toggle a {
+    font-size: 13px; padding: 6px 16px; text-decoration: none; color: var(--text2);
+    background: transparent; transition: all 0.15s;
+  }
+  .niche-toggle a:hover { color: #fff; background: var(--surface3); }
+  .niche-toggle a.active { color: #fff; background: var(--blue); }
+  .topbar .stats { font-size: 12px; color: var(--text2); display: flex; gap: 12px; }
+  .topbar .stats span { white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .topbar button {
+    font-size: 12px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer;
+  }
+  .topbar button:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* === TOAST === */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; padding: 10px 20px; background: #2a2a2a;
+    border: 1px solid #444; border-radius: 6px; font-size: 13px; display: none; z-index: 500;
+    color: var(--text);
+  }
+
+  /* ===================== */
+  /* === TATAMI STYLES === */
+  /* ===================== */
+  #tatami-view .filters { margin: 16px 32px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #tatami-view .filters button { padding: 6px 14px; border: 1px solid var(--border2); background: var(--surface2); color: var(--text2);
+    border-radius: 4px; cursor: pointer; font-size: 13px; }
+  #tatami-view .filters button.active { border-color: #666; color: #fff; background: var(--surface3); }
+
+  #tatami-view .post { border: 1px solid var(--border); border-radius: 8px; margin: 0 32px 12px; padding: 16px;
+    background: var(--surface); display: flex; gap: 16px; }
+  #tatami-view .post.posted { opacity: 0.5; }
+  #tatami-view .post.dropped { opacity: 0.3; }
+
+  #tatami-view .post-images { flex-shrink: 0; display: flex; gap: 4px; flex-wrap: wrap; max-width: 260px; }
+  #tatami-view .post-images .img-wrap { position: relative; }
+  #tatami-view .post-images .img-wrap img { width: 120px; height: 120px; object-fit: cover; border-radius: 4px;
+    cursor: pointer; transition: outline 0.1s; }
+  #tatami-view .post-images .img-wrap img:hover { outline: 2px solid #6ac; outline-offset: 1px; }
+  #tatami-view .post-images .img-wrap .img-num { position: absolute; top: 3px; left: 3px; background: rgba(0,0,0,0.7);
+    color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
+  #tatami-view .post-images .img-wrap.selected img { outline: 2px solid #6ac; outline-offset: 1px; }
+  #tatami-view .post-images .img-wrap.dimmed img { opacity: 0.3; }
+  #tatami-view .img-controls { font-size: 11px; color: #666; margin-top: 4px; width: 100%; }
+  #tatami-view .img-controls button { font-size: 10px; padding: 2px 8px; background: var(--surface3); border: 1px solid var(--border2);
+    color: #888; border-radius: 3px; cursor: pointer; }
+  #tatami-view .img-controls button:hover { color: #fff; border-color: #555; }
+
+  #tatami-view .post-body { flex: 1; min-width: 0; }
+  #tatami-view .post-id { font-size: 11px; color: #555; margin-bottom: 4px; }
+  #tatami-view .post-text { font-size: 14px; line-height: 1.5; margin-bottom: 8px; white-space: pre-wrap; }
+  #tatami-view .post-meta { font-size: 12px; color: #555; margin-bottom: 8px; }
+  #tatami-view .post-meta span { margin-right: 12px; }
+  #tatami-view .post-actions { display: flex; gap: 6px; align-items: center; }
+  #tatami-view .post-actions button { padding: 4px 12px; border: 1px solid var(--border2); background: var(--surface3);
+    color: #aaa; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  #tatami-view .post-actions button:hover { border-color: #555; color: #fff; }
+  #tatami-view .post-actions button.btn-approve { border-color: #2a5a2a; color: #6c6; }
+  #tatami-view .post-actions button.btn-skip { border-color: #5a2a2a; color: #c66; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px;
+    font-weight: 500; margin-right: 6px; }
+  .badge-posted { background: #1a3a1a; color: #6c6; }
+  .badge-approved { background: #1a2a3a; color: #6ac; }
+  .badge-dropped { background: #3a1a1a; color: #c66; }
+  .badge-skipped { background: #3a3a1a; color: #cc6; }
+  .badge-draft { background: #f59e0b; color: #000; }
+  .badge-ig { background: #2a1a3a; color: #a6c; }
+  .badge-x { background: #1a2a2a; color: #6cc; }
+
+  /* Regenerate UI */
+  .regen-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .btn-regen { background: none; border: 1px solid var(--border2); color: var(--text3); font-size: 16px;
+    width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .btn-regen:hover { color: var(--blue); border-color: var(--blue); }
+  .btn-regen.loading { animation: spin 1s linear infinite; pointer-events: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .regen-input { display: flex; gap: 6px; align-items: center; flex: 1; }
+  .regen-input input { flex: 1; font-size: 12px; padding: 5px 10px; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); border-radius: 4px; outline: none; }
+  .regen-input input:focus { border-color: var(--blue); }
+  .regen-input button { font-size: 12px; padding: 5px 12px; border: 1px solid var(--blue);
+    background: transparent; color: var(--blue); border-radius: 4px; cursor: pointer; white-space: nowrap; }
+  .regen-input button:hover { background: var(--blue); color: #fff; }
+  .regen-btn-sm { background: none; border: 1px solid var(--border2); color: var(--text3); font-size: 13px;
+    padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+  .regen-btn-sm:hover { color: var(--blue); border-color: var(--blue); }
+  .regen-btn-sm.loading { animation: spin 1s linear infinite; pointer-events: none; }
+
+  /* Tatami lightbox */
+  #tatami-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200;
+    justify-content: center; align-items: center; cursor: zoom-out; }
+  #tatami-lightbox.open { display: flex; }
+  #tatami-lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+  #tatami-lightbox .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); font-size: 36px;
+    color: #888; cursor: pointer; padding: 20px; user-select: none; }
+  #tatami-lightbox .lb-nav:hover { color: #fff; }
+  #tatami-lightbox .lb-prev { left: 10px; }
+  #tatami-lightbox .lb-next { right: 10px; }
+  #tatami-lightbox .lb-info { position: absolute; bottom: 20px; color: #888; font-size: 13px; }
+  #tatami-lightbox .lb-select { position: absolute; top: 20px; right: 20px; padding: 8px 16px;
+    background: #2a2a2a; border: 1px solid #555; color: #6ac; border-radius: 4px; cursor: pointer;
+    font-size: 13px; }
+  #tatami-lightbox .lb-select:hover { color: #fff; border-color: #6ac; }
+
+  /* ====================== */
+  /* === MUSEUM STYLES  === */
+  /* ====================== */
+  #museum-view .filters {
+    padding: 12px 32px; background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-group { display: flex; gap: 4px; align-items: center; }
+  .filter-group .label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+  .filter-pill {
+    font-size: 11px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; white-space: nowrap;
+  }
+  .filter-pill:hover { border-color: var(--blue); color: var(--blue); }
+  .filter-pill.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); margin: 0 8px; }
+  .search-input {
+    font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); outline: none; width: 200px;
+  }
+  .search-input:focus { border-color: var(--blue); }
+
+  #museum-view .post-list { padding: 16px 32px 60px; }
+  .post-row {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    margin-bottom: 8px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .post-row:hover { border-color: var(--border2); }
+  .post-row.expanded { border-color: var(--blue); margin-bottom: 16px; }
+
+  .post-summary {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer;
+    user-select: none;
+  }
+  .post-summary:hover { background: var(--surface2); }
+  .state-badge {
+    font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  }
+  .state-draft { background: #2a2a2a; color: #888; }
+  .state-review { background: #2a2a1a; color: var(--orange); }
+  .state-approved { background: #1a2a1a; color: var(--green); }
+  .state-scheduled { background: #1a1a2a; color: var(--purple); }
+  .state-posted { background: #1a2a2a; color: var(--blue); }
+  .format-badge {
+    font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 2px 6px;
+    border-radius: 3px; white-space: nowrap;
+  }
+  .fmt-thread { background: #1d3a5c; color: var(--blue); }
+  .fmt-single { background: #2d3a1c; color: #8bc34a; }
+  .post-summary .title { font-size: 14px; color: #fff; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-summary .source { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .post-summary .img-count { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .post-summary .preview { font-size: 12px; color: var(--text2); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .post-summary .expand-arrow { font-size: 14px; color: var(--text3); transition: transform 0.2s; }
+  .post-row.expanded .expand-arrow { transform: rotate(90deg); }
+
+  .post-detail { display: none; border-top: 1px solid var(--border); }
+  .post-row.expanded .post-detail { display: block; }
+  .post-detail-inner { display: flex; gap: 0; }
+
+  .img-panel {
+    width: 420px; min-width: 420px; background: #0d0d0d; padding: 16px;
+    border-right: 1px solid var(--border); max-height: 700px; overflow-y: auto;
+  }
+  .img-panel-header { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .img-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .img-cell {
+    position: relative; border-radius: 6px; overflow: hidden; cursor: pointer;
+    border: 2px solid transparent; transition: border-color 0.2s; aspect-ratio: 4/3;
+  }
+  .img-cell img { width: 100%; height: 100%; object-fit: cover; }
+  .img-cell:hover { border-color: var(--blue); }
+  .img-cell.selected { border-color: var(--blue); }
+  .img-cell .img-idx {
+    position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.7);
+    color: #fff; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px;
+  }
+  .img-cell .tweet-badges {
+    position: absolute; top: 4px; right: 4px; display: flex; gap: 2px;
+  }
+  .img-cell .tweet-badge {
+    background: var(--blue); color: #fff; font-size: 8px; font-weight: 700;
+    padding: 1px 4px; border-radius: 3px;
+  }
+  .img-cell.pick-target { cursor: crosshair; }
+  .img-cell.pick-target::after {
+    content: '+'; position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    background: rgba(29,155,240,0.15); color: var(--blue);
+    font-size: 32px; font-weight: 700; opacity: 0; transition: opacity 0.15s;
+  }
+  .img-cell.pick-target:hover::after { opacity: 1; }
+  .img-cell.pick-target:hover { border-color: var(--green); }
+
+  .copy-panel { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .tweet-editor {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; position: relative;
+  }
+  .tweet-editor .tweet-label {
+    font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+  .tweet-editor .tweet-text {
+    font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap;
+    min-height: 60px; outline: none; border-radius: 4px; padding: 4px; margin: -4px;
+  }
+  .tweet-editor .tweet-text:focus { background: #1a2a3a; outline: 1px solid var(--blue); }
+  .tweet-editor .tweet-meta {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+  }
+  .tweet-editor .char-ct { font-size: 11px; color: var(--text3); }
+  .tweet-editor .char-ct.over { color: var(--red); }
+  .tweet-editor .img-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .img-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #1d3a5c;
+    color: var(--blue); display: flex; align-items: center; gap: 4px;
+  }
+  .img-tag .remove { cursor: pointer; opacity: 0.6; }
+  .img-tag .remove:hover { opacity: 1; }
+  .add-img-btn {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px dashed var(--border2);
+    background: transparent; color: var(--text3); cursor: pointer;
+  }
+  .add-img-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .add-img-btn.picking { border-color: var(--blue); background: rgba(29,155,240,0.15); color: var(--blue); }
+
+  #museum-view .post-actions {
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .state-select {
+    font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); outline: none; cursor: pointer;
+  }
+  .feedback-notes {
+    flex: 1; font-size: 12px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text); outline: none;
+  }
+  .feedback-notes:focus { border-color: var(--blue); }
+  .vote-btn-sm {
+    font-size: 18px; background: none; border: none; cursor: pointer; opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+  .vote-btn-sm:hover { opacity: 0.8; }
+  .vote-btn-sm.active { opacity: 1; }
+
+  /* Museum lightbox */
+  #museum-lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    z-index: 1000; justify-content: center; align-items: center; cursor: pointer;
+  }
+  #museum-lightbox.active { display: flex; }
+  #museum-lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; }
+  #museum-lightbox .close { position: absolute; top: 20px; right: 24px; color: #fff; font-size: 28px; cursor: pointer; opacity: 0.7; }
+  #museum-lightbox .close:hover { opacity: 1; }
+
+  @media (max-width: 1000px) {
+    .post-detail-inner { flex-direction: column; }
+    .img-panel { width: 100%; min-width: 0; max-height: 300px; border-right: none; border-bottom: 1px solid var(--border); }
+    .post-summary .preview { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="niche-toggle">
+    <a href="?niche=tatamispaces" class="__ACTIVE_TATAMI__">tatami</a>
+    <a href="?niche=museumstories" class="__ACTIVE_MUSEUM__">museum</a>
+  </div>
+  <div class="stats" id="stats">__STATS_HTML__</div>
+  <div class="spacer"></div>
+  <span id="museum-topbar-buttons" style="display:none">
+    <button onclick="expandAll()">Expand All</button>
+    <button onclick="collapseAll()">Collapse All</button>
+  </span>
+</div>
+
+<!-- ============== TATAMI VIEW ============== -->
+<div id="tatami-view" style="display:none">
+  <div class="filters">
+    <button onclick="tatamiFilter('all')">All (POST_COUNT_ALL)</button>
+    <button class="active" onclick="tatamiFilter('approved')">Ready (POST_COUNT_APPROVED)</button>
+    <button onclick="tatamiFilter('posted')">Posted (POST_COUNT_POSTED)</button>
+    <button onclick="tatamiFilter('dropped')">Dropped (POST_COUNT_DROPPED)</button>
+  </div>
+  <div id="tatami-posts">POSTS_HTML</div>
+
+  <!-- Tatami Lightbox -->
+  <div id="tatami-lightbox" onclick="closeTatamiLightbox(event)">
+    <span class="lb-nav lb-prev" onclick="tatamiLbNav(event,-1)">&lsaquo;</span>
+    <img id="tatami-lb-img" src="" onclick="event.stopPropagation()">
+    <span class="lb-nav lb-next" onclick="tatamiLbNav(event,1)">&rsaquo;</span>
+    <div class="lb-info" id="tatami-lb-info"></div>
+    <button class="lb-select" id="tatami-lb-select" onclick="tatamiLbSelect(event)">Use this image only</button>
+  </div>
+</div>
+
+<!-- ============== MUSEUM VIEW ============== -->
+<div id="museum-view" style="display:none">
+  <div class="filters">
+    <div class="filter-group">
+      <span class="label">State</span>
+      <button class="filter-pill active" data-filter="state" data-val="all" onclick="museumSetFilter(this)">All</button>
+      <button class="filter-pill" data-filter="state" data-val="draft" onclick="museumSetFilter(this)">Draft</button>
+      <button class="filter-pill" data-filter="state" data-val="review" onclick="museumSetFilter(this)">Review</button>
+      <button class="filter-pill" data-filter="state" data-val="approved" onclick="museumSetFilter(this)">Approved</button>
+      <button class="filter-pill" data-filter="state" data-val="posted" onclick="museumSetFilter(this)">Posted</button>
+    </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="label">Format</span>
+      <button class="filter-pill active" data-filter="format" data-val="all" onclick="museumSetFilter(this)">All</button>
+      <button class="filter-pill" data-filter="format" data-val="thread" onclick="museumSetFilter(this)">Threads</button>
+      <button class="filter-pill" data-filter="format" data-val="single" onclick="museumSetFilter(this)">Singles</button>
+    </div>
+    <div class="filter-sep"></div>
+    <input class="search-input" placeholder="Search posts..." oninput="museumApplyFilters()" id="museumSearchInput">
+  </div>
+
+  <div class="post-list" id="museumPostList"></div>
+
+  <!-- Museum Lightbox -->
+  <div id="museum-lightbox" onclick="closeMuseumLightbox(event)">
+    <span class="close">&times;</span>
+    <img id="museumLightboxImg" src="" alt="">
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const NICHE = '__NICHE__';
+const museumPosts = __POSTS_DATA__;
+
+// Show correct view
+if (NICHE === 'tatamispaces') {
+  document.getElementById('tatami-view').style.display = '';
+} else {
+  document.getElementById('museum-view').style.display = '';
+  document.getElementById('museum-topbar-buttons').style.display = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display = 'none', 2000);
+}
+
+// ============================
+// TATAMI JS
+// ============================
+let lbImages = [], lbIndex = 0, lbPostId = null;
+
+function tatamiFilter(status) {
+  document.querySelectorAll('#tatami-view .filters button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('#tatami-view .post').forEach(p => {
+    if (status === 'all') { p.style.display = ''; return; }
+    p.style.display = p.dataset.status === status ? '' : 'none';
+  });
+}
+
+function openLightbox(postId, urls, startIdx) {
+  lbImages = urls; lbIndex = startIdx; lbPostId = postId;
+  showTatamiLbImage();
+  document.getElementById('tatami-lightbox').classList.add('open');
+}
+function closeTatamiLightbox(e) {
+  if (e.target === document.getElementById('tatami-lightbox'))
+    document.getElementById('tatami-lightbox').classList.remove('open');
+}
+function tatamiLbNav(e, dir) {
+  e.stopPropagation();
+  lbIndex = (lbIndex + dir + lbImages.length) % lbImages.length;
+  showTatamiLbImage();
+}
+function showTatamiLbImage() {
+  document.getElementById('tatami-lb-img').src = lbImages[lbIndex];
+  document.getElementById('tatami-lb-info').textContent = 'Image ' + (lbIndex+1) + ' of ' + lbImages.length;
+}
+async function tatamiLbSelect(e) {
+  e.stopPropagation();
+  const r = await fetch('api/image-select', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: lbPostId, image_index: lbIndex})
+  });
+  const data = await r.json();
+  if (data.ok) {
+    showToast('#' + lbPostId + ' \u2192 image ' + (lbIndex+1));
+    document.getElementById('tatami-lightbox').classList.remove('open');
+    setTimeout(() => location.reload(), 500);
+  }
+}
+async function resetImages(id) {
+  const r = await fetch('api/image-select', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, image_index: null, image_count: null})
+  });
+  const data = await r.json();
+  if (data.ok) { showToast('#' + id + ' \u2192 all images'); setTimeout(() => location.reload(), 500); }
+}
+async function setStatus(id, status) {
+  const r = await fetch('api/status', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, status: status})
+  });
+  const data = await r.json();
+  if (data.ok) { showToast('#' + id + ' \u2192 ' + status); setTimeout(() => location.reload(), 500); }
+}
+
+// Tatami regenerate
+function toggleRegen(id) {
+  const row = document.getElementById('regen-' + id);
+  const input = row.querySelector('.regen-input');
+  input.style.display = input.style.display === 'none' ? 'flex' : 'none';
+  if (input.style.display === 'flex') input.querySelector('input').focus();
+}
+async function regenerate(id) {
+  const fb = document.getElementById('regen-fb-' + id).value;
+  const btn = document.querySelector('#regen-' + id + ' .btn-regen');
+  btn.classList.add('loading');
+  const r = await fetch('api/regenerate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, feedback: fb || undefined})
+  });
+  const data = await r.json();
+  btn.classList.remove('loading');
+  if (data.ok) {
+    showToast('#' + id + ' caption regenerated');
+    setTimeout(() => location.reload(), 500);
+  } else {
+    showToast('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+// Keyboard nav for tatami lightbox
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('tatami-lightbox').classList.contains('open')) {
+    if (e.key === 'Escape') document.getElementById('tatami-lightbox').classList.remove('open');
+    if (e.key === 'ArrowLeft') { lbIndex = (lbIndex - 1 + lbImages.length) % lbImages.length; showTatamiLbImage(); }
+    if (e.key === 'ArrowRight') { lbIndex = (lbIndex + 1) % lbImages.length; showTatamiLbImage(); }
+  }
+  if (document.getElementById('museum-lightbox').classList.contains('active')) {
+    if (e.key === 'Escape') document.getElementById('museum-lightbox').classList.remove('active');
+  }
+});
+
+// ============================
+// MUSEUM JS
+// ============================
+const STATES = ['draft', 'review', 'approved', 'posted'];
+let pickMode = null;
+let museumFilters = { state: 'all', format: 'all', search: '' };
+
+async function museumApi(endpoint, body) {
+  const r = await fetch('api/museum/' + endpoint, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+function museumSetFilter(btn) {
+  const group = btn.dataset.filter;
+  museumFilters[group] = btn.dataset.val;
+  btn.closest('.filter-group').querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  museumApplyFilters();
+}
+
+function museumApplyFilters() {
+  museumFilters.search = document.getElementById('museumSearchInput').value.toLowerCase();
+  document.querySelectorAll('.post-row').forEach(row => {
+    const post = museumPosts.find(p => p.id === parseInt(row.dataset.id));
+    if (!post) return;
+    const state = post.status || 'draft';
+    const fmt = post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single');
+    let show = true;
+    if (museumFilters.state !== 'all' && state !== museumFilters.state) show = false;
+    if (museumFilters.format !== 'all' && fmt !== museumFilters.format) show = false;
+    if (museumFilters.search) {
+      const title = (post.title || '').toLowerCase();
+      const artist = (post.artist || '').toLowerCase();
+      if (!title.includes(museumFilters.search) && !artist.includes(museumFilters.search)) show = false;
+    }
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function museumRender() {
+  const list = document.getElementById('museumPostList');
+  if (!list) return;
+  list.innerHTML = '';
+  museumPosts.forEach(post => {
+    const state = post.status || 'draft';
+    const fmt = post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single');
+    const row = document.createElement('div');
+    row.className = 'post-row';
+    row.dataset.id = post.id;
+
+    const firstTweet = post.tweets && post.tweets[0] ? post.tweets[0].text : (post.text || '');
+    const preview = firstTweet.replace(/\n/g, ' ').slice(0, 80);
+    const imgCount = (post.allImages || post.image_urls || []).length;
+    const source = post.source || post.museum || '';
+
+    row.innerHTML =
+      '<div class="post-summary" onclick="toggleMuseumPost(' + post.id + ')">' +
+        '<span class="state-badge state-' + state + '" onclick="event.stopPropagation();cycleMuseumState(' + post.id + ')" title="Click to change state">' + state + '</span>' +
+        '<span class="format-badge fmt-' + fmt + '">' + fmt + (fmt === 'thread' ? ' ' + post.tweets.length : '') + '</span>' +
+        '<span class="title">' + escHtml(post.title) + '</span>' +
+        '<span class="source">' + escHtml(source) + '</span>' +
+        '<span class="img-count">' + imgCount + ' imgs</span>' +
+        '<span class="preview">' + escHtml(preview) + '</span>' +
+        '<span class="expand-arrow">\u25b8</span>' +
+      '</div>' +
+      '<div class="post-detail">' + renderMuseumDetail(post) + '</div>';
+
+    list.appendChild(row);
+  });
+  updateMuseumStats();
+  museumApplyFilters();
+}
+
+function renderMuseumDetail(post) {
+  const allImages = post.allImages || post.image_urls || [];
+
+  // Build usage map
+  const imgUsage = {};
+  (post.tweets || []).forEach((t, ti) => {
+    (t.images || []).forEach(idx => {
+      if (!imgUsage[idx]) imgUsage[idx] = [];
+      imgUsage[idx].push(ti);
+    });
+  });
+
+  // Image grid
+  let imgGrid = '';
+  allImages.forEach((url, i) => {
+    const inPick = pickMode && pickMode.postId === post.id;
+    const pickClass = inPick ? ' pick-target' : '';
+    const usedClass = imgUsage[i] ? ' selected' : '';
+    const badges = imgUsage[i] ? '<div class="tweet-badges">' +
+      imgUsage[i].map(ti => '<span class="tweet-badge">T' + (ti+1) + '</span>').join('') +
+      '</div>' : '';
+
+    const clickHandler = inPick
+      ? 'pickMuseumImage(' + post.id + ',' + i + ')'
+      : 'openMuseumLightbox(\'' + url.replace(/'/g, "\\'") + '\')';
+
+    imgGrid += '<div class="img-cell' + usedClass + pickClass + '" onclick="' + clickHandler + '">' +
+      '<img src="' + url + '" loading="lazy" alt="Image ' + (i+1) + '">' +
+      '<span class="img-idx">' + (i+1) + '</span>' +
+      badges + '</div>';
+  });
+
+  // Tweet editors
+  let tweetEditors = '';
+  (post.tweets || []).forEach((tweet, i) => {
+    const text = tweet.text;
+    const charCount = text.length;
+    const imgTags = (tweet.images || []).map(idx =>
+      '<span class="img-tag">img ' + (idx+1) + ' <span class="remove" onclick="removeMuseumImg(' + post.id + ',' + i + ',' + idx + ')">\u00d7</span></span>'
+    ).join('');
+
+    const isPicking = pickMode && pickMode.postId === post.id && pickMode.tweetIndex === i;
+    const addBtnClass = isPicking ? 'add-img-btn picking' : 'add-img-btn';
+    const addBtnText = isPicking ? 'picking...' : '+ img';
+    const nTweets = post.tweets.length;
+    const fmt = post.format || (nTweets > 1 ? 'thread' : 'single');
+
+    tweetEditors +=
+      '<div class="tweet-editor">' +
+        '<div class="tweet-label">' + (fmt === 'thread' ? 'Tweet ' + (i+1) + '/' + nTweets : 'Tweet') + '</div>' +
+        '<div class="tweet-text" contenteditable="true" data-post="' + post.id + '" data-idx="' + i + '">' + escHtml(text) + '</div>' +
+        '<div class="tweet-meta">' +
+          '<span class="char-ct ' + (charCount > 280 ? 'over' : '') + '">' + charCount + '/280</span>' +
+          '<div class="img-tags">' + imgTags + '</div>' +
+          '<button class="' + addBtnClass + '" onclick="toggleMuseumPickMode(' + post.id + ',' + i + ')">' + addBtnText + '</button>' +
+          '<button class="regen-btn-sm" onclick="regenMuseumTweet(' + post.id + ',' + i + ',this)" title="Regenerate">&#x21bb;</button>' +
+        '</div>' +
+      '</div>';
+  });
+
+  const info = '<div style="font-size:11px;color:var(--text3);padding:4px 0 8px;display:flex;gap:16px;flex-wrap:wrap;">' +
+    '<span>' + escHtml(post.artist) + '</span><span>' + escHtml(post.medium) + '</span><span>' + escHtml(post.dimensions || '') + '</span></div>';
+
+  const notes = post.notes || '';
+  const vote = post.vote || '';
+  const state = post.status || 'draft';
+
+  return '<div class="post-detail-inner">' +
+    (allImages.length ? '<div class="img-panel"><div class="img-panel-header">All images (' + allImages.length + ')</div><div class="img-grid">' + imgGrid + '</div></div>' : '') +
+    '<div class="copy-panel">' + info + tweetEditors + '</div>' +
+  '</div>' +
+  '<div class="post-actions">' +
+    '<select class="state-select" onchange="setMuseumState(' + post.id + ',this.value)">' +
+      STATES.map(function(st) { return '<option value="' + st + '"' + (st === state ? ' selected' : '') + '>' + st.charAt(0).toUpperCase() + st.slice(1) + '</option>'; }).join('') +
+    '</select>' +
+    '<span class="vote-btn-sm ' + (vote==='up'?'active':'') + '" onclick="setMuseumVote(' + post.id + ',\'up\')">\ud83d\udc4d</span>' +
+    '<span class="vote-btn-sm ' + (vote==='down'?'active':'') + '" onclick="setMuseumVote(' + post.id + ',\'down\')">\ud83d\udc4e</span>' +
+    '<input class="feedback-notes" placeholder="Notes..." value="' + (notes||'').replace(/"/g,'&quot;') + '" oninput="saveMuseumNotes(' + post.id + ',this.value)">' +
+  '</div>';
+}
+
+function toggleMuseumPost(id) {
+  const row = document.querySelector('[data-id="' + id + '"]');
+  row.classList.toggle('expanded');
+}
+function expandAll() { document.querySelectorAll('.post-row').forEach(r => r.classList.add('expanded')); }
+function collapseAll() { document.querySelectorAll('.post-row').forEach(r => r.classList.remove('expanded')); }
+
+function cycleMuseumState(id) {
+  const post = museumPosts.find(p => p.id === id);
+  const cur = post.status || 'draft';
+  const idx = STATES.indexOf(cur);
+  const next = STATES[(idx + 1) % STATES.length];
+  setMuseumState(id, next);
+}
+
+async function setMuseumState(id, state) {
+  const res = await museumApi('status', { id: id, status: state });
+  if (res.ok) {
+    const post = museumPosts.find(p => p.id === id);
+    post.status = state;
+    showToast('#' + id + ' \u2192 ' + state);
+    museumRender();
+  }
+}
+
+async function setMuseumVote(id, vote) {
+  const post = museumPosts.find(p => p.id === id);
+  const newVote = post.vote === vote ? null : vote;
+  const res = await museumApi('notes', { id: id, vote: newVote, notes: post.notes || '' });
+  if (res.ok) {
+    post.vote = newVote;
+    showToast('#' + id + ' vote ' + (newVote || 'cleared'));
+    museumRender();
+  }
+}
+
+let museumNotesTimer = null;
+function saveMuseumNotes(id, val) {
+  const post = museumPosts.find(p => p.id === id);
+  post.notes = val;
+  clearTimeout(museumNotesTimer);
+  museumNotesTimer = setTimeout(async () => {
+    await museumApi('notes', { id: id, vote: post.vote, notes: val });
+  }, 500);
+}
+
+// Pick mode
+function toggleMuseumPickMode(postId, tweetIndex) {
+  if (pickMode && pickMode.postId === postId && pickMode.tweetIndex === tweetIndex) {
+    pickMode = null;
+  } else {
+    pickMode = { postId, tweetIndex };
+  }
+  museumRender();
+  const row = document.querySelector('[data-id="' + postId + '"]');
+  if (row) row.classList.add('expanded');
+}
+
+async function pickMuseumImage(postId, imageIndex) {
+  if (!pickMode || pickMode.postId !== postId) return;
+  const res = await museumApi('image-assign', {
+    post_id: postId, tweet_index: pickMode.tweetIndex,
+    image_index: imageIndex, action: 'add'
+  });
+  if (res.ok) {
+    const post = museumPosts.find(p => p.id === postId);
+    const tweet = post.tweets[pickMode.tweetIndex];
+    if (!tweet.images) tweet.images = [];
+    if (!tweet.images.includes(imageIndex)) tweet.images.push(imageIndex);
+    showToast('img ' + (imageIndex+1) + ' \u2192 tweet ' + (pickMode.tweetIndex+1));
+    museumRender();
+    const row = document.querySelector('[data-id="' + postId + '"]');
+    if (row) row.classList.add('expanded');
+  }
+}
+
+async function removeMuseumImg(postId, tweetIdx, imgIdx) {
+  const res = await museumApi('image-assign', {
+    post_id: postId, tweet_index: tweetIdx,
+    image_index: imgIdx, action: 'remove'
+  });
+  if (res.ok) {
+    const post = museumPosts.find(p => p.id === postId);
+    post.tweets[tweetIdx].images = post.tweets[tweetIdx].images.filter(i => i !== imgIdx);
+    showToast('removed img ' + (imgIdx+1) + ' from tweet ' + (tweetIdx+1));
+    museumRender();
+    const row = document.querySelector('[data-id="' + postId + '"]');
+    if (row) row.classList.add('expanded');
+  }
+}
+
+// Museum regenerate
+async function regenMuseumTweet(postId, tweetIdx, btn) {
+  btn.classList.add('loading');
+  const r = await fetch('api/museum/regenerate', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: postId, tweet_index: tweetIdx})
+  });
+  const data = await r.json();
+  btn.classList.remove('loading');
+  if (data.ok) {
+    const post = museumPosts.find(p => p.id === postId);
+    post.tweets[tweetIdx].text = data.caption;
+    showToast('#' + postId + ' tweet ' + (tweetIdx+1) + ' regenerated');
+    museumRender();
+    const row = document.querySelector('[data-id="' + postId + '"]');
+    if (row) row.classList.add('expanded');
+  } else {
+    showToast('Error: ' + (data.error || 'unknown'));
+  }
+}
+
+// Inline editing
+let museumEditTimer = null;
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('tweet-text') && e.target.contentEditable === 'true') {
+    const postId = parseInt(e.target.dataset.post);
+    const idx = parseInt(e.target.dataset.idx);
+    const text = e.target.innerText;
+    const post = museumPosts.find(p => p.id === postId);
+    if (post) post.tweets[idx].text = text;
+    const ct = e.target.closest('.tweet-editor').querySelector('.char-ct');
+    if (ct) { ct.textContent = text.length + '/280'; ct.className = 'char-ct' + (text.length > 280 ? ' over' : ''); }
+    clearTimeout(museumEditTimer);
+    museumEditTimer = setTimeout(async () => {
+      await museumApi('tweet-edit', { id: postId, tweet_index: idx, text: text });
+    }, 500);
+  }
+});
+
+// Click outside exits pick mode
+document.addEventListener('click', function(e) {
+  if (!pickMode) return;
+  if (e.target.closest('.img-cell') || e.target.closest('.add-img-btn')) return;
+  pickMode = null;
+  museumRender();
+});
+
+function updateMuseumStats() {
+  const counts = { draft: 0, review: 0, approved: 0, posted: 0 };
+  museumPosts.forEach(p => { const st = p.status || 'draft'; counts[st] = (counts[st]||0) + 1; });
+  document.getElementById('stats').innerHTML =
+    '<span>' + museumPosts.length + ' posts</span>' +
+    '<span>Draft: ' + counts.draft + '</span>' +
+    '<span>Review: ' + counts.review + '</span>' +
+    '<span style="color:var(--green)">Approved: ' + counts.approved + '</span>' +
+    '<span style="color:var(--blue)">Posted: ' + counts.posted + '</span>';
+}
+
+// Museum lightbox
+function openMuseumLightbox(url) {
+  document.getElementById('museumLightboxImg').src = url;
+  document.getElementById('museum-lightbox').classList.add('active');
+}
+function closeMuseumLightbox(e) {
+  if (e.target === document.getElementById('museum-lightbox') || e.target.classList.contains('close'))
+    document.getElementById('museum-lightbox').classList.remove('active');
+}
+
+// Export
+function exportData() {
+  const data = { exported: new Date().toISOString(), posts: museumPosts };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'museum_posts_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+// Init museum view
+if (NICHE === 'tatamispaces') {
+  // Default to showing "Ready" (approved) posts
+  document.querySelectorAll('#tatami-view .post').forEach(p => {
+    p.style.display = p.dataset.status === 'approved' ? '' : 'none';
+  });
+}
+if (NICHE === 'museumstories') {
+  museumRender();
+}
+</script>
+</body>
+</html>

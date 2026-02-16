@@ -1,16 +1,17 @@
 """
 Post management dashboard for @tatamispaces and Museum Stories.
-Simple web UI to preview, approve, skip posts, and pick images.
+Single page with niche toggle.
 
 Usage: python dashboard.py [--port 8080]
 Opens at http://localhost:8080
-  /          — tatami dashboard
-  /museum/   — museum stories dashboard
+  /?niche=tatamispaces   — tatami view (default)
+  /?niche=museumstories  — museum view
 """
 
 import json
 import os
 import sys
+import asyncio
 import argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
@@ -19,6 +20,10 @@ from datetime import datetime, timezone
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = BASE_DIR / "posts.json"
+
+# Load .env so writer agent can find ANTHROPIC_API_KEY
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / ".env")
 
 
 def load_posts():
@@ -33,7 +38,7 @@ def save_posts(data):
 
 
 TEMPLATES_DIR = BASE_DIR / "templates"
-MUSEUM_POSTS_FILE = BASE_DIR / "posts-museum-curated.json"
+MUSEUM_POSTS_FILE = BASE_DIR / "posts-museumstories.json"
 
 
 def load_museum_posts():
@@ -155,11 +160,22 @@ def render_post_html(post, index):
 
     css_class = "posted" if status == "posted" else ("dropped" if status == "dropped" or status.startswith("skipped") else "")
 
+    regen_html = ""
+    if status in ("draft", "approved"):
+        regen_html = f'''<div class="regen-row" id="regen-{pid}">
+          <button class="btn-regen" onclick="toggleRegen({pid})" title="Regenerate caption">&#x21bb;</button>
+          <div class="regen-input" style="display:none">
+            <input placeholder="Direction (optional)..." id="regen-fb-{pid}">
+            <button onclick="regenerate({pid})">Go</button>
+          </div>
+        </div>'''
+
     return f'''<div class="post {css_class}" data-status="{status}" data-id="{pid}">
       <div class="post-images">{imgs_html}</div>
       <div class="post-body">
         <div class="post-id">#{pid} {badges}</div>
         <div class="post-text">{text}</div>
+        {regen_html}
         <div class="post-meta">{meta}</div>
         <div class="post-actions">{actions}</div>
       </div>
@@ -171,10 +187,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pass  # quiet
 
     def do_GET(self):
-        if self.path == "/" or self.path.startswith("/?"):
+        parsed = urlparse(self.path)
+        if parsed.path == "/" or parsed.path == "":
             self.serve_dashboard()
-        elif self.path == "/museum/" or self.path == "/museum" or self.path.startswith("/museum/?"):
-            self.serve_museum_dashboard()
+        elif parsed.path in ("/museum", "/museum/"):
+            # Serve museum view directly (avoids redirect issues behind nginx proxy)
+            self.path = "/?niche=museumstories"
+            self.serve_dashboard()
         else:
             self.send_error(404)
 
@@ -237,17 +256,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 self.send_json({"ok": False, "error": "post not found"})
 
-        elif self.path == "/museum/api/status":
+        elif self.path == "/api/museum/status":
             self.handle_museum_status(body)
 
-        elif self.path == "/museum/api/tweet-edit":
+        elif self.path == "/api/museum/tweet-edit":
             self.handle_museum_tweet_edit(body)
 
-        elif self.path == "/museum/api/image-assign":
+        elif self.path == "/api/museum/image-assign":
             self.handle_museum_image_assign(body)
 
-        elif self.path == "/museum/api/notes":
+        elif self.path == "/api/museum/notes":
             self.handle_museum_notes(body)
+
+        elif self.path == "/api/regenerate":
+            self.handle_regenerate(body)
+
+        elif self.path == "/api/museum/regenerate":
+            self.handle_museum_regenerate(body)
 
         else:
             self.send_error(404)
@@ -264,6 +289,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for p in data["posts"]:
             if p["id"] == post_id:
                 p["status"] = new_status
+                # Auto-set scheduled_for on approve so post.py picks it up
+                if new_status == "approved" and not p.get("scheduled_for"):
+                    p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
                 save_museum_posts(data)
                 self.send_json({"ok": True})
                 return
@@ -332,43 +360,116 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
         self.send_json({"ok": False, "error": "post not found"})
 
-    # === Dashboard serve methods ===
+    # === Regenerate handlers ===
+
+    def handle_regenerate(self, body):
+        """Regenerate a tatami post caption via writer agent."""
+        post_id = body.get("id")
+        feedback = body.get("feedback", "Try a different angle. Keep the same facts but find a fresher way to say it.")
+        if not post_id:
+            self.send_json({"ok": False, "error": "missing id"})
+            return
+        data = load_posts()
+        for p in data.get("posts", []):
+            if p.get("id") == post_id:
+                original = p.get("text", "")
+                if not original:
+                    self.send_json({"ok": False, "error": "post has no text"})
+                    return
+                try:
+                    from agents.writer import rewrite_caption
+                    result = asyncio.run(rewrite_caption("tatamispaces", original, feedback))
+                    p["text"] = result["caption"]
+                    p["_previous_text"] = original
+                    save_posts(data)
+                    self.send_json({"ok": True, "caption": result["caption"]})
+                except Exception as e:
+                    self.send_json({"ok": False, "error": str(e)})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    def handle_museum_regenerate(self, body):
+        """Regenerate a museum tweet caption via writer agent."""
+        post_id = body.get("id")
+        tweet_index = body.get("tweet_index")
+        feedback = body.get("feedback", "Try a different angle. Keep the same facts but find a fresher way to say it.")
+        if post_id is None or tweet_index is None:
+            self.send_json({"ok": False, "error": "missing id or tweet_index"})
+            return
+        data = load_museum_posts()
+        for p in data["posts"]:
+            if p["id"] == post_id:
+                if 0 <= tweet_index < len(p.get("tweets", [])):
+                    original = p["tweets"][tweet_index]["text"]
+                    try:
+                        from dotenv import load_dotenv
+                        load_dotenv(BASE_DIR / ".env")
+                        from agents.writer import rewrite_caption
+                        result = asyncio.run(rewrite_caption("museumstories", original, feedback))
+                        p["tweets"][tweet_index]["text"] = result["caption"]
+                        p["tweets"][tweet_index]["_previous_text"] = original
+                        save_museum_posts(data)
+                        self.send_json({"ok": True, "caption": result["caption"]})
+                    except Exception as e:
+                        self.send_json({"ok": False, "error": str(e)})
+                    return
+                self.send_json({"ok": False, "error": "invalid tweet_index"})
+                return
+        self.send_json({"ok": False, "error": "post not found"})
+
+    # === Dashboard serve ===
 
     def serve_dashboard(self):
-        data = load_posts()
-        posts = data.get("posts", [])
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        niche = qs.get("niche", ["tatamispaces"])[0]
 
-        counts = {"all": len(posts), "approved": 0, "posted": 0, "dropped": 0}
-        for p in posts:
-            s = p.get("status", "")
-            if s == "approved":
-                counts["approved"] += 1
-            elif s == "posted":
-                counts["posted"] += 1
-            elif s == "dropped" or s.startswith("skipped"):
-                counts["dropped"] += 1
+        html = (TEMPLATES_DIR / "dashboard.html").read_text()
+        html = html.replace("__NICHE__", niche)
 
-        posts_html = ""
-        for i, p in enumerate(posts):
-            posts_html += render_post_html(p, i)
+        if niche == "tatamispaces":
+            # Tatami: server-rendered post cards
+            data = load_posts()
+            posts = data.get("posts", [])
 
-        html = (TEMPLATES_DIR / "tatami.html").read_text()
-        html = html.replace("POSTS_HTML", posts_html)
-        html = html.replace("POST_COUNT_ALL", str(counts["all"]))
-        html = html.replace("POST_COUNT_APPROVED", str(counts["approved"]))
-        html = html.replace("POST_COUNT_POSTED", str(counts["posted"]))
-        html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
+            counts = {"all": len(posts), "approved": 0, "posted": 0, "dropped": 0}
+            for p in posts:
+                s = p.get("status", "")
+                if s == "approved":
+                    counts["approved"] += 1
+                elif s == "posted":
+                    counts["posted"] += 1
+                elif s == "dropped" or s.startswith("skipped"):
+                    counts["dropped"] += 1
 
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(html.encode())
+            posts_html = ""
+            for i, p in enumerate(posts):
+                posts_html += render_post_html(p, i)
 
-    def serve_museum_dashboard(self):
-        data = load_museum_posts()
-        posts_json = json.dumps(data.get("posts", []), ensure_ascii=False)
-        html = (TEMPLATES_DIR / "museum.html").read_text()
-        html = html.replace("__POSTS_DATA__", posts_json)
+            html = html.replace("POSTS_HTML", posts_html)
+            html = html.replace("POST_COUNT_ALL", str(counts["all"]))
+            html = html.replace("POST_COUNT_APPROVED", str(counts["approved"]))
+            html = html.replace("POST_COUNT_POSTED", str(counts["posted"]))
+            html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
+            html = html.replace("__POSTS_DATA__", "[]")
+            html = html.replace("__STATS_HTML__", "")
+            html = html.replace("__ACTIVE_TATAMI__", "active")
+            html = html.replace("__ACTIVE_MUSEUM__", "")
+        else:
+            # Museum: client-rendered from JSON
+            museum_data = load_museum_posts()
+            posts_json = json.dumps(museum_data.get("posts", []), ensure_ascii=False)
+
+            html = html.replace("__POSTS_DATA__", posts_json)
+            html = html.replace("POSTS_HTML", "")
+            html = html.replace("POST_COUNT_ALL", "0")
+            html = html.replace("POST_COUNT_APPROVED", "0")
+            html = html.replace("POST_COUNT_POSTED", "0")
+            html = html.replace("POST_COUNT_DROPPED", "0")
+            html = html.replace("__STATS_HTML__", "")
+            html = html.replace("__ACTIVE_TATAMI__", "")
+            html = html.replace("__ACTIVE_MUSEUM__", "active")
+
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()

@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).parent
 AUDIT_FILE = BASE_DIR / "data" / "follower-audit.json"
 
 anthropic = Anthropic()
-EVAL_MODEL = "claude-sonnet-4-20250514"
+EVAL_MODEL = "claude-opus-4-6"
 
 
 def evaluate_account(username: str, description: str, recent_tweets: list[dict]) -> dict:

@@ -21,9 +21,15 @@ Include what the viewer can't see:
 - The scandal, the theft, the rivalry, the accident
 - Measurements, materials, weight, cost
 
-End with the fact that sticks:
-- A number, a comparison, a "wait really?" detail
-- Not a quip, not a philosophical observation
+End with the line someone repeats at a dinner party. Pick ONE:
+- A number that recontextualizes: "Sold for $3.2 million. The artist was paid $50."
+- A deadpan status update: "It's now a parking garage." / "Nobody has tried since."
+- A zoom-out: "This was one of 4,000 tiles. Each one different."
+- A genuine mystery: "Why he stopped painting, nobody knows."
+- A present-day connection: "The family still owns the building."
+- A 1-5 word gut reaction earned by the full story: "Gone. All of it."
+
+NEVER end with: lessons, superlatives, "And that's...", philosophy, platitudes, or telling the reader what to feel.
 
 ## Signature Line
 Last tweet in every post must end with a one-line attribution:
@@ -64,12 +70,21 @@ delve, tapestry, vibrant, realm, nestled, testament, beacon, multifaceted, lands
 ## Banned Patterns
 - Em-dashes (use periods or commas)
 - Lists of exactly 3 things
-- Starting sentences with "This" referring to the previous idea
-- Present-participle tack-ons ("...creating a space where...")
+- Starting sentences with "This" referring to the previous idea ("This wasn't just..." "This single act...")
+- Present-participle tack-ons ("...creating a sense of...", "...making it one of...", "...transforming the...")
 - Formulaic structure: hook > context > significance > call-to-action
 - Teaching or lecturing tone
 - "The real X isn't Y, it's Z"
 - Explaining concepts like a textbook
+- Negative parallelism for fake profundity ("Not a painting. A declaration." / "It wasn't art. It was war.")
+- Telling the reader what to think ("What makes this truly remarkable..." / "perhaps the real lesson...")
+- Significance claims ("highlighting the importance of...", "underscoring...", "a reminder that...")
+- Vague superlatives without specifics ("truly remarkable", "extraordinary", "stunning achievement")
+- Compound sentences doing double duty ("X, [participle] Y" — split into two sentences instead)
+- Philosophical wrap-ups ("In a way...", "Perhaps the real...", "It reminds us that...")
+
+## The Core Rule
+SHOW with facts. Never TELL significance. If you're explaining why something matters instead of giving the detail that proves it, you're writing like an AI.
 
 ## What a Layperson Needs
 - Explain WHERE a place is ("Deir el-Medina, a workers' village near the Valley of the Kings")
