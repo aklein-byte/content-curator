@@ -4,7 +4,7 @@ Reads posts file, finds the next approved+scheduled post whose time has passed,
 downloads the image, posts via X API, and marks it as posted.
 
 Supports two post formats:
-  1. Flat (tatami): single text + image_urls, thread via twikit auto-caption
+  1. Flat (tatami): single text + image_urls, thread via X API v2
   2. Museum: pre-written tweets array with per-tweet images, thread via X API v2
 
 Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig]
@@ -24,9 +24,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, post_thread, download_image
-from tools.xapi import create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche
-from tools.xapi import post_thread as post_thread_xapi
+from tools.xapi import (
+    create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche,
+    post_thread, download_image,
+)
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from agents.writer import generate_thread_captions
 from config.niches import get_niche
@@ -59,7 +60,7 @@ def load_posts() -> dict:
 
 
 def save_posts(data: dict):
-    save_json(_resolved_posts_file, data)
+    save_json(_resolved_posts_file, data, lock=True)
 
 
 def parse_time(ts: str) -> datetime:
@@ -206,7 +207,7 @@ def find_next_post(posts_data: dict) -> dict | None:
     return random.choice(ready)
 
 
-async def download_post_images(post: dict) -> list[str]:
+def download_post_images(post: dict) -> list[str]:
     """Download images for a post, return list of local paths."""
     paths = []
 
@@ -229,7 +230,7 @@ async def download_post_images(post: dict) -> list[str]:
     save_dir = str(BASE_DIR / "images" / handle)
 
     for url in image_urls:
-        local_path = await download_image(url, save_dir=save_dir)
+        local_path = download_image(url, save_dir=save_dir)
         if local_path:
             paths.append(local_path)
             log.info(f"Downloaded: {Path(local_path).name}")
@@ -346,7 +347,7 @@ async def main():
     log.info(f"  Source: {post.get('source_handle', 'original')}")
 
     # Download images
-    image_paths = await download_post_images(post)
+    image_paths = download_post_images(post)
     if image_paths:
         log.info(f"  Images: {len(image_paths)} downloaded")
 
@@ -487,7 +488,7 @@ async def main():
             local_paths = []
             for img_url in image_urls:
                 save_dir = str(IMAGES_DIR / "museum")
-                local_path = await download_image(img_url, save_dir=save_dir)
+                local_path = download_image(img_url, save_dir=save_dir)
                 if local_path:
                     local_paths.append(local_path)
                 else:
@@ -503,7 +504,7 @@ async def main():
                 "image_paths": local_paths,
             })
 
-        tweet_ids = post_thread_xapi(
+        tweet_ids = post_thread(
             tweets=thread_data,
             delay_seconds=(120, 300),
         )
@@ -530,8 +531,7 @@ async def main():
             notify(f"{handle} post FAILED", f"Post #{post['id']} thread failed")
 
     elif is_thread:
-        # Tatami format: auto-generate captions from images via twikit
-        client = await login(niche_id)
+        # Tatami format: auto-generate captions from images, post via X API v2
         community_id = niche.get("community_id")
         log.info(f"Posting as thread ({len(image_paths)} images)...")
         captions = await generate_thread_captions(
@@ -539,14 +539,16 @@ async def main():
             image_paths=image_paths,
             niche_id=niche_id,
         )
-        image_paths_per_tweet = [[p] for p in image_paths]
 
-        tweet_ids = await post_thread(
-            client=client,
-            tweets=captions,
-            image_paths_per_tweet=image_paths_per_tweet,
+        thread_data = [
+            {"text": cap, "image_paths": [img]}
+            for cap, img in zip(captions, image_paths)
+        ]
+
+        tweet_ids = post_thread(
+            tweets=thread_data,
+            delay_seconds=(120, 300),
             community_id=community_id,
-            delay_range=(120, 300),
         )
 
         if tweet_ids:

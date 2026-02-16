@@ -46,12 +46,29 @@ def load_json(path: Path, default=None):
         return default
 
 
-def save_json(path: Path, data) -> None:
-    """Atomic JSON write: write to tmp file then rename."""
+def save_json(path: Path, data, lock: bool = False) -> None:
+    """Atomic JSON write: write to tmp file then rename.
+    If lock=True, acquires an exclusive flock on path.lock during the write
+    to prevent concurrent read-modify-write races (e.g. dashboard vs post.py).
+    """
+    import fcntl
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
-    tmp.rename(path)
+
+    lockfile = path.parent / f".{path.name}.lock"
+    fd = None
+    if lock:
+        lockfile.touch(exist_ok=True)
+        fd = open(lockfile, "r")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+    try:
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+        tmp.rename(path)
+    finally:
+        if fd:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            fd.close()
 
 
 # --- Lockfile ---

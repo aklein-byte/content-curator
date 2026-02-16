@@ -12,6 +12,7 @@ import json
 import os
 import sys
 import asyncio
+import fcntl
 import argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
@@ -20,10 +21,25 @@ from datetime import datetime, timezone
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = BASE_DIR / "posts.json"
+POSTS_LOCK = BASE_DIR / ".posts.json.lock"
 
 # Load .env so writer agent can find ANTHROPIC_API_KEY
 from dotenv import load_dotenv
 load_dotenv(BASE_DIR / ".env")
+
+
+def _lock_posts():
+    """Acquire exclusive lock on posts.json for safe read-modify-write."""
+    POSTS_LOCK.touch(exist_ok=True)
+    fd = open(POSTS_LOCK, "r")
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
+
+
+def _unlock_posts(fd):
+    """Release posts.json lock."""
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    fd.close()
 
 
 def load_posts():
@@ -34,7 +50,10 @@ def load_posts():
 
 
 def save_posts(data):
-    POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    """Atomic write: tmp file then rename (matches tools/common.py save_json)."""
+    tmp = POSTS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    tmp.rename(POSTS_FILE)
 
 
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -209,22 +228,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id or status"})
                 return
 
-            data = load_posts()
-            found = False
-            for p in data.get("posts", []):
-                if p.get("id") == post_id:
-                    p["status"] = new_status
-                    if new_status == "approved":
-                        p.pop("ig_skip_reason", None)
-                        p.pop("skip_reason", None)
-                    found = True
-                    break
+            lock = _lock_posts()
+            try:
+                data = load_posts()
+                found = False
+                for p in data.get("posts", []):
+                    if p.get("id") == post_id:
+                        p["status"] = new_status
+                        if new_status == "approved":
+                            p.pop("ig_skip_reason", None)
+                            p.pop("skip_reason", None)
+                        found = True
+                        break
 
-            if found:
-                save_posts(data)
-                self.send_json({"ok": True})
-            else:
-                self.send_json({"ok": False, "error": "post not found"})
+                if found:
+                    save_posts(data)
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json({"ok": False, "error": "post not found"})
+            finally:
+                _unlock_posts(lock)
 
         elif self.path == "/api/image-select":
             post_id = body.get("id")
@@ -232,29 +255,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id"})
                 return
 
-            data = load_posts()
-            found = False
-            for p in data.get("posts", []):
-                if p.get("id") == post_id:
-                    if body.get("image_index") is not None:
-                        p["image_index"] = body["image_index"]
-                        p.pop("image_count", None)
-                    else:
-                        p.pop("image_index", None)
+            lock = _lock_posts()
+            try:
+                data = load_posts()
+                found = False
+                for p in data.get("posts", []):
+                    if p.get("id") == post_id:
+                        if body.get("image_index") is not None:
+                            p["image_index"] = body["image_index"]
+                            p.pop("image_count", None)
+                        else:
+                            p.pop("image_index", None)
 
-                    if body.get("image_count") is not None:
-                        p["image_count"] = body["image_count"]
-                    elif "image_index" not in body:
-                        p.pop("image_count", None)
+                        if body.get("image_count") is not None:
+                            p["image_count"] = body["image_count"]
+                        elif "image_index" not in body:
+                            p.pop("image_count", None)
 
-                    found = True
-                    break
+                        found = True
+                        break
 
-            if found:
-                save_posts(data)
-                self.send_json({"ok": True})
-            else:
-                self.send_json({"ok": False, "error": "post not found"})
+                if found:
+                    save_posts(data)
+                    self.send_json({"ok": True})
+                else:
+                    self.send_json({"ok": False, "error": "post not found"})
+            finally:
+                _unlock_posts(lock)
 
         elif self.path == "/api/museum/status":
             self.handle_museum_status(body)
