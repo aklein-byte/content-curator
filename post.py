@@ -436,9 +436,9 @@ async def main():
 
     handle = niche['handle']
 
-    # Check character limit (only for non-thread single tweets)
-    if not is_thread and len(post["text"]) > 280:
-        log.error(f"Post #{post['id']} is {len(post['text'])} chars (max 280). Marking as failed.")
+    # Check character limit — Premium allows up to 4000 chars
+    if not is_thread and len(post["text"]) > 4000:
+        log.error(f"Post #{post['id']} is {len(post['text'])} chars (max 4000). Marking as failed.")
         post["status"] = "failed"
         post["fail_reason"] = f"Too long: {len(post['text'])} chars"
         save_posts(posts_data)

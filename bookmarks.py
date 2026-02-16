@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, XPost
+from tools.xapi import get_bookmarks, XPost, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
 from agents.engager import evaluate_post, draft_original_post
 from config.niches import get_niche
@@ -109,36 +109,6 @@ def already_in_queue(posts_data: dict, post_id: str) -> bool:
     return False
 
 
-def parse_bookmark(tweet) -> XPost:
-    """Convert a twikit tweet object to our XPost dataclass."""
-    images = []
-    if hasattr(tweet, 'media') and tweet.media:
-        for media in tweet.media:
-            if hasattr(media, 'media_url_https'):
-                images.append(media.media_url_https)
-            elif hasattr(media, 'media_url'):
-                images.append(media.media_url)
-            elif isinstance(media, dict) and 'media_url_https' in media:
-                images.append(media['media_url_https'])
-            elif isinstance(media, dict) and 'media_url' in media:
-                images.append(media['media_url'])
-
-    return XPost(
-        post_id=tweet.id,
-        author_handle=tweet.user.screen_name if tweet.user else "",
-        author_name=tweet.user.name if tweet.user else "",
-        author_id=tweet.user.id if tweet.user else "",
-        text=tweet.text or "",
-        image_urls=images,
-        likes=tweet.favorite_count or 0,
-        reposts=tweet.retweet_count or 0,
-        replies=tweet.reply_count or 0,
-        views=tweet.view_count or 0,
-        language=getattr(tweet, 'lang', None),
-        created_at=str(tweet.created_at) if hasattr(tweet, 'created_at') else None,
-    )
-
-
 async def main():
     parser = argparse.ArgumentParser(description="Turn bookmarks into post drafts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -151,13 +121,11 @@ async def main():
 
     log.info(f"Fetching bookmarks for {niche['handle']}")
 
-    # Login
-    client = await login(niche_id)
-    log.info("Logged in")
+    # Set API credentials for this niche
+    set_xapi_niche(niche_id)
 
-    # Fetch bookmarks
-    bookmarks = await client.get_bookmarks(count=40)
-    bookmark_posts = [parse_bookmark(t) for t in bookmarks]
+    # Fetch bookmarks via official API v2 (OAuth 2.0)
+    bookmark_posts = get_bookmarks(max_results=40)
     log.info(f"Got {len(bookmark_posts)} bookmarks")
 
     # Filter: must have images
@@ -212,7 +180,7 @@ async def main():
             log.warning(f"  Empty caption for @{post.author_handle}, skipping")
             continue
 
-        if len(caption_text) > 280:
+        if len(caption_text) > 4000:
             log.warning(f"  Caption too long ({len(caption_text)} chars) for @{post.author_handle}, skipping")
             continue
 

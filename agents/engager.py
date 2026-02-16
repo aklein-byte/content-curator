@@ -170,7 +170,7 @@ You're given a source post (often in Japanese) with images. Write an original po
 5. Ends with a concrete fact, not a quip or philosophical observation
 6. ONE subject per post. Don't list multiple items.
 7. NO rule-of-three punchlines, NO personifying buildings, NO "same X, different Y" kickers, NO "that's basically X" quips
-8. MUST be under 270 characters total including the 📷 @credit line. This is a hard X/Twitter limit. Count carefully.
+8. Keep it concise — aim for under 280 characters including the 📷 @credit line. Shorter posts perform better, but you can go longer if the content needs it.
 
 ## Format
 Return JSON:
