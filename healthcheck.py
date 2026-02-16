@@ -32,7 +32,7 @@ def check_imports() -> tuple[bool, str]:
     """Try importing every script module to catch broken dependencies."""
     modules = [
         ("tools.common", "tools.common"),
-        ("tools.xkit", "tools.xkit"),
+        ("tools.xapi", "tools.xapi"),
         ("tools.ig_api", "tools.ig_api"),
         ("tools.ig_browser", "tools.ig_browser"),
         ("config.niches", "config.niches"),
@@ -100,28 +100,22 @@ def check_json_files() -> tuple[bool, str]:
 
 
 def check_auth_status() -> tuple[bool, str]:
-    """Check twikit cookie age and IG token expiry."""
+    """Check X API keys and IG token/profile."""
     warnings = []
 
-    # Twikit cookies (stored in data/cookies/<niche>_cookies.json)
-    cookies_dir = DATA_DIR / "cookies"
-    cookie_files = list(cookies_dir.glob("*_cookies.json")) if cookies_dir.exists() else []
-    if cookie_files:
-        for cf in cookie_files:
-            age_days = (datetime.now() - datetime.fromtimestamp(cf.stat().st_mtime)).days
-            if age_days > 7:
-                warnings.append(f"{cf.name} {age_days}d old (may expire)")
-    else:
-        warnings.append("No twikit cookies found in data/cookies/")
+    # X API OAuth 1.0a keys
+    required_keys = ["X_API_CONSUMER_KEY", "X_API_CONSUMER_SECRET", "X_API_ACCESS_TOKEN", "X_API_ACCESS_TOKEN_SECRET"]
+    env_file = BASE_DIR / ".env"
+    env_text = env_file.read_text() if env_file.exists() else ""
+    missing_keys = [k for k in required_keys if k not in env_text and not os.environ.get(k)]
+    if missing_keys:
+        warnings.append(f"Missing X API keys: {', '.join(missing_keys)}")
 
     # IG: check for browser profile (primary method) or Graph API token
     ig_token = os.environ.get("IG_ACCESS_TOKEN", "")
     if not ig_token:
-        env_file = BASE_DIR / ".env"
-        if env_file.exists():
-            env_text = env_file.read_text()
-            if "IG_ACCESS_TOKEN" not in env_text:
-                pass  # Graph API token optional if using browser
+        if "IG_ACCESS_TOKEN" not in env_text:
+            pass  # Graph API token optional if using browser
 
     # Playwright browser profile
     profile_dir = DATA_DIR / "ig_browser_profile"
@@ -164,27 +158,14 @@ def check_posts_queue() -> tuple[bool, str]:
     except json.JSONDecodeError:
         return False, "posts.json corrupt"
 
-    now = datetime.now(timezone.utc)
     approved = [
         p for p in data.get("posts", [])
         if p.get("status") == "approved" and p.get("scheduled_for")
     ]
 
-    # Filter to future-scheduled only
-    future = []
-    for p in approved:
-        try:
-            sched = datetime.fromisoformat(p["scheduled_for"])
-            if sched.tzinfo is None:
-                sched = sched.replace(tzinfo=timezone.utc)
-            if sched > now:
-                future.append(p)
-        except Exception:
-            pass
-
-    if len(future) < 3:
-        return False, f"{len(future)} posts left in queue"
-    return True, f"{len(future)} posts queued"
+    if len(approved) < 3:
+        return False, f"{len(approved)} posts left in queue"
+    return True, f"{len(approved)} posts queued"
 
 
 def check_stale_lockfiles() -> tuple[bool, list[Path]]:
