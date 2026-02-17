@@ -342,8 +342,9 @@ async def main():
                 log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
         return
 
+    post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")
     log.info(f"Found post #{post['id']} ready to publish")
-    log.info(f"  Text: {post['text'][:100]}...")
+    log.info(f"  Text: {post_text[:100]}...")
     log.info(f"  Source: {post.get('source_handle', 'original')}")
 
     # Download images
@@ -448,7 +449,7 @@ async def main():
     handle = niche['handle']
 
     # Check character limit — Premium allows up to 4000 chars
-    if not is_thread and len(post["text"]) > 4000:
+    if not is_museum and not is_thread and len(post.get("text", "")) > 4000:
         log.error(f"Post #{post['id']} is {len(post['text'])} chars (max 4000). Marking as failed.")
         post["status"] = "failed"
         post["fail_reason"] = f"Too long: {len(post['text'])} chars"
@@ -459,7 +460,7 @@ async def main():
     # Dedup check — pull recent tweets from timeline and compare against this post
     log.info("Checking timeline for duplicates...")
     recent_tweets = get_own_recent_tweets(max_results=20)
-    post_text_norm = post["text"].strip().lower()[:80]
+    post_text_norm = post_text.strip().lower()[:80]
     for tw in recent_tweets:
         tw_text_norm = tw.get("text", "").strip().lower()[:80]
         if post_text_norm == tw_text_norm:

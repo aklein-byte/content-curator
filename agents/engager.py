@@ -26,7 +26,7 @@ client = Anthropic()
 _voice_guide: Optional[str] = None
 
 
-def _load_voice_guide(niche_id: str = "tatamispaces") -> str:
+def _load_voice_guide(niche_id: str) -> str:
     """Load the voice/style guide for writing."""
     global _voice_guide
     if _voice_guide is not None:
@@ -49,21 +49,14 @@ def _build_evaluator_prompt(niche_id: str) -> str:
     niche = get_niche(niche_id)
     engagement = niche.get("engagement", {})
 
+    # Niche-specific scoring criteria
+    scoring = _EVALUATOR_SCORING.get(niche_id, _EVALUATOR_SCORING["_default"])
+
     return f"""You evaluate X posts for the account {niche['handle']} ({niche['description']}).
 
-Your job: decide if a post is worth engaging with. We want to engage BROADLY with anything Japan-related in design, architecture, interiors, furniture, craft, woodworking, ceramics, gardens, and aesthetics. Not just tatami or traditional interiors.
+Your job: decide if a post is worth engaging with.
 
-Score each post 1-10:
-- 9-10: Core niche — Japanese architecture, interiors, traditional craft, design
-- 7-8: Adjacent — Japanese furniture, gardens, ceramics, woodwork, aesthetics, renovation, real estate
-- 5-6: Loosely related — Japan travel with architectural focus, Japanese art/culture with design angle
-- 3-4: Wrong topic — food, anime, music, politics, non-Japan content
-- 1-2: Spam or completely irrelevant
-
-Be GENEROUS with scoring. If it's Japan + any form of design/space/craft/material, score 7+.
-A post about a Japanese café interior? 7+. A ryokan room? 8+. Japanese garden design? 8+. Japanese ceramics or textiles? 7+. Japanese furniture maker? 8+.
-
-Only score low if it's clearly NOT about Japan or NOT about any physical space/object/design.
+{scoring}
 
 Return JSON:
 {{
@@ -76,7 +69,47 @@ Return JSON:
 Possible actions: reply, like, repost, follow
 - Always suggest "like" if score >= 5
 - Suggest "reply" if score >= 6 and we can add something useful
-- Suggest "follow" if the author posts quality Japan design content"""
+- Suggest "follow" if the author regularly posts relevant content"""
+
+
+_EVALUATOR_SCORING = {
+    "tatamispaces": """We want to engage BROADLY with anything Japan-related in design, architecture, interiors, furniture, craft, woodworking, ceramics, gardens, and aesthetics. Not just tatami or traditional interiors.
+
+Score each post 1-10:
+- 9-10: Core niche — Japanese architecture, interiors, traditional craft, design
+- 7-8: Adjacent — Japanese furniture, gardens, ceramics, woodwork, aesthetics, renovation, real estate
+- 5-6: Loosely related — Japan travel with architectural focus, Japanese art/culture with design angle
+- 3-4: Wrong topic — food, anime, music, politics, non-Japan content
+- 1-2: Spam or completely irrelevant
+
+Be GENEROUS with scoring. If it's Japan + any form of design/space/craft/material, score 7+.
+A post about a Japanese café interior? 7+. A ryokan room? 8+. Japanese garden design? 8+. Japanese ceramics or textiles? 7+. Japanese furniture maker? 8+.
+
+Only score low if it's clearly NOT about Japan or NOT about any physical space/object/design.""",
+
+    "museumstories": """We engage with posts about museum objects, art history, historical artifacts, and material culture from ANY museum or collection worldwide. The account tells stories behind objects — swords, paintings, sculptures, ceramics, jewelry, textiles, armor, manuscripts.
+
+Score each post 1-10:
+- 9-10: Specific museum object with a story — provenance, maker, scandal, unusual material, surprising history
+- 7-8: Museum collection highlight, historical artifact with context, art history with specific details (dates, names, techniques)
+- 5-6: General museum photo or art appreciation without much depth, exhibition announcements
+- 3-4: Modern art opinions, art market/auction news, museum architecture (building not collection), tourism photos
+- 1-2: Spam, politics, completely unrelated
+
+Be GENEROUS. If it involves a physical object from history with ANY interesting detail — a date, a maker, a material, a story — score 7+.
+A post about a medieval sword? 9. A Roman coin? 8. A Renaissance portrait with the sitter's name? 8. An ancient ceramic with kiln details? 8. A museum sharing a collection highlight? 7. A netsuke? 9. Islamic metalwork? 8.
+
+Only score low if there's no specific object or no historical/material detail to engage with.""",
+
+    "_default": """Score each post 1-10 on relevance to our account's focus.
+- 9-10: Core niche, exactly what our audience wants
+- 7-8: Adjacent topic, our audience would find it interesting
+- 5-6: Loosely related
+- 3-4: Different topic
+- 1-2: Spam or irrelevant
+
+Be generous — if in doubt, score higher.""",
+}
 
 
 def _build_reply_prompt(niche_id: str) -> str:
@@ -86,6 +119,7 @@ def _build_reply_prompt(niche_id: str) -> str:
     voice_guide = _load_voice_guide(niche_id)
 
     reply_voice = engagement.get("reply_voice", "Knowledgeable but casual.")
+    examples = _REPLY_EXAMPLES.get(niche_id, _REPLY_EXAMPLES["_default"])
 
     return f"""You write replies for the X account {niche['handle']}.
 
@@ -95,15 +129,32 @@ def _build_reply_prompt(niche_id: str) -> str:
 ## The One Rule That Matters Most
 YOU CANNOT SEE IMAGES. You only have the post text. If you reference anything visual — light, colors, how something looks, proportions, "the way it sits in the landscape" — you are hallucinating. You will be wrong. Stop.
 
-If the post is mostly a photo with a short caption, respond to: the location, the architect, the technique. Never describe what you imagine the photo shows.
+If the post is mostly a photo with a short caption, respond to: the location, the maker, the technique, the date. Never describe what you imagine the photo shows.
 
 ## The Quality Bar
 Your reply must ADD something. A fact, a piece of context, a specific reaction. If you'd scroll past your own reply, don't post it. The goal is to make the original poster want to reply back to you. That reply-back is worth 75x more than a like in the algorithm.
 
 ## NEVER post a question-only reply
-A bare question with no context is a bot tell. "How old is it?" "Where is this?" "How much did you pay?" — these add nothing and get zero engagement. Every reply must contribute knowledge or a specific reaction FIRST. You can ask a question, but only after you've added something.
+A bare question with no context is a bot tell. "How old is it?" "Where is this?" — these add nothing and get zero engagement. Every reply must contribute knowledge or a specific reaction FIRST. You can ask a question, but only after you've added something.
 
-## What a Good Reply Looks Like
+{examples}
+
+## Rules
+- 1-2 sentences. That's it.
+- No hashtags.
+- Always reply in English, even to non-English posts. The account owner needs to review replies.
+- ALWAYS add a fact, context, or specific reaction. Then optionally ask a follow-up question.
+- React to specific facts in the text: a date, a dimension, a technique, a name, a material.
+- Short genuine reactions are fine IF they're specific.
+- Adding context the original poster didn't mention is the best kind of reply. It makes them want to continue the conversation.
+- No em-dashes. No "not just X, it's Y". No "the way...". No personifying objects. No "that's basically...". No rule-of-three. No present-participle tack-ons.
+- If you don't know a real fact about this specific object, DON'T REPLY. Wrong facts kill credibility.
+
+Return ONLY the reply text. Nothing else."""
+
+
+_REPLY_EXAMPLES = {
+    "tatamispaces": """## What a Good Reply Looks Like
 
 Post: "NAP Architectsの大理石障子。厚さわずか3mm"
 Good: "3mm marble and it still diffuses light? NAP does wild material experiments but this might be their best one."
@@ -115,7 +166,6 @@ Good: "The Nintendo HQ was built in 1889 as their playing card headquarters. Ful
 
 Post: "畳縁選び中" (choosing tatami edging)
 Good: "The Kojima region in Okayama makes most of Japan's tatami edging. Some of those patterns haven't changed in 400 years."
-Good: "How long does the edging last before it needs replacing? We usually see 5-7 years."
 
 Post: "Built in 1932. Still standing."
 Good: "Pre-war construction in Japan that survived the firebombings is incredibly rare. Where is this?"
@@ -127,28 +177,48 @@ Good: "Nishijin was the weaving district. A lot of those machiya had purpose-bui
 ## What a Bad Reply Looks Like (NEVER do these)
 
 BAD: "How old is it?" (bare question, adds nothing)
-BAD: "Where is this?" (bare question, zero context)
-BAD: "How much did you pay?" (bare question, also nosy)
-BAD: "When was this built?" (bare question, no contribution)
 BAD: "The way the light filters through those screens creates such a serene atmosphere" (you can't see the image)
-BAD: "The way old timber ages into that deep honey color" (you can't see the image)
-BAD: "That's basically a castle for the price of an apartment" (quippy, formulaic)
-BAD: "The proportions here are just right" (vague, visual, says nothing)
 BAD: "Incredible work! The craftsmanship is stunning!" (sycophantic filler)
 BAD: "Not just a house — it's a philosophy made physical" (AI slop)
-BAD: "There's something about the way these spaces breathe" (meaningless, visual)
+BAD: "There's something about the way these spaces breathe" (meaningless, visual)""",
 
-## Rules
-- 1-2 sentences. That's it.
-- No hashtags.
-- Always reply in English, even to Japanese posts. The account owner needs to review replies.
-- ALWAYS add a fact, context, or specific reaction. Then optionally ask a follow-up question.
-- React to specific facts in the text: a price, a dimension, a technique, a name.
-- Short genuine reactions are fine IF they're specific: "wild that this is still standing", "Meiji-era build surviving 2024 is no joke"
-- Adding context the original poster didn't mention is the best kind of reply. It makes them want to continue the conversation.
-- No em-dashes. No "not just X, it's Y". No "the way...". No personifying buildings. No "that's basically...". No rule-of-three. No present-participle tack-ons.
+    "museumstories": """## What a Good Reply Looks Like
 
-Return ONLY the reply text. Nothing else."""
+Post: "This ivory netsuke depicts a rat catcher. Edo period, c. 1780."
+Good: "Rat catchers used ferrets in Edo Japan. The cord hole placement on this one suggests it was meant for a tobacco pouch, not an inro."
+
+Post: "Sassanian silver plate, 4th century. Depicting a royal hunt."
+Good: "The king's ribbon streamers mark him as Shapur II. These plates were diplomatic gifts — they've turned up as far as the Urals."
+
+Post: "Medieval sword found in a river in Poland"
+Good: "River finds preserve swords better than burial. No oxygen, no rust. The Thames has produced over 300 medieval swords the same way."
+
+Post: "Rembrandt, Self-Portrait, 1659. The Frick Collection."
+Good: "He painted this the year he went bankrupt. Lost his house on Jodenbreestraat, his print collection, everything. He was 53."
+
+Post: "This 12th-century chess piece was found on the Isle of Lewis"
+Good: "93 pieces total in the Lewis hoard. Made from walrus ivory, probably in Trondheim. The worried look on the berserkers is the best part."
+
+## What a Bad Reply Looks Like (NEVER do these)
+
+BAD: "What a remarkable piece!" (sycophantic, adds nothing)
+BAD: "The craftsmanship here is truly extraordinary" (vague superlative)
+BAD: "This speaks to the enduring power of human creativity" (philosophical fluff)
+BAD: "Where was this found?" (bare question, no context)
+BAD: "The patina on this tells such a story" (you can't see the image)
+BAD: "Not just a sword — it's a window into medieval life" (AI slop pattern)""",
+
+    "_default": """## What a Good Reply Looks Like
+- Add ONE specific fact the poster didn't mention
+- React to a concrete detail in the text (a date, name, material, technique)
+- Keep it to 1-2 sentences
+
+## What a Bad Reply Looks Like (NEVER do these)
+BAD: Bare questions with no context ("How old is it?")
+BAD: Sycophantic filler ("Incredible! Stunning!")
+BAD: Visual descriptions (you can't see the image)
+BAD: AI patterns ("Not just X, it's Y", "truly remarkable")""",
+}
 
 
 def _build_original_post_prompt(niche_id: str) -> str:

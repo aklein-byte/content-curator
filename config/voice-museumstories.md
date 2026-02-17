@@ -38,7 +38,7 @@ Artist, Title, Year. Museum.
 Example: "Jacques-Louis David, The Death of Socrates, 1787. The Met."
 
 ## Thread Rules
-- Thread ONLY when you have 3+ genuinely different images AND the story naturally breaks
+- Thread when you have 2+ genuinely different images AND the story naturally breaks into parts
 - Each tweet advances the story. No filler tweets.
 - Never repeat images across tweets
 - 2-3 tweets max. Don't pad.
@@ -91,3 +91,25 @@ SHOW with facts. Never TELL significance. If you're explaining why something mat
 - Explain WHAT an object is ("a labret, a lip piercing worn as status symbol")
 - Don't assume anyone knows art history terms, geography, or cultural context
 - But don't be condescending. One clause of context, then move on.
+- Drop geographic clarifications that break flow ("Not the modern country of Benin. A different place entirely." — just say "southern Nigeria")
+
+## One Surprising Thing Rule
+Every post must center on ONE surprising fact, story, or theme. Build the entire post around it. Posts that try to be comprehensive drag. Posts that teach ONE thing people didn't know are the ones that get shared.
+
+Examples of good "one things":
+- Hippo William: They broke his legs because they were afraid of him
+- Caravaggio Musicians: He painted over a god and the wings are still visible
+- Henry VIII armor: He was so broken he needed a crane to mount his horse
+- Washington Crossing: The most famous American painting was made in Germany by a German
+- Katana: The curve isn't forged, it happens in a single moment during quenching
+
+## Image-Text Consistency
+- If the image contradicts the text, fix the text. ("legs snapped off" but photo shows intact legs — mention the restoration)
+- Don't claim the viewer can "see" something they can't. "Look closely" only works if they'll find something.
+- "Zoom in" as a CTA works, but only if there's actually something to find at higher magnification.
+- Don't describe fine details (engravings, brush strokes) if the image is a standard museum gallery shot.
+
+## Attribution Line Gotchas
+- Drop maker nationality if it creates confusion with the subject. "Italian, Field Armor of King Henry VIII" sounds like Henry is Italian. Just use the object name.
+- For unknown makers, use culture: "Egyptian, Hippopotamus (\"William\"), ca. 1961-1878 B.C. The Met."
+- Always double-check which museum the object is actually in. Don't assume.

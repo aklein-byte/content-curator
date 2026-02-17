@@ -55,27 +55,35 @@ def check_json_files() -> tuple[bool, str]:
     """Load all data files and verify structure."""
     issues = []
 
-    # posts.json
-    posts_file = BASE_DIR / "posts.json"
-    if posts_file.exists():
-        try:
-            data = json.loads(posts_file.read_text())
-            if "posts" not in data:
-                issues.append("posts.json missing 'posts' key")
-            elif not isinstance(data["posts"], list):
-                issues.append("posts.json 'posts' is not a list")
-        except json.JSONDecodeError as e:
-            issues.append(f"posts.json corrupt: {e}")
-    else:
-        issues.append("posts.json missing")
+    # Check posts files for all niches
+    from config.niches import list_niches, get_niche
+    for nid in list_niches():
+        ncfg = get_niche(nid)
+        pf_name = ncfg.get("posts_file", "posts.json")
+        pf = BASE_DIR / pf_name
+        if pf.exists():
+            try:
+                data = json.loads(pf.read_text())
+                if "posts" not in data:
+                    issues.append(f"{pf_name} missing 'posts' key")
+                elif not isinstance(data["posts"], list):
+                    issues.append(f"{pf_name} 'posts' is not a list")
+            except json.JSONDecodeError as e:
+                issues.append(f"{pf_name} corrupt: {e}")
 
-    # Log files should be arrays
+    # Log files should be arrays (check all niche variants)
     log_files = [
         "engagement-log.json",
         "ig-engagement-log.json",
         "response-log.json",
         "thread-log.json",
     ]
+    for nid in list_niches():
+        if nid != "tatamispaces":
+            log_files.extend([
+                f"engagement-log-{nid}.json",
+                f"ig-engagement-log-{nid}.json",
+            ])
     for lf in log_files:
         path = BASE_DIR / lf
         if path.exists():
@@ -130,11 +138,18 @@ def check_auth_status() -> tuple[bool, str]:
 def check_log_sizes() -> tuple[bool, str]:
     """Warn if engagement logs are too large."""
     warnings = []
+    from config.niches import list_niches
     log_files = [
         "engagement-log.json",
         "ig-engagement-log.json",
         "response-log.json",
     ]
+    for nid in list_niches():
+        if nid != "tatamispaces":
+            log_files.extend([
+                f"engagement-log-{nid}.json",
+                f"ig-engagement-log-{nid}.json",
+            ])
     for lf in log_files:
         path = BASE_DIR / lf
         if path.exists():
@@ -148,24 +163,31 @@ def check_log_sizes() -> tuple[bool, str]:
 
 
 def check_posts_queue() -> tuple[bool, str]:
-    """Warn if fewer than 3 approved posts remaining."""
-    posts_file = BASE_DIR / "posts.json"
-    if not posts_file.exists():
-        return False, "posts.json missing"
+    """Warn if fewer than 3 approved posts remaining in any niche."""
+    from config.niches import list_niches, get_niche
+    warnings = []
+    total_approved = 0
+    for nid in list_niches():
+        ncfg = get_niche(nid)
+        posts_file = BASE_DIR / ncfg.get("posts_file", "posts.json")
+        if not posts_file.exists():
+            continue
+        try:
+            data = json.loads(posts_file.read_text())
+        except json.JSONDecodeError:
+            warnings.append(f"{nid}: corrupt")
+            continue
+        approved = [
+            p for p in data.get("posts", [])
+            if p.get("status") == "approved" and p.get("scheduled_for")
+        ]
+        total_approved += len(approved)
+        if len(approved) < 3:
+            warnings.append(f"{nid}: {len(approved)} posts left")
 
-    try:
-        data = json.loads(posts_file.read_text())
-    except json.JSONDecodeError:
-        return False, "posts.json corrupt"
-
-    approved = [
-        p for p in data.get("posts", [])
-        if p.get("status") == "approved" and p.get("scheduled_for")
-    ]
-
-    if len(approved) < 3:
-        return False, f"{len(approved)} posts left in queue"
-    return True, f"{len(approved)} posts queued"
+    if warnings:
+        return False, "; ".join(warnings)
+    return True, f"{total_approved} posts queued across niches"
 
 
 def check_stale_lockfiles() -> tuple[bool, list[Path]]:
@@ -289,7 +311,15 @@ def main():
 
     # Auto-fix: archive old log entries
     if args.fix:
-        for lf in ["engagement-log.json", "ig-engagement-log.json", "response-log.json"]:
+        from config.niches import list_niches as _ln
+        archive_files = ["engagement-log.json", "ig-engagement-log.json", "response-log.json"]
+        for nid in _ln():
+            if nid != "tatamispaces":
+                archive_files.extend([
+                    f"engagement-log-{nid}.json",
+                    f"ig-engagement-log-{nid}.json",
+                ])
+        for lf in archive_files:
             path = BASE_DIR / lf
             count = archive_old_entries(path, days=90)
             if count > 0:
@@ -305,7 +335,7 @@ def main():
         summary += ". WARN: " + "; ".join(warnings)
 
     log.info(f"\n  {summary}")
-    notify("tatami health", summary, priority="default" if passed == total else "high")
+    notify("health check", summary, priority="default" if passed == total else "high")
 
 
 if __name__ == "__main__":

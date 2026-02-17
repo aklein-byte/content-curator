@@ -170,6 +170,8 @@
   .state-approved { background: #1a2a1a; color: var(--green); }
   .state-scheduled { background: #1a1a2a; color: var(--purple); }
   .state-posted { background: #1a2a2a; color: var(--blue); }
+  .state-hold { background: #2a2a1a; color: #c9a84c; }
+  .state-reject { background: #2a1a1a; color: #c66; }
   .format-badge {
     font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 2px 6px;
     border-radius: 3px; white-space: nowrap;
@@ -331,11 +333,13 @@
   <div class="filters">
     <div class="filter-group">
       <span class="label">State</span>
-      <button class="filter-pill active" data-filter="state" data-val="all" onclick="museumSetFilter(this)">All</button>
-      <button class="filter-pill" data-filter="state" data-val="draft" onclick="museumSetFilter(this)">Draft</button>
+      <button class="filter-pill" data-filter="state" data-val="all" onclick="museumSetFilter(this)">All</button>
+      <button class="filter-pill active" data-filter="state" data-val="draft" onclick="museumSetFilter(this)">Draft</button>
       <button class="filter-pill" data-filter="state" data-val="review" onclick="museumSetFilter(this)">Review</button>
       <button class="filter-pill" data-filter="state" data-val="approved" onclick="museumSetFilter(this)">Approved</button>
       <button class="filter-pill" data-filter="state" data-val="posted" onclick="museumSetFilter(this)">Posted</button>
+      <button class="filter-pill" data-filter="state" data-val="hold" onclick="museumSetFilter(this)">Hold</button>
+      <button class="filter-pill" data-filter="state" data-val="reject" onclick="museumSetFilter(this)">Reject</button>
     </div>
     <div class="filter-sep"></div>
     <div class="filter-group">
@@ -481,9 +485,9 @@ document.addEventListener('keydown', (e) => {
 // ============================
 // MUSEUM JS
 // ============================
-const STATES = ['draft', 'review', 'approved', 'posted'];
+const STATES = ['draft', 'review', 'approved', 'posted', 'hold', 'reject'];
 let pickMode = null;
-let museumFilters = { state: 'all', format: 'all', search: '' };
+let museumFilters = { state: 'draft', format: 'all', search: '' };
 
 async function museumApi(endpoint, body) {
   const r = await fetch('api/museum/' + endpoint, {
@@ -780,14 +784,16 @@ document.addEventListener('click', function(e) {
 });
 
 function updateMuseumStats() {
-  const counts = { draft: 0, review: 0, approved: 0, posted: 0 };
+  const counts = { draft: 0, review: 0, approved: 0, posted: 0, hold: 0, reject: 0 };
   museumPosts.forEach(p => { const st = p.status || 'draft'; counts[st] = (counts[st]||0) + 1; });
   document.getElementById('stats').innerHTML =
     '<span>' + museumPosts.length + ' posts</span>' +
     '<span>Draft: ' + counts.draft + '</span>' +
     '<span>Review: ' + counts.review + '</span>' +
     '<span style="color:var(--green)">Approved: ' + counts.approved + '</span>' +
-    '<span style="color:var(--blue)">Posted: ' + counts.posted + '</span>';
+    '<span style="color:var(--blue)">Posted: ' + counts.posted + '</span>' +
+    (counts.hold ? '<span style="color:#c9a84c">Hold: ' + counts.hold + '</span>' : '') +
+    (counts.reject ? '<span style="color:#c66">Reject: ' + counts.reject + '</span>' : '');
 }
 
 // Museum lightbox

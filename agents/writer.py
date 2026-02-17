@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 _cfg = load_config().get("models", {})
 
 
-def _load_voice_guide(niche_id: str = "tatamispaces") -> str:
+def _load_voice_guide(niche_id: str) -> str:
     """Load the voice/style guide for writing."""
     voice_path = Path(__file__).parent.parent / "config" / f"voice-{niche_id}.md"
     if not voice_path.exists():
@@ -281,7 +281,7 @@ def _image_to_base64(image_path: str) -> tuple[str, str]:
 async def generate_thread_captions(
     main_caption: str,
     image_paths: list[str],
-    niche_id: str = "tatamispaces",
+    niche_id: str,
 ) -> list[str]:
     """
     Generate per-image captions for a thread post.

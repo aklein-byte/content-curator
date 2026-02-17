@@ -30,9 +30,7 @@ from tools.common import load_json, save_json, notify, random_delay, acquire_loc
 log = setup_logging("ig_engage")
 
 BASE_DIR = Path(__file__).parent
-IG_ENGAGEMENT_LOG = Path(os.environ.get(
-    "IG_ENGAGEMENT_LOG", str(BASE_DIR / "ig-engagement-log.json")
-))
+IG_ENGAGEMENT_LOG: Path = None  # resolved in main() from niche config
 
 _cfg = load_config()
 
@@ -416,6 +414,13 @@ async def main():
     dry_run = args.dry_run
     niche = get_niche(niche_id)
 
+    # Resolve niche-aware engagement log
+    global IG_ENGAGEMENT_LOG
+    log_suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
+    IG_ENGAGEMENT_LOG = Path(os.environ.get(
+        "IG_ENGAGEMENT_LOG", str(BASE_DIR / f"ig-engagement-log{log_suffix}.json")
+    ))
+
     log.info(f"IG engagement for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
 
     # Load engagement log
@@ -575,7 +580,7 @@ async def main():
     summary = f"IG engage: {likes_done} likes, {comments_done} comments, {follows_done} follows"
     log.info(summary)
     if likes_done + comments_done + follows_done > 0:
-        notify("@tatamispaces IG", summary)
+        notify(f"{niche['handle']} IG", summary)
 
 
 if __name__ == "__main__":

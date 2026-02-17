@@ -41,9 +41,11 @@ MIN_POST_LIKES_FOR_REPLY = 5
 log = setup_logging("engage")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
-ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(BASE_DIR / "engagement-log.json")))
-ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / "engagement-drafts.json")))
+
+# Resolved per-niche in main()
+POSTS_FILE: Path = BASE_DIR / "posts.json"
+ENGAGEMENT_LOG: Path = BASE_DIR / "engagement-log.json"
+ENGAGEMENT_DRAFTS: Path = BASE_DIR / "engagement-drafts.json"
 
 # Limits
 MAX_LIKES_PER_RUN = 25
@@ -158,6 +160,7 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
 
 async def main():
     global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
+    global POSTS_FILE, ENGAGEMENT_LOG, ENGAGEMENT_DRAFTS
 
     parser = argparse.ArgumentParser(description="Engage with JP architecture posts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -175,6 +178,14 @@ async def main():
     dry_run = args.dry_run
     niche = get_niche(niche_id)
     set_xapi_niche(niche_id)
+
+    # Resolve niche-specific file paths
+    posts_filename = niche.get("posts_file", "posts.json")
+    POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
+    log_suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
+    ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(BASE_DIR / f"engagement-log{log_suffix}.json")))
+    ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / f"engagement-drafts{log_suffix}.json")))
+
     engagement_cfg = niche.get("engagement", {})
     queries = engagement_cfg.get("search_queries", [])
 

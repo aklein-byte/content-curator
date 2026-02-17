@@ -452,7 +452,7 @@ def notify_if_needed(name: str, result: dict, status: dict, config: dict):
 
 # --- Aggregate stats ---
 
-def aggregate_today_stats(now_et: datetime) -> dict:
+def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
     """Read engagement logs and count today's actions."""
     today_str = str(now_et.date())
     stats = {"x_likes": 0, "x_replies": 0, "x_follows": 0,
@@ -460,8 +460,13 @@ def aggregate_today_stats(now_et: datetime) -> dict:
              "x_posts": 0, "ig_posts": 0, "drafts_created": 0,
              "x_responses": 0}
 
+    # Resolve niche-aware file suffixes
+    if niche_id is None:
+        niche_id = load_config().get("niche", "tatamispaces")
+    log_suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
+
     # X engagement log
-    eng_file = BASE_DIR / "engagement-log.json"
+    eng_file = BASE_DIR / f"engagement-log{log_suffix}.json"
     if eng_file.exists():
         try:
             entries = json.loads(eng_file.read_text())
@@ -480,7 +485,7 @@ def aggregate_today_stats(now_et: datetime) -> dict:
             pass
 
     # IG engagement log
-    ig_eng_file = BASE_DIR / "ig-engagement-log.json"
+    ig_eng_file = BASE_DIR / f"ig-engagement-log{log_suffix}.json"
     if ig_eng_file.exists():
         try:
             entries = json.loads(ig_eng_file.read_text())
@@ -498,8 +503,10 @@ def aggregate_today_stats(now_et: datetime) -> dict:
         except Exception:
             pass
 
-    # Posts
-    posts_file = BASE_DIR / "posts.json"
+    # Posts — resolve from niche config
+    from config.niches import get_niche
+    niche_cfg = get_niche(niche_id)
+    posts_file = BASE_DIR / niche_cfg.get("posts_file", "posts.json")
     if posts_file.exists():
         try:
             data = json.loads(posts_file.read_text())
@@ -534,12 +541,12 @@ def print_status(status: dict, now_et: datetime):
     """Pretty-print orchestrator status."""
     today_str = str(now_et.date())
     config = load_config()
-    niche_label = config.get("niche", "tatamispaces")
-    print(f"\n  {niche_label} orchestrator — {now_et.strftime('%a %b %d %I:%M %p ET')}")
+    niche_id = config.get("niche", "tatamispaces")
+    print(f"\n  {niche_id} orchestrator — {now_et.strftime('%a %b %d %I:%M %p ET')}")
     print(f"  {'=' * 55}")
 
     # Aggregate stats
-    stats = aggregate_today_stats(now_et)
+    stats = aggregate_today_stats(now_et, niche_id=niche_id)
     print(f"\n  Today's activity:")
     print(f"    X:  {stats['x_posts']} posts | {stats['x_likes']} likes | {stats['x_replies']} replies | {stats['x_follows']} follows | {stats['x_responses']} responses")
     print(f"    IG: {stats['ig_posts']} posts | {stats['ig_likes']} likes | {stats['ig_comments']} comments | {stats['ig_follows']} follows")

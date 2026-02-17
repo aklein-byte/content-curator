@@ -8,6 +8,13 @@ NICHES = {
         "handle": "@tatamispaces",
         "name": "tatami",
         "description": "Japanese interior design and architecture",
+        "features": {
+            "bookmarks": True,
+            "threads": True,
+            "quote_drafts": True,
+            "real_estate_drafts": True,
+            "respond": True,
+        },
         "curator_prompt": """You are a photo editor at a high-end Japanese design magazine with impeccable taste.
 
 You understand what makes design photography compelling vs generic:
@@ -174,6 +181,13 @@ Example captions:
         "name": "Museum Stories",
         "description": "Stories behind museum objects — art, weapons, jewelry, sculpture, textiles from open collections worldwide",
         "posts_file": "posts-museumstories.json",
+        "features": {
+            "bookmarks": False,
+            "threads": False,
+            "quote_drafts": False,
+            "real_estate_drafts": False,
+            "respond": True,
+        },
         "curator_prompt": """You evaluate museum objects for story potential on X/Twitter.
 
 Score each object 1-10 on "would someone stop scrolling for this?":
@@ -216,30 +230,51 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         ],
         "engagement": {
             "search_queries": [
-                "museum object has:images -is:retweet lang:en",
-                "art history has:images -is:retweet lang:en",
-                "ancient artifact has:images -is:retweet lang:en",
-                "medieval art has:images -is:retweet lang:en",
-                "museum collection has:images -is:retweet lang:en",
+                # High-engagement accounts that post about specific objects (from: queries are gold)
+                "from:archaeologyart has:images",
+                "from:womensart1 has:images",
+                "from:historydefined has:images",
+                "from:PulpLibrarian has:images",
+                # Museum official accounts
+                "from:metmuseum has:images",
+                "from:britishmuseum has:images",
+                "from:GettyMuseum has:images",
+                "from:rijksmuseum has:images",
+                "from:NationalGallery has:images",
+                "from:ArtInstChicago has:images",
+                "from:ClevelandArt has:images",
+                # Object-specific searches (broader net)
+                "(netsuke OR armor OR manuscript OR tapestry OR sculpture) (museum OR century OR collection) has:images -is:retweet",
+                "(sword OR dagger OR helmet OR shield) (medieval OR ancient OR century) has:images -is:retweet",
+                "(portrait OR painting) (century OR museum) (oil OR canvas OR panel) has:images -is:retweet",
+                "(ceramic OR porcelain OR pottery) (dynasty OR century OR kiln) has:images -is:retweet",
             ],
-            "min_likes": 2,
+            "min_likes": 50,
             "tracked_accounts": [
+                # Big engagement accounts that post object photos
+                "@archaeologyart",
+                "@womensart1",
+                "@historydefined",
+                "@PulpLibrarian",
+                # Museum official accounts
                 "@metmuseum",
-                "@artaboretum",
                 "@ArtInstChicago",
                 "@ClevelandArt",
                 "@britishmuseum",
                 "@NationalGallery",
                 "@rijksmuseum",
+                "@GettyMuseum",
             ],
             "reply_voice": (
-                "Knowledgeable but casual. Add a specific fact the poster didn't mention. "
-                "Short sentences. Ask real questions. No AI slop."
+                "You're @MuseumStories. Add ONE specific fact the poster didn't mention — "
+                "a date, a material, a dimension, a scandal, a connection to another object. "
+                "Short sentences. No em-dashes. No 'fascinating' or 'remarkable'. "
+                "If you don't know a real fact, don't reply. Wrong facts kill credibility."
             ),
             "engagement_targets": {
-                "replies_per_day": 3,
-                "likes_per_day": 8,
-                "reposts_per_day": 1,
+                "replies_per_day": 5,
+                "likes_per_day": 15,
+                "reposts_per_day": 2,
                 "original_posts_per_day": 2,
             },
             "posting_times": [

@@ -28,7 +28,12 @@ from dotenv import load_dotenv
 load_dotenv(BASE_DIR / ".env")
 
 sys.path.insert(0, str(BASE_DIR))
-from config.niches import get_niche
+from config.niches import get_niche, list_niches
+
+# URL path -> niche_id shortcut routes (e.g., /museum -> museumstories)
+_NICHE_ROUTES = {n: n for n in list_niches()}
+_NICHE_ROUTES["museum"] = "museumstories"
+_NICHE_ROUTES["tatami"] = "tatamispaces"
 
 
 def _get_posts_file(niche_id: str) -> Path:
@@ -37,21 +42,23 @@ def _get_posts_file(niche_id: str) -> Path:
     return BASE_DIR / niche.get("posts_file", "posts.json")
 
 
-def _lock_posts():
-    """Acquire exclusive lock on posts.json for safe read-modify-write."""
-    POSTS_LOCK.touch(exist_ok=True)
-    fd = open(POSTS_LOCK, "r")
+def _lock_posts(niche_id: str):
+    """Acquire exclusive lock for a niche's posts file."""
+    posts_file = _get_posts_file(niche_id)
+    lock_path = posts_file.parent / f".{posts_file.name}.lock"
+    lock_path.touch(exist_ok=True)
+    fd = open(lock_path, "r")
     fcntl.flock(fd, fcntl.LOCK_EX)
     return fd
 
 
 def _unlock_posts(fd):
-    """Release posts.json lock."""
+    """Release posts file lock."""
     fcntl.flock(fd, fcntl.LOCK_UN)
     fd.close()
 
 
-def load_posts(niche_id: str = "tatamispaces") -> dict:
+def load_posts(niche_id: str) -> dict:
     posts_file = _get_posts_file(niche_id)
     if not posts_file.exists():
         return {"posts": []}
@@ -61,7 +68,7 @@ def load_posts(niche_id: str = "tatamispaces") -> dict:
     return data
 
 
-def save_posts(data: dict, niche_id: str = "tatamispaces"):
+def save_posts(data: dict, niche_id: str):
     """Atomic write: tmp file then rename (matches tools/common.py save_json)."""
     posts_file = _get_posts_file(niche_id)
     tmp = posts_file.with_suffix(".tmp")
@@ -205,9 +212,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/" or parsed.path == "":
             self.serve_dashboard()
-        elif parsed.path in ("/museum", "/museum/"):
-            # Serve museum view directly (avoids redirect issues behind nginx proxy)
-            self.path = "/?niche=museumstories"
+        elif parsed.path.strip("/") in _NICHE_ROUTES:
+            # Serve niche view directly (avoids redirect issues behind nginx proxy)
+            self.path = f"/?niche={_NICHE_ROUTES[parsed.path.strip('/')]}"
             self.serve_dashboard()
         else:
             self.send_error(404)
@@ -225,7 +232,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id or status"})
                 return
 
-            lock = _lock_posts()
+            lock = _lock_posts(niche_id)
             try:
                 data = load_posts(niche_id)
                 found = False
@@ -253,7 +260,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id"})
                 return
 
-            lock = _lock_posts()
+            lock = _lock_posts(niche_id)
             try:
                 data = load_posts(niche_id)
                 found = False
@@ -310,17 +317,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not post_id or not new_status:
             self.send_json({"ok": False, "error": "missing id or status"})
             return
-        data = load_posts("museumstories")
-        for p in data["posts"]:
-            if p["id"] == post_id:
-                p["status"] = new_status
-                # Auto-set scheduled_for on approve so post.py picks it up
-                if new_status == "approved" and not p.get("scheduled_for"):
-                    p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
-                save_posts(data, "museumstories")
-                self.send_json({"ok": True})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+        lock = _lock_posts("museumstories")
+        try:
+            data = load_posts("museumstories")
+            for p in data["posts"]:
+                if p["id"] == post_id:
+                    p["status"] = new_status
+                    if new_status == "approved" and not p.get("scheduled_for"):
+                        p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
+                    save_posts(data, "museumstories")
+                    self.send_json({"ok": True})
+                    return
+            self.send_json({"ok": False, "error": "post not found"})
+        finally:
+            _unlock_posts(lock)
 
     def handle_museum_tweet_edit(self, body):
         post_id = body.get("id")
@@ -329,17 +339,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or text is None:
             self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
             return
-        data = load_posts("museumstories")
-        for p in data["posts"]:
-            if p["id"] == post_id:
-                if 0 <= tweet_index < len(p.get("tweets", [])):
-                    p["tweets"][tweet_index]["text"] = text
-                    save_posts(data, "museumstories")
-                    self.send_json({"ok": True})
+        lock = _lock_posts("museumstories")
+        try:
+            data = load_posts("museumstories")
+            for p in data["posts"]:
+                if p["id"] == post_id:
+                    if 0 <= tweet_index < len(p.get("tweets", [])):
+                        p["tweets"][tweet_index]["text"] = text
+                        save_posts(data, "museumstories")
+                        self.send_json({"ok": True})
+                        return
+                    self.send_json({"ok": False, "error": "invalid tweet_index"})
                     return
-                self.send_json({"ok": False, "error": "invalid tweet_index"})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+            self.send_json({"ok": False, "error": "post not found"})
+        finally:
+            _unlock_posts(lock)
 
     def handle_museum_image_assign(self, body):
         post_id = body.get("post_id")
@@ -349,41 +363,49 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
             self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
             return
-        data = load_posts("museumstories")
-        for p in data["posts"]:
-            if p["id"] == post_id:
-                if 0 <= tweet_index < len(p.get("tweets", [])):
-                    tweet = p["tweets"][tweet_index]
-                    if "images" not in tweet:
-                        tweet["images"] = []
-                    if action == "add":
-                        if image_index not in tweet["images"]:
-                            tweet["images"].append(image_index)
-                    elif action == "remove":
-                        tweet["images"] = [i for i in tweet["images"] if i != image_index]
-                    save_posts(data, "museumstories")
-                    self.send_json({"ok": True})
+        lock = _lock_posts("museumstories")
+        try:
+            data = load_posts("museumstories")
+            for p in data["posts"]:
+                if p["id"] == post_id:
+                    if 0 <= tweet_index < len(p.get("tweets", [])):
+                        tweet = p["tweets"][tweet_index]
+                        if "images" not in tweet:
+                            tweet["images"] = []
+                        if action == "add":
+                            if image_index not in tweet["images"]:
+                                tweet["images"].append(image_index)
+                        elif action == "remove":
+                            tweet["images"] = [i for i in tweet["images"] if i != image_index]
+                        save_posts(data, "museumstories")
+                        self.send_json({"ok": True})
+                        return
+                    self.send_json({"ok": False, "error": "invalid tweet_index"})
                     return
-                self.send_json({"ok": False, "error": "invalid tweet_index"})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+            self.send_json({"ok": False, "error": "post not found"})
+        finally:
+            _unlock_posts(lock)
 
     def handle_museum_notes(self, body):
         post_id = body.get("id")
         if post_id is None:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        data = load_posts("museumstories")
-        for p in data["posts"]:
-            if p["id"] == post_id:
-                if "vote" in body:
-                    p["vote"] = body["vote"]
-                if "notes" in body:
-                    p["notes"] = body["notes"]
-                save_posts(data, "museumstories")
-                self.send_json({"ok": True})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+        lock = _lock_posts("museumstories")
+        try:
+            data = load_posts("museumstories")
+            for p in data["posts"]:
+                if p["id"] == post_id:
+                    if "vote" in body:
+                        p["vote"] = body["vote"]
+                    if "notes" in body:
+                        p["notes"] = body["notes"]
+                    save_posts(data, "museumstories")
+                    self.send_json({"ok": True})
+                    return
+            self.send_json({"ok": False, "error": "post not found"})
+        finally:
+            _unlock_posts(lock)
 
     # === Regenerate handlers ===
 
@@ -477,12 +499,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
             html = html.replace("__POSTS_DATA__", "[]")
             html = html.replace("__STATS_HTML__", "")
-            html = html.replace("__ACTIVE_TATAMI__", "active")
-            html = html.replace("__ACTIVE_MUSEUM__", "")
         else:
-            # Museum: client-rendered from JSON
-            museum_data = load_posts(niche)
-            posts_json = json.dumps(museum_data.get("posts", []), ensure_ascii=False)
+            # Other niches: client-rendered from JSON
+            niche_data = load_posts(niche)
+            posts_json = json.dumps(niche_data.get("posts", []), ensure_ascii=False)
 
             html = html.replace("__POSTS_DATA__", posts_json)
             html = html.replace("POSTS_HTML", "")
@@ -491,8 +511,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = html.replace("POST_COUNT_POSTED", "0")
             html = html.replace("POST_COUNT_DROPPED", "0")
             html = html.replace("__STATS_HTML__", "")
-            html = html.replace("__ACTIVE_TATAMI__", "")
-            html = html.replace("__ACTIVE_MUSEUM__", "active")
+
+        # Set active nav tab — works for any niche
+        for nid in list_niches():
+            placeholder = f"__ACTIVE_{nid.upper()}__"
+            html = html.replace(placeholder, "active" if nid == niche else "")
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")

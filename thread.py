@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xkit import login, post_thread
+from tools.xapi import post_thread, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
 from agents.engager import generate_thread
 from config.niches import get_niche
@@ -107,14 +107,14 @@ async def main():
         print("=" * 60)
         return
 
-    # Login and post
-    client = await login(niche_id)
-    log.info("Logged in, posting thread...")
+    # Post via X API v2
+    set_xapi_niche(niche_id)
+    log.info("Posting thread via X API...")
 
     community_id = niche.get("community_id")
-    posted_ids = await post_thread(
-        client=client,
-        tweets=tweets,
+    thread_data = [{"text": t} for t in tweets]
+    posted_ids = post_thread(
+        tweets=thread_data,
         community_id=community_id,
     )
 
@@ -131,10 +131,10 @@ async def main():
 
         thread_url = f"https://x.com/{niche['handle'].lstrip('@')}/status/{posted_ids[0]}"
         log.info(f"Thread posted: {thread_url} ({len(posted_ids)} tweets)")
-        notify("@tatamispaces thread", f"Posted {len(posted_ids)}-tweet thread: {topic[:40]}")
+        notify(f"{niche['handle']} thread", f"Posted {len(posted_ids)}-tweet thread: {topic[:40]}")
     else:
         log.error("Failed to post thread")
-        notify("@tatamispaces thread FAILED", f"Thread failed: {topic[:40]}")
+        notify(f"{niche['handle']} thread FAILED", f"Thread failed: {topic[:40]}")
 
 
 if __name__ == "__main__":

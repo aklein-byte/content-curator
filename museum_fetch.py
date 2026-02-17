@@ -684,13 +684,7 @@ def add_to_queue(posts_data: dict, story: dict, obj: MuseumObject) -> dict:
         "period": obj.period,
         "category": _classify_category(obj),
         "thread": is_thread,
-        "tweets": [
-            {
-                "text": t["text"],
-                "image_url": t.get("image_url"),
-            }
-            for t in tweets
-        ],
+        "tweets": [],  # built below with images indices
         # Flat fields for compatibility with post.py
         "text": tweets[0]["text"],
         "image_urls": [t.get("image_url") for t in tweets if t.get("image_url")],
@@ -700,6 +694,14 @@ def add_to_queue(posts_data: dict, story: dict, obj: MuseumObject) -> dict:
         "object_url": obj.object_url,
         "score": None,
     }
+
+    # Build tweets with images indices pointing into image_urls
+    all_urls = post["image_urls"]
+    for t in tweets:
+        tw = {"text": t["text"], "image_url": t.get("image_url"), "images": []}
+        if t.get("image_url") and t["image_url"] in all_urls:
+            tw["images"] = [all_urls.index(t["image_url"])]
+        post["tweets"].append(tw)
 
     posts_data["posts"].append(post)
     return post

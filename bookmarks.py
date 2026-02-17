@@ -27,7 +27,7 @@ from config.niches import get_niche
 log = setup_logging("bookmarks")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
+POSTS_FILE: Path = None  # resolved in main() from niche config
 
 _pw = load_config().get("posting_window", {})
 
@@ -118,6 +118,10 @@ async def main():
 
     niche_id = args.niche
     niche = get_niche(niche_id)
+
+    # Resolve niche-aware posts file
+    global POSTS_FILE
+    POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / niche.get("posts_file", "posts.json"))))
 
     log.info(f"Fetching bookmarks for {niche['handle']}")
 
@@ -229,7 +233,7 @@ async def main():
         print("Change status to 'approved' and add 'scheduled_for' to publish.")
 
     if drafts_created > 0:
-        notify("@tatamispaces bookmarks", f"{drafts_created} new drafts from bookmarks")
+        notify(f"{niche['handle']} bookmarks", f"{drafts_created} new drafts from bookmarks")
 
 
 if __name__ == "__main__":
