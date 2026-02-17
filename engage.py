@@ -28,38 +28,37 @@ from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
 
 # Daily caps — hard limits across all runs (overridable per niche in _apply_niche_limits)
-DAILY_MAX_REPLIES = 12
-DAILY_MAX_LIKES = 30
-DAILY_MAX_FOLLOWS = 5
+DAILY_MAX_REPLIES = 30
+DAILY_MAX_LIKES = 60
+DAILY_MAX_FOLLOWS = 10
 
 # Minimum author followers to reply to (smaller accounts = wasted visibility)
-MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 1000
+MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 300
 
 # Minimum post likes to reply to (more eyeballs on our reply)
-MIN_POST_LIKES_FOR_REPLY = 5
+MIN_POST_LIKES_FOR_REPLY = 3
 
 # Per-niche engagement limits — conservative for new accounts, higher for established
 _NICHE_ENGAGE_LIMITS = {
     "tatamispaces": {
-        "daily_max_replies": 15,
-        "daily_max_likes": 50,
+        "daily_max_replies": 30,
+        "daily_max_likes": 60,
         "daily_max_follows": 10,
-        "min_author_followers_for_reply": 500,
-        "min_post_likes_for_reply": 5,
-        "like_delay": (15, 45),      # seconds (min, max)
-        "reply_delay": (45, 180),
+        "min_author_followers_for_reply": 300,
+        "min_post_likes_for_reply": 3,
+        "like_delay": (10, 35),      # seconds (min, max)
+        "reply_delay": (30, 120),
         "follow_delay": (20, 60),
     },
     "museumstories": {
-        # New account (< 100 followers) — stay very conservative
-        "daily_max_replies": 8,
-        "daily_max_likes": 25,
+        "daily_max_replies": 20,
+        "daily_max_likes": 40,
         "daily_max_follows": 8,
-        "min_author_followers_for_reply": 1000,
-        "min_post_likes_for_reply": 20,
-        "like_delay": (20, 60),      # slower pacing for new account
-        "reply_delay": (60, 240),
-        "follow_delay": (30, 90),
+        "min_author_followers_for_reply": 500,
+        "min_post_likes_for_reply": 10,
+        "like_delay": (15, 45),
+        "reply_delay": (45, 180),
+        "follow_delay": (25, 75),
     },
 }
 
