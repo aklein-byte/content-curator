@@ -16,6 +16,7 @@ Usage:
 import sys
 import os
 import json
+import re
 import random
 import logging
 import argparse
@@ -111,6 +112,20 @@ def score_image_aesthetics(obj: MuseumObject) -> tuple[float | None, float | Non
         except Exception:
             pass
         return None, None
+
+
+# --- Anthropic client singleton ---
+
+_anthropic_client = None
+
+
+def _get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is None:
+        from anthropic import Anthropic
+        _anthropic_client = Anthropic()
+    return _anthropic_client
+
 
 # --- Discovery strategies ---
 
@@ -229,8 +244,7 @@ def score_story_potential(obj: MuseumObject) -> int | None:
     """Use Haiku to quickly score story potential (1-10). Returns score or None on failure.
     Cheap gate (~$0.001/call) to prevent wasted Opus calls on boring objects."""
     try:
-        from anthropic import Anthropic
-        client = Anthropic()
+        client = _get_anthropic_client()
 
         meta_parts = [f"Title: {obj.title}"]
         if obj.artist:
@@ -265,7 +279,6 @@ Return just the number, nothing else."""
         )
         text = response.content[0].text.strip()
         # Extract first number
-        import re
         match = re.search(r'\d+', text)
         if match:
             return int(match.group())
@@ -500,9 +513,7 @@ def generate_story(obj: MuseumObject, fmt: str) -> dict | None:
             "metadata": {"object_id": "...", "museum": "...", ...}
         }
     """
-    from anthropic import Anthropic
-
-    client = Anthropic()
+    client = _get_anthropic_client()
     niche = get_niche(NICHE_ID)
     voice_guide = _load_voice_guide()
 
@@ -669,7 +680,6 @@ No markdown, no explanation, just the JSON."""
             return None
 
         # Clean: strip any URLs that Claude embedded in tweet text
-        import re
         for tweet in story["tweets"]:
             cleaned = re.sub(r'\s*https?://\S+', '', tweet["text"]).strip()
             if cleaned != tweet["text"]:
@@ -898,9 +908,9 @@ def _classify_category(obj: MuseumObject) -> str:
         return "prints"
     if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
         return "furniture"
-    if any(w in all_text for w in ["mask", "ritual", "ceremony", "reliquary", "votive"]):
+    if any(w in all_text for w in ["ritual", "ceremony", "reliquary", "votive", "altar"]):
         return "ritual"
-    if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "scroll"]):
+    if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "parchment"]):
         return "manuscript"
     if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
         return "automaton"
@@ -961,14 +971,16 @@ def main():
     story_passed = []
     for obj in candidates:
         story_score = score_story_potential(obj)
-        if story_score is not None:
-            obj._story_score = story_score
-            if story_score < 7:
-                log.info(f"  Rejected (story): {obj.title[:50]} — score {story_score}/10")
-                continue
-            log.info(f"  Passed (story): {obj.title[:50]} — score {story_score}/10")
+        if story_score is None:
+            log.info(f"  Skipped (story scoring failed): {obj.title[:50]}")
+            continue
+        obj._story_score = story_score
+        if story_score < 7:
+            log.info(f"  Rejected (story): {obj.title[:50]} — score {story_score}/10")
+            continue
+        log.info(f"  Passed (story): {obj.title[:50]} — score {story_score}/10")
         story_passed.append(obj)
-    log.info(f"Story gate: {story_passed and len(story_passed)}/{len(candidates)} passed")
+    log.info(f"Story gate: {len(story_passed)}/{len(candidates)} passed")
     candidates = story_passed
     if not candidates:
         log.warning("No candidates passed story potential gate")

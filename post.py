@@ -154,9 +154,9 @@ def _auto_categorize(post: dict) -> str:
             return "prints"
         if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
             return "furniture"
-        if any(w in all_text for w in ["mask", "ritual", "ceremony", "reliquary", "votive", "altar"]):
+        if any(w in all_text for w in ["ritual", "ceremony", "reliquary", "votive", "altar"]):
             return "ritual"
-        if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "scroll"]):
+        if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "parchment"]):
             return "manuscript"
         if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
             return "automaton"
@@ -175,7 +175,7 @@ def _auto_categorize(post: dict) -> str:
         return "modern-architecture"
     if any(w in text for w in ["tatami mat", "apartment", "1ldk", "2ldk", "small space"]):
         return "residential"
-    if any(w in text for w in ["kumiko", "woodwork", "lacquer", "ceramic", "craft", "joinery"]):
+    if any(w in text for w in ["kumiko", "woodwork", "lacquer", "craft", "joinery", "yakimono"]):
         return "craft"
     if any(w in text for w in ["sauna", "converted", "repurposed", "adaptive", "pop-up"]):
         return "adaptive-reuse"
