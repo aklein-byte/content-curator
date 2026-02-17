@@ -14,7 +14,7 @@ import random
 import argparse
 import time
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -111,6 +111,89 @@ def count_today_actions(log_entries: list, action: str) -> int:
         1 for e in log_entries
         if e.get("action") == action and e.get("timestamp", "").startswith(today)
     )
+
+
+def replies_to_author_this_week(log_entries: list, author: str) -> int:
+    """Count replies to a specific author in the last 7 days."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    return sum(
+        1 for e in log_entries
+        if e.get("action") == "reply"
+        and e.get("author", "").lower() == author.lower()
+        and e.get("timestamp", "") >= cutoff
+    )
+
+
+def _post_age_minutes(post) -> float:
+    """Return post age in minutes. Returns 9999 if created_at is missing."""
+    if not post.created_at:
+        return 9999
+    try:
+        created = datetime.fromisoformat(post.created_at.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - created).total_seconds() / 60
+    except Exception:
+        return 9999
+
+
+def track_reply_performance(eng_log: list, niche_id: str) -> None:
+    """Check how our recent replies performed (likes, reply-backs).
+    Updates engagement log entries in-place with performance data.
+    Runs once per engage session on unchecked replies older than 1 hour."""
+    import requests
+    from tools.xapi import _get_auth, set_niche
+
+    # Find replies that haven't been checked yet and are >1 hour old
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    unchecked = [
+        e for e in eng_log
+        if e.get("action") == "reply"
+        and e.get("reply_id")
+        and "reply_likes" not in e  # not yet checked
+        and e.get("timestamp", "") < cutoff  # at least 1 hour old
+        and e.get("timestamp", "") > week_ago  # only last 7 days
+    ]
+
+    if not unchecked:
+        return
+
+    # Check up to 50 per run (API limit is 100 per request)
+    batch = unchecked[:50]
+    ids = [str(e["reply_id"]) for e in batch]
+
+    try:
+        set_niche(niche_id)
+        auth = _get_auth()
+        resp = requests.get(
+            "https://api.x.com/2/tweets",
+            params={"ids": ",".join(ids), "tweet.fields": "public_metrics"},
+            auth=auth,
+            timeout=15,
+        )
+        data = resp.json()
+    except Exception as ex:
+        log.warning(f"Reply performance check failed: {ex}")
+        return
+
+    if "data" not in data:
+        return
+
+    checked = 0
+    got_engagement = 0
+    for tw in data["data"]:
+        m = tw["public_metrics"]
+        entry = next((e for e in batch if str(e["reply_id"]) == tw["id"]), None)
+        if entry:
+            entry["reply_likes"] = m["like_count"]
+            entry["reply_replies"] = m["reply_count"]
+            entry["reply_retweets"] = m["retweet_count"]
+            entry["checked_at"] = datetime.now(timezone.utc).isoformat()
+            checked += 1
+            if m["like_count"] > 0 or m["reply_count"] > 0:
+                got_engagement += 1
+
+    if checked:
+        log.info(f"Reply performance: {got_engagement}/{checked} got engagement (checked {checked} unchecked replies)")
 
 
 def load_source_tweet_ids() -> set:
@@ -245,6 +328,9 @@ async def main():
     if not isinstance(engagement_log, list):
         engagement_log = []
 
+    # Track how our recent replies performed (feedback loop)
+    track_reply_performance(engagement_log, niche_id)
+
     # Gather posts from all queries
     all_posts: list[XPost] = []
     seen_ids = set()
@@ -331,9 +417,19 @@ async def main():
             f"({evaluation['reason'][:50]})"
         )
 
-    # Sort by relevance score descending
-    # Sort by relevance first, then by views (bigger audience = more exposure)
-    scored_posts.sort(key=lambda x: (x[1]["relevance_score"], x[0].views), reverse=True)
+    # Sort by relevance score descending, with recency boost
+    # Fresh posts (<30 min) get +2 effective score, <60 min get +1
+    # This prioritizes replying to fresh content where our reply gets max visibility
+    def _sort_key(item):
+        post, eval_data = item
+        score = eval_data["relevance_score"]
+        age = _post_age_minutes(post)
+        if age < 30:
+            score += 2
+        elif age < 60:
+            score += 1
+        return (score, post.views)
+    scored_posts.sort(key=_sort_key, reverse=True)
 
     # --- Auto-like posts scoring 6+ ---
     likes_done = 0
@@ -388,6 +484,9 @@ async def main():
         if already_replied(engagement_log, post.post_id):
             continue
         if post.author_handle in replied_authors:
+            continue
+        # Per-account cooldown: max 2 replies per author per week
+        if replies_to_author_this_week(engagement_log, post.author_handle) >= 2:
             continue
         # Only reply to accounts with enough followers for visibility
         if post.author_followers < MIN_AUTHOR_FOLLOWERS_FOR_REPLY:
