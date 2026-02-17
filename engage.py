@@ -24,7 +24,7 @@ load_dotenv()
 
 from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost, get_liking_users, get_own_recent_tweets, get_user_recent_tweets, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
-from agents.engager import evaluate_post, draft_reply
+from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
 # Daily caps — hard limits across all runs (overridable per niche in _apply_niche_limits)
@@ -569,15 +569,70 @@ async def main():
                 })
                 log.info(f"Followed @{post.author_handle} ({follows_done}/{MAX_FOLLOWS_PER_RUN})")
 
+    # --- Draft quote tweets for top posts (saved to posts file for review) ---
+    quotes_drafted = 0
+    MAX_QUOTES_PER_RUN = 1
+    MIN_LIKES_FOR_QUOTE = 500  # only quote posts with broad reach
+    MIN_SCORE_FOR_QUOTE = 9
+
+    # Load posts file to check for existing quote drafts
+    if POSTS_FILE.exists():
+        posts_data = load_json(POSTS_FILE, default={"posts": []})
+    else:
+        posts_data = {"posts": []}
+    existing_quote_ids = {
+        str(p.get("quote_tweet_id")) for p in posts_data.get("posts", [])
+        if p.get("quote_tweet_id")
+    }
+
+    for post, eval_data in scored_posts:
+        if quotes_drafted >= MAX_QUOTES_PER_RUN:
+            break
+        if time_left() < 120:
+            break
+        if eval_data["relevance_score"] < MIN_SCORE_FOR_QUOTE:
+            continue
+        if post.likes < MIN_LIKES_FOR_QUOTE:
+            continue
+        if str(post.post_id) in existing_quote_ids:
+            continue
+
+        log.info(f"Drafting quote tweet for @{post.author_handle} ({post.likes} likes, score {eval_data['relevance_score']})...")
+        qt_text = await draft_quote_tweet(
+            post_text=post.text,
+            author=post.author_handle,
+            niche_id=niche_id,
+            tweet_id=post.post_id,
+        )
+
+        if qt_text:
+            max_id = max((p.get("id", 0) for p in posts_data.get("posts", [])), default=0)
+            new_post = {
+                "id": max_id + 1,
+                "status": "draft",
+                "type": "quote",
+                "text": qt_text,
+                "quote_tweet_id": str(post.post_id),
+                "quote_author": post.author_handle,
+                "quote_text": post.text[:200],
+                "quote_likes": post.likes,
+                "source": "engage",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            posts_data["posts"].append(new_post)
+            save_json(POSTS_FILE, posts_data, lock=True)
+            quotes_drafted += 1
+            log.info(f"Quote tweet draft #{new_post['id']}: {qt_text[:80]}...")
+
     # Save engagement log
     save_json(ENGAGEMENT_LOG, engagement_log)
 
     # Summary
     elapsed = int(time.time() - start_time)
-    summary = (
-        f"Done in {elapsed}s. Likes: {likes_done}, Replies: {replies_done}, "
-        f"Follows: {follows_done}"
-    )
+    parts = [f"Likes: {likes_done}", f"Replies: {replies_done}", f"Follows: {follows_done}"]
+    if quotes_drafted:
+        parts.append(f"Quote drafts: {quotes_drafted}")
+    summary = f"Done in {elapsed}s. {', '.join(parts)}"
     log.info(summary)
 
     notify(f"{niche['handle']} engage", summary)

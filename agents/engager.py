@@ -463,6 +463,55 @@ async def draft_reply(
         return ""
 
 
+async def draft_quote_tweet(
+    post_text: str,
+    author: str,
+    niche_id: str,
+    tweet_id: str,
+) -> str:
+    """Draft a quote tweet that adds context to the original post.
+
+    Returns the quote tweet text, or empty string on failure.
+    """
+    niche = get_niche(niche_id)
+
+    system = f"""You write quote tweets for {niche['handle']}.
+
+A quote tweet reposts someone's tweet with your own commentary above it. The original post appears below yours, so the reader sees BOTH.
+
+Your job: add something the original post didn't say. A fact, a connection, a surprising detail, your take. The original post provides the image and basic info — you provide what's NOT there.
+
+## Rules
+- 1-2 sentences max. The original post is visible below, so don't repeat what it says.
+- Add a real fact, number, date, or connection. Never just react.
+- No hashtags. No em-dashes. No "not just X, it's Y". No present-participle tack-ons.
+- NEVER describe the image (you can't see it).
+- NEVER be sycophantic ("incredible", "stunning", "what a find").
+- If you don't know a real fact about this subject, say so — don't guess.
+
+Return ONLY the quote tweet text. Nothing else."""
+
+    prompt = f"""Original post by @{author}:
+{post_text}
+
+Write the quote tweet:"""
+
+    try:
+        response = client.messages.create(
+            model=REPLY_MODEL,
+            max_tokens=280,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+        if text.startswith('"') and text.endswith('"'):
+            text = text[1:-1]
+        return text
+    except Exception as e:
+        logger.error(f"Failed to draft quote tweet for @{author}: {e}")
+        return ""
+
+
 async def draft_original_post(
     source_text: str,
     author: str,
