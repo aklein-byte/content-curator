@@ -251,6 +251,7 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         "ig_env": {
             "token": "IG_GRAPH_TOKEN_MUSEUM",
             "user_id": "IG_USER_ID_MUSEUM",
+            "username": "museumstoriesdaily",
         },
         # X API credential env var names (different from tatami defaults)
         "x_api_env": {

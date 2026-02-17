@@ -429,7 +429,7 @@ async def main():
     )
     log.info(summary)
 
-    notify("@tatamispaces engage", summary)
+    notify(f"{niche['handle']} engage", summary)
 
 
 if __name__ == "__main__":

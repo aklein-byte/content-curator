@@ -398,7 +398,8 @@ def _build_success_summary(name: str, metrics: dict, summary_parts: list) -> str
 def notify(title: str, message: str, priority: str = "high"):
     """Send push notification via ntfy.sh (works on VPS + phone) with macOS fallback."""
     import platform
-    ntfy_topic = os.getenv("NTFY_TOPIC", "wp-tatami-orchestrator")
+    config = load_config()
+    ntfy_topic = config.get("ntfy_topic") or os.getenv("NTFY_TOPIC", "wp-tatami-orchestrator")
     tags = "warning" if priority == "high" else "white_check_mark"
 
     # Try ntfy.sh first (works everywhere)
@@ -439,9 +440,10 @@ def notify_if_needed(name: str, result: dict, status: dict, config: dict):
     consecutive = ss.get("consecutive_failures", 0)
 
     if result["status"] in ("failed", "timeout", "error"):
+        niche_label = config.get("niche", "tatami")
         if consecutive >= threshold:
             notify(
-                f"tatami: {name} failing",
+                f"{niche_label}: {name} failing",
                 f"{consecutive} consecutive failures. Last: {result['status']}",
             )
         elif consecutive == 1:
@@ -531,7 +533,9 @@ def aggregate_today_stats(now_et: datetime) -> dict:
 def print_status(status: dict, now_et: datetime):
     """Pretty-print orchestrator status."""
     today_str = str(now_et.date())
-    print(f"\n  @tatamispaces orchestrator — {now_et.strftime('%a %b %d %I:%M %p ET')}")
+    config = load_config()
+    niche_label = config.get("niche", "tatamispaces")
+    print(f"\n  {niche_label} orchestrator — {now_et.strftime('%a %b %d %I:%M %p ET')}")
     print(f"  {'=' * 55}")
 
     # Aggregate stats
@@ -689,7 +693,8 @@ def heartbeat(config: dict, dry_run: bool = False):
             # Send success notification for action scripts
             notif_body = _build_success_summary(name, metrics, summary_parts)
             if notif_body:
-                notify(f"tatami: {name}", notif_body, priority="default")
+                niche_label = config.get("niche", "tatami")
+                notify(f"{niche_label}: {name}", notif_body, priority="default")
 
     if not ran_any and not dry_run:
         log.info("  Nothing to run this heartbeat.")

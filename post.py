@@ -262,7 +262,7 @@ def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
                     media_ids.append(mid)
 
         tweet_id = create_tweet(
-            text=post["text"],
+            text=post.get("text") or post.get("tweets", [{}])[0].get("text", ""),
             media_ids=media_ids if media_ids else None,
             community_id=community_id,
         )
@@ -365,10 +365,11 @@ async def main():
     else:
         log.info("  No images -- will post text-only")
 
-    # Check image quality — skip if too low resolution
+    # Check image quality — filter out small images, skip post only if ALL fail
     if image_paths:
         from PIL import Image
         MIN_DIMENSION = 800  # minimum pixels on longest side
+        good_paths = []
         for img_path in image_paths:
             try:
                 with Image.open(img_path) as img:
@@ -376,17 +377,27 @@ async def main():
                     longest = max(w, h)
                     log.info(f"  Image {Path(img_path).name}: {w}x{h}")
                     if longest < MIN_DIMENSION:
-                        log.warning(f"  Image too small: {w}x{h} (min {MIN_DIMENSION}px)")
-                        if not dry_run:
-                            post["status"] = "skipped_low_res"
-                            post["skip_reason"] = f"Image {Path(img_path).name} only {w}x{h}"
-                            save_posts(posts_data)
-                            notify(f"{niche['handle']} post skipped", f"Post #{post['id']} image too small ({w}x{h})")
-                            return
-                        else:
-                            print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would skip in live mode")
+                        log.warning(f"  Filtering out small image: {Path(img_path).name} ({w}x{h})")
+                        if dry_run:
+                            print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would filter out in live mode")
+                    else:
+                        good_paths.append(img_path)
             except Exception as e:
                 log.warning(f"  Could not check image {img_path}: {e}")
+                good_paths.append(img_path)  # keep if we can't check
+
+        if not good_paths and image_paths:
+            log.warning(f"  ALL images failed quality check")
+            if not dry_run:
+                post["status"] = "skipped_low_res"
+                post["skip_reason"] = f"All {len(image_paths)} images below {MIN_DIMENSION}px"
+                save_posts(posts_data)
+                notify(f"{niche['handle']} post skipped", f"Post #{post['id']} all images too small")
+                return
+            else:
+                print(f"WARNING: All images too small — would skip in live mode")
+        else:
+            image_paths = good_paths
 
     # Determine post format
     # Museum posts have type="museum" and a pre-written "tweets" array
@@ -521,7 +532,8 @@ async def main():
             log.info(f"Posted ({fmt_label}): {post_url}")
             notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}")
 
-            cross_post_to_community(post, [], niche)
+            first_images = thread_data[0].get("image_paths", []) if thread_data else []
+            cross_post_to_community(post, first_images, niche)
             save_posts(posts_data)
         else:
             post["status"] = "failed"

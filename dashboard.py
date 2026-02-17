@@ -20,12 +20,21 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = BASE_DIR / "posts.json"
 POSTS_LOCK = BASE_DIR / ".posts.json.lock"
+TEMPLATES_DIR = BASE_DIR / "templates"
 
 # Load .env so writer agent can find ANTHROPIC_API_KEY
 from dotenv import load_dotenv
 load_dotenv(BASE_DIR / ".env")
+
+sys.path.insert(0, str(BASE_DIR))
+from config.niches import get_niche
+
+
+def _get_posts_file(niche_id: str) -> Path:
+    """Resolve posts file path from niche config."""
+    niche = get_niche(niche_id)
+    return BASE_DIR / niche.get("posts_file", "posts.json")
 
 
 def _lock_posts():
@@ -42,35 +51,22 @@ def _unlock_posts(fd):
     fd.close()
 
 
-def load_posts():
-    data = json.loads(POSTS_FILE.read_text())
-    if isinstance(data, list):
-        data = {"posts": data}
-    return data
-
-
-def save_posts(data):
-    """Atomic write: tmp file then rename (matches tools/common.py save_json)."""
-    tmp = POSTS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False))
-    tmp.rename(POSTS_FILE)
-
-
-TEMPLATES_DIR = BASE_DIR / "templates"
-MUSEUM_POSTS_FILE = BASE_DIR / "posts-museumstories.json"
-
-
-def load_museum_posts():
-    if not MUSEUM_POSTS_FILE.exists():
+def load_posts(niche_id: str = "tatamispaces") -> dict:
+    posts_file = _get_posts_file(niche_id)
+    if not posts_file.exists():
         return {"posts": []}
-    data = json.loads(MUSEUM_POSTS_FILE.read_text())
+    data = json.loads(posts_file.read_text())
     if isinstance(data, list):
         data = {"posts": data}
     return data
 
 
-def save_museum_posts(data):
-    MUSEUM_POSTS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+def save_posts(data: dict, niche_id: str = "tatamispaces"):
+    """Atomic write: tmp file then rename (matches tools/common.py save_json)."""
+    posts_file = _get_posts_file(niche_id)
+    tmp = posts_file.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    tmp.rename(posts_file)
 
 
 def render_post_html(post, index):
@@ -223,6 +219,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.path == "/api/status":
             post_id = body.get("id")
             new_status = body.get("status")
+            niche_id = body.get("niche", "tatamispaces")
 
             if not post_id or not new_status:
                 self.send_json({"ok": False, "error": "missing id or status"})
@@ -230,7 +227,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             lock = _lock_posts()
             try:
-                data = load_posts()
+                data = load_posts(niche_id)
                 found = False
                 for p in data.get("posts", []):
                     if p.get("id") == post_id:
@@ -242,7 +239,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         break
 
                 if found:
-                    save_posts(data)
+                    save_posts(data, niche_id)
                     self.send_json({"ok": True})
                 else:
                     self.send_json({"ok": False, "error": "post not found"})
@@ -251,13 +248,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/api/image-select":
             post_id = body.get("id")
+            niche_id = body.get("niche", "tatamispaces")
             if not post_id:
                 self.send_json({"ok": False, "error": "missing id"})
                 return
 
             lock = _lock_posts()
             try:
-                data = load_posts()
+                data = load_posts(niche_id)
                 found = False
                 for p in data.get("posts", []):
                     if p.get("id") == post_id:
@@ -276,7 +274,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         break
 
                 if found:
-                    save_posts(data)
+                    save_posts(data, niche_id)
                     self.send_json({"ok": True})
                 else:
                     self.send_json({"ok": False, "error": "post not found"})
@@ -312,14 +310,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not post_id or not new_status:
             self.send_json({"ok": False, "error": "missing id or status"})
             return
-        data = load_museum_posts()
+        data = load_posts("museumstories")
         for p in data["posts"]:
             if p["id"] == post_id:
                 p["status"] = new_status
                 # Auto-set scheduled_for on approve so post.py picks it up
                 if new_status == "approved" and not p.get("scheduled_for"):
                     p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
-                save_museum_posts(data)
+                save_posts(data, "museumstories")
                 self.send_json({"ok": True})
                 return
         self.send_json({"ok": False, "error": "post not found"})
@@ -331,12 +329,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or text is None:
             self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
             return
-        data = load_museum_posts()
+        data = load_posts("museumstories")
         for p in data["posts"]:
             if p["id"] == post_id:
                 if 0 <= tweet_index < len(p.get("tweets", [])):
                     p["tweets"][tweet_index]["text"] = text
-                    save_museum_posts(data)
+                    save_posts(data, "museumstories")
                     self.send_json({"ok": True})
                     return
                 self.send_json({"ok": False, "error": "invalid tweet_index"})
@@ -351,7 +349,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
             self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
             return
-        data = load_museum_posts()
+        data = load_posts("museumstories")
         for p in data["posts"]:
             if p["id"] == post_id:
                 if 0 <= tweet_index < len(p.get("tweets", [])):
@@ -363,7 +361,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                             tweet["images"].append(image_index)
                     elif action == "remove":
                         tweet["images"] = [i for i in tweet["images"] if i != image_index]
-                    save_museum_posts(data)
+                    save_posts(data, "museumstories")
                     self.send_json({"ok": True})
                     return
                 self.send_json({"ok": False, "error": "invalid tweet_index"})
@@ -375,14 +373,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        data = load_museum_posts()
+        data = load_posts("museumstories")
         for p in data["posts"]:
             if p["id"] == post_id:
                 if "vote" in body:
                     p["vote"] = body["vote"]
                 if "notes" in body:
                     p["notes"] = body["notes"]
-                save_museum_posts(data)
+                save_posts(data, "museumstories")
                 self.send_json({"ok": True})
                 return
         self.send_json({"ok": False, "error": "post not found"})
@@ -392,11 +390,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def handle_regenerate(self, body):
         """Regenerate a tatami post caption via writer agent."""
         post_id = body.get("id")
+        niche_id = body.get("niche", "tatamispaces")
         feedback = body.get("feedback", "Try a different angle. Keep the same facts but find a fresher way to say it.")
         if not post_id:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        data = load_posts()
+        data = load_posts(niche_id)
         for p in data.get("posts", []):
             if p.get("id") == post_id:
                 original = p.get("text", "")
@@ -405,10 +404,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     return
                 try:
                     from agents.writer import rewrite_caption
-                    result = asyncio.run(rewrite_caption("tatamispaces", original, feedback))
+                    result = asyncio.run(rewrite_caption(niche_id, original, feedback))
                     p["text"] = result["caption"]
                     p["_previous_text"] = original
-                    save_posts(data)
+                    save_posts(data, niche_id)
                     self.send_json({"ok": True, "caption": result["caption"]})
                 except Exception as e:
                     self.send_json({"ok": False, "error": str(e)})
@@ -423,19 +422,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None:
             self.send_json({"ok": False, "error": "missing id or tweet_index"})
             return
-        data = load_museum_posts()
+        data = load_posts("museumstories")
         for p in data["posts"]:
             if p["id"] == post_id:
                 if 0 <= tweet_index < len(p.get("tweets", [])):
                     original = p["tweets"][tweet_index]["text"]
                     try:
-                        from dotenv import load_dotenv
-                        load_dotenv(BASE_DIR / ".env")
                         from agents.writer import rewrite_caption
                         result = asyncio.run(rewrite_caption("museumstories", original, feedback))
                         p["tweets"][tweet_index]["text"] = result["caption"]
                         p["tweets"][tweet_index]["_previous_text"] = original
-                        save_museum_posts(data)
+                        save_posts(data, "museumstories")
                         self.send_json({"ok": True, "caption": result["caption"]})
                     except Exception as e:
                         self.send_json({"ok": False, "error": str(e)})
@@ -456,7 +453,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if niche == "tatamispaces":
             # Tatami: server-rendered post cards
-            data = load_posts()
+            data = load_posts(niche)
             posts = data.get("posts", [])
 
             counts = {"all": len(posts), "approved": 0, "posted": 0, "dropped": 0}
@@ -484,7 +481,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = html.replace("__ACTIVE_MUSEUM__", "")
         else:
             # Museum: client-rendered from JSON
-            museum_data = load_museum_posts()
+            museum_data = load_posts(niche)
             posts_json = json.dumps(museum_data.get("posts", []), ensure_ascii=False)
 
             html = html.replace("__POSTS_DATA__", posts_json)

@@ -1,8 +1,9 @@
 """
-Instagram cross-posting script for @tatamispaces.
-Reads posts.json, finds recently posted X tweets that haven't been cross-posted,
-downloads their images, stages them for public access, and posts to Instagram
-via the Instagram Graph API.
+Instagram cross-posting script — niche-agnostic.
+Reads posts file, finds recently posted X tweets that haven't been cross-posted,
+and posts to Instagram via the Instagram Graph API.
+
+Supports both flat (tatami) and museum post formats.
 
 Usage: python ig_post.py [--niche tatamispaces] [--dry-run] [--max 3]
 """
@@ -97,7 +98,7 @@ def find_unposted_to_ig(posts_data: dict, ig_log: list, max_count: int = 3) -> l
         # Check separate dedup log (survives posts.json clobbers)
         if _ig_already_posted(ig_log, post.get("id")):
             continue
-        if not post.get("image") and not post.get("image_urls"):
+        if not post.get("image") and not post.get("image_urls") and not post.get("allImages"):
             continue
         ready.append(post)
         if len(ready) >= max_count:
@@ -109,11 +110,25 @@ def find_unposted_to_ig(posts_data: dict, ig_log: list, max_count: int = 3) -> l
 def _resolve_image_urls(post: dict) -> list[str]:
     """Get publishable HTTPS image URLs for a post.
 
-    Uses original source URLs (e.g. Twitter CDN) directly since they're
-    already HTTPS and publicly accessible. Respects image_index if set
-    (from dashboard single-image selection).
+    Supports two formats:
+      - Flat (tatami): image_urls list
+      - Museum: allImages list + tweets[0].images indices
+
+    Uses original source URLs (e.g. Twitter CDN, museum APIs) directly since
+    they're already HTTPS and publicly accessible.
     """
     urls = post.get("image_urls", [])
+
+    # Museum format: resolve from allImages + first tweet's image indices
+    if not urls and post.get("allImages"):
+        all_imgs = post["allImages"]
+        tweets = post.get("tweets", [])
+        if tweets and tweets[0].get("images"):
+            urls = [all_imgs[i] for i in tweets[0]["images"] if i < len(all_imgs)]
+        else:
+            # Fallback: use first image from allImages
+            urls = [all_imgs[0]] if all_imgs else []
+
     if not urls:
         return []
 
@@ -165,7 +180,8 @@ async def main():
 
     if args.dry_run:
         for post in to_post:
-            caption = adapt_caption_for_ig(post["text"], niche)
+            post_text = post.get("text") or post.get("tweets", [{}])[0].get("text", "")
+            caption = adapt_caption_for_ig(post_text, niche)
             image_urls = _resolve_image_urls(post)
             log.info(f"  [DRY RUN] #{post['id']}: {caption[:80]}...")
             log.info(f"    Images ({len(image_urls)}): {image_urls}")
@@ -186,7 +202,8 @@ async def main():
             log.info(f"  Skip #{post['id']} — already cross-posted (detected on re-read)")
             continue
 
-        caption = adapt_caption_for_ig(post["text"], niche)
+        post_text = post.get("text") or post.get("tweets", [{}])[0].get("text", "")
+        caption = adapt_caption_for_ig(post_text, niche)
         log.info(f"Posting #{post['id']} ({len(image_urls)} image{'s' if len(image_urls) > 1 else ''})...")
 
         # Mark container as created BEFORE calling the API.
@@ -230,7 +247,7 @@ async def main():
     summary = f"Instagram: {posted_count} post(s) cross-posted"
     log.info(summary)
     if posted_count > 0:
-        notify("@tatamispaces IG", summary)
+        notify(f"{niche['handle']} IG", summary)
 
 
 if __name__ == "__main__":
