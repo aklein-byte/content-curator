@@ -27,7 +27,7 @@ from tools.common import load_json, save_json, notify, acquire_lock, release_loc
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
 
-# Daily caps — hard limits across all runs
+# Daily caps — hard limits across all runs (overridable per niche in _apply_niche_limits)
 DAILY_MAX_REPLIES = 12
 DAILY_MAX_LIKES = 30
 DAILY_MAX_FOLLOWS = 5
@@ -37,6 +37,42 @@ MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 1000
 
 # Minimum post likes to reply to (more eyeballs on our reply)
 MIN_POST_LIKES_FOR_REPLY = 5
+
+# Per-niche engagement limits — conservative for new accounts, higher for established
+_NICHE_ENGAGE_LIMITS = {
+    "tatamispaces": {
+        "daily_max_replies": 15,
+        "daily_max_likes": 50,
+        "daily_max_follows": 10,
+        "min_author_followers_for_reply": 500,
+        "min_post_likes_for_reply": 5,
+        "like_delay": (15, 45),      # seconds (min, max)
+        "reply_delay": (45, 180),
+        "follow_delay": (20, 60),
+    },
+    "museumstories": {
+        # New account (< 100 followers) — stay very conservative
+        "daily_max_replies": 8,
+        "daily_max_likes": 25,
+        "daily_max_follows": 8,
+        "min_author_followers_for_reply": 1000,
+        "min_post_likes_for_reply": 20,
+        "like_delay": (20, 60),      # slower pacing for new account
+        "reply_delay": (60, 240),
+        "follow_delay": (30, 90),
+    },
+}
+
+def _apply_niche_limits(niche_id: str):
+    """Apply niche-specific engagement limits."""
+    global DAILY_MAX_REPLIES, DAILY_MAX_LIKES, DAILY_MAX_FOLLOWS
+    global MIN_AUTHOR_FOLLOWERS_FOR_REPLY, MIN_POST_LIKES_FOR_REPLY
+    limits = _NICHE_ENGAGE_LIMITS.get(niche_id, {})
+    DAILY_MAX_REPLIES = limits.get("daily_max_replies", DAILY_MAX_REPLIES)
+    DAILY_MAX_LIKES = limits.get("daily_max_likes", DAILY_MAX_LIKES)
+    DAILY_MAX_FOLLOWS = limits.get("daily_max_follows", DAILY_MAX_FOLLOWS)
+    MIN_AUTHOR_FOLLOWERS_FOR_REPLY = limits.get("min_author_followers_for_reply", MIN_AUTHOR_FOLLOWERS_FOR_REPLY)
+    MIN_POST_LIKES_FOR_REPLY = limits.get("min_post_likes_for_reply", MIN_POST_LIKES_FOR_REPLY)
 
 log = setup_logging("engage")
 
@@ -179,6 +215,9 @@ async def main():
     niche = get_niche(niche_id)
     set_xapi_niche(niche_id)
 
+    # Apply niche-specific engagement limits
+    _apply_niche_limits(niche_id)
+
     # Resolve niche-specific file paths
     posts_filename = niche.get("posts_file", "posts.json")
     POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
@@ -318,7 +357,8 @@ async def main():
             log.info(f"[DRY RUN] Would like post by @{post.author_handle} (score {eval_data['relevance_score']})")
             likes_done += 1
         else:
-            time.sleep(random.uniform(5, 25))
+            like_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("like_delay", (15, 45))
+            time.sleep(random.uniform(*like_delay))
             success = like_post(post.post_id)
             if success:
                 likes_done += 1
@@ -372,7 +412,8 @@ async def main():
                 replies_done += 1
                 replied_authors.add(post.author_handle)
             else:
-                time.sleep(random.uniform(45, 180))
+                reply_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("reply_delay", (45, 180))
+                time.sleep(random.uniform(*reply_delay))
                 reply_id = reply_to_post(post.post_id, reply_text)
                 if reply_id:
                     replies_done += 1
@@ -415,7 +456,8 @@ async def main():
             log.info(f"[DRY RUN] Would follow @{post.author_handle}")
             follows_done += 1
         else:
-            time.sleep(random.uniform(20, 60))
+            follow_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("follow_delay", (20, 60))
+            time.sleep(random.uniform(*follow_delay))
             success = follow_user(post.author_id)
             if success:
                 follows_done += 1
