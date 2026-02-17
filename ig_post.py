@@ -29,6 +29,7 @@ log = setup_logging("ig_post")
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
+IG_POST_LOG = BASE_DIR / "ig-post-log.json"
 
 
 def load_posts() -> dict:
@@ -36,7 +37,7 @@ def load_posts() -> dict:
 
 
 def save_posts(data: dict):
-    save_json(POSTS_FILE, data)
+    save_json(POSTS_FILE, data, lock=True)
 
 
 def count_ig_posts_today(posts_data: dict) -> int:
@@ -53,14 +54,33 @@ def count_ig_posts_today(posts_data: dict) -> int:
 IG_MAX_PER_DAY = 3
 
 
-def find_unposted_to_ig(posts_data: dict, max_count: int = 3) -> list[dict]:
-    """Find posts that are posted to X but not yet to Instagram."""
-    # Skip posts that have ig_posted OR ig_container_created (containers auto-publish)
+def _load_ig_log() -> list:
+    """Load the separate IG post log (dedup source of truth)."""
+    return load_json(IG_POST_LOG, default=[])
+
+
+def _save_ig_log(entries: list):
+    save_json(IG_POST_LOG, entries)
+
+
+def _ig_already_posted(ig_log: list, post_id) -> bool:
+    """Check if a post ID has already been cross-posted to IG (via separate log)."""
+    return any(e.get("post_id") == post_id for e in ig_log)
+
+
+def find_unposted_to_ig(posts_data: dict, ig_log: list, max_count: int = 3) -> list[dict]:
+    """Find posts that are posted to X but not yet to Instagram.
+    Uses both posts.json flags AND the separate IG log for dedup safety.
+    """
     ready = []
     for post in posts_data.get("posts", []):
         if post.get("status") != "posted":
             continue
+        # Check posts.json flags
         if post.get("ig_posted") or post.get("ig_container_created"):
+            continue
+        # Check separate dedup log (survives posts.json clobbers)
+        if _ig_already_posted(ig_log, post.get("id")):
             continue
         if not post.get("image") and not post.get("image_urls"):
             continue
@@ -117,7 +137,8 @@ async def main():
             args.max = remaining
             log.info(f"Limiting to {remaining} post(s) (daily max {IG_MAX_PER_DAY})")
 
-    to_post = find_unposted_to_ig(posts_data, max_count=args.max)
+    ig_log = _load_ig_log()
+    to_post = find_unposted_to_ig(posts_data, ig_log, max_count=args.max)
 
     if not to_post:
         log.info("No posts ready for Instagram cross-posting")
@@ -165,20 +186,27 @@ async def main():
             else:
                 result = publish_carousel(image_urls, caption)
 
+            now = datetime.now(timezone.utc).isoformat()
             post["ig_posted"] = True
-            post["ig_posted_at"] = datetime.now(timezone.utc).isoformat()
+            post["ig_posted_at"] = now
             post["ig_media_id"] = result.get("id")
             post["ig_images_attempted"] = len(image_urls)
             posted_count += 1
             log.info(f"  Posted #{post['id']} to Instagram (media_id: {result.get('id')})")
             save_posts(posts_data)
+            # Write to separate dedup log (survives posts.json race conditions)
+            ig_log.append({"post_id": post.get("id"), "ig_media_id": result.get("id"), "timestamp": now})
+            _save_ig_log(ig_log)
         except Exception as e:
             # Container was already created — mark as posted anyway since
             # IG containers auto-publish even when media_publish returns 403
+            now = datetime.now(timezone.utc).isoformat()
             post["ig_posted"] = True
-            post["ig_posted_at"] = datetime.now(timezone.utc).isoformat()
+            post["ig_posted_at"] = now
             post["ig_publish_error"] = str(e)
             save_posts(posts_data)
+            ig_log.append({"post_id": post.get("id"), "error": str(e), "timestamp": now})
+            _save_ig_log(ig_log)
             log.error(f"  Failed #{post['id']}: {e}")
             log.warning(f"  Marked as ig_posted anyway (containers auto-publish)")
 
