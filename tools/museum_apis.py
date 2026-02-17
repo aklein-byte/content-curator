@@ -315,14 +315,18 @@ def smk_search(query: str, limit: int = 10) -> list[MuseumObject]:
                     additional_iiif.append(url)
 
         if not image_url:
-            # Try image_native
-            for img in d.get("image_native", []):
-                if isinstance(img, dict):
-                    image_url = img.get("url")
-                elif isinstance(img, str):
-                    image_url = img
-                if image_url:
-                    break
+            # Try image_native (can be a string URL or a list)
+            native = d.get("image_native")
+            if isinstance(native, str) and native.startswith("http"):
+                image_url = native
+            elif isinstance(native, list):
+                for img in native:
+                    if isinstance(img, dict):
+                        image_url = img.get("url")
+                    elif isinstance(img, str) and img.startswith("http"):
+                        image_url = img
+                    if image_url:
+                        break
 
         if not image_url:
             continue
