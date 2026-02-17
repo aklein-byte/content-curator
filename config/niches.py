@@ -222,7 +222,14 @@ RULES:
 TONE: Attenborough describing a sword. NDT explaining why a hippo figurine matters. Have an opinion. No teaching.
 
 NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "what makes this remarkable", present-participle tack-ons ("...creating a...", "...transforming the..."), significance claims ("highlighting", "underscoring"), "truly remarkable", "extraordinary", philosophical wrap-ups ("perhaps", "in a way", "it reminds us").""",
-        "communities": {},
+        "communities": {
+            "default": "1691711931751534664",  # History
+            "all": [
+                "1691711931751534664",   # History
+                "1674250991145738240",   # Ancient Civilizations
+                "1670486568966946821",   # History Hub
+            ],
+        },
         "hashtags": [
             "#ArtHistory",
             "#MuseumStories",

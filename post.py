@@ -243,37 +243,60 @@ def download_post_images(post: dict) -> list[str]:
 
 
 def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
-    """Cross-post to a relevant X Community via official API."""
+    """Cross-post to X Communities via official API.
+
+    Supports two modes:
+    - "all" list: post to every community in the list (museum)
+    - "by_category" + "default": pick one community by post category (tatami)
+    """
     communities = niche.get("communities")
     if not communities:
         return
 
-    category = post.get("category", "other")
-    community_id = communities.get("by_category", {}).get(category) or communities.get("default")
-    if not community_id:
+    # Determine target community IDs
+    community_ids = communities.get("all", [])
+    if not community_ids:
+        # Fallback: single community by category
+        category = post.get("category", "other")
+        cid = communities.get("by_category", {}).get(category) or communities.get("default")
+        if cid:
+            community_ids = [cid]
+
+    if not community_ids:
         return
 
-    try:
-        media_ids = []
-        if image_paths:
-            for img_path in image_paths:
-                mid = upload_media(img_path)
-                if mid:
-                    media_ids.append(mid)
+    text = post.get("text") or post.get("tweets", [{}])[0].get("text", "")
 
-        tweet_id = create_tweet(
-            text=post.get("text") or post.get("tweets", [{}])[0].get("text", ""),
-            media_ids=media_ids if media_ids else None,
-            community_id=community_id,
-        )
-        if tweet_id:
-            post["community_tweet_id"] = tweet_id
-            post["community_id"] = community_id
-            log.info(f"  Community cross-post: {tweet_id} (community {community_id})")
-        else:
-            log.warning("  Community cross-post returned no tweet")
-    except Exception as e:
-        log.warning(f"  Community cross-post failed (non-fatal): {e}")
+    # Upload media once, reuse across communities
+    media_ids = []
+    if image_paths:
+        for img_path in image_paths:
+            mid = upload_media(img_path)
+            if mid:
+                media_ids.append(mid)
+
+    posted_communities = []
+    for community_id in community_ids:
+        try:
+            tweet_id = create_tweet(
+                text=text,
+                media_ids=media_ids if media_ids else None,
+                community_id=community_id,
+            )
+            if tweet_id:
+                posted_communities.append({"community_id": community_id, "tweet_id": tweet_id})
+                log.info(f"  Community cross-post: {tweet_id} (community {community_id})")
+            else:
+                log.warning(f"  Community cross-post returned no tweet (community {community_id})")
+        except Exception as e:
+            log.warning(f"  Community cross-post failed (non-fatal, community {community_id}): {e}")
+
+    if posted_communities:
+        # Store first for backward compat, plus full list
+        post["community_tweet_id"] = posted_communities[0]["tweet_id"]
+        post["community_id"] = posted_communities[0]["community_id"]
+        if len(posted_communities) > 1:
+            post["community_posts"] = posted_communities
 
 
 async def main():
