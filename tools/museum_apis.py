@@ -1,11 +1,12 @@
 """
-Museum API wrappers for Met, AIC, Cleveland, and SMK.
+Museum API wrappers for Met, AIC, Cleveland, SMK, and Harvard.
 
-All APIs are open access, no authentication needed.
+All APIs are open access (Harvard requires a free API key).
 Returns normalized MuseumObject dataclass for consistent downstream processing.
 """
 
 import logging
+import os
 import random
 import requests
 from dataclasses import dataclass, field, asdict
@@ -20,7 +21,7 @@ REQUEST_TIMEOUT = 15
 class MuseumObject:
     """Normalized museum object from any API."""
     id: str
-    museum: str  # "met", "aic", "cleveland", "smk"
+    museum: str  # "met", "aic", "cleveland", "smk", "harvard"
     title: str
     artist: Optional[str] = None
     date: Optional[str] = None
@@ -359,6 +360,107 @@ def smk_search(query: str, limit: int = 10) -> list[MuseumObject]:
     return objects
 
 
+# --- Harvard Art Museums ---
+
+HARVARD_BASE = "https://api.harvardartmuseums.org"
+
+HARVARD_FIELDS = [
+    "id", "objectid", "title", "dated", "medium", "dimensions",
+    "people", "culture", "period", "department", "classification",
+    "primaryimageurl", "images", "url",
+    "labeltext", "contextualtext", "provenance",
+    "imagepermissionlevel", "verificationlevel",
+]
+
+
+def harvard_search(query: str, limit: int = 10) -> list[MuseumObject]:
+    """Search Harvard Art Museums. Requires HARVARD_API_KEY env var."""
+    api_key = os.getenv("HARVARD_API_KEY")
+    if not api_key:
+        log.warning("HARVARD_API_KEY not set, skipping Harvard search")
+        return []
+
+    try:
+        r = requests.get(
+            f"{HARVARD_BASE}/object",
+            params={
+                "apikey": api_key,
+                "keyword": query,
+                "hasimage": 1,
+                "size": limit * 2,  # fetch extra, filter for images
+                "sort": "random",
+                "fields": ",".join(HARVARD_FIELDS),
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        log.warning(f"Harvard search failed for '{query}': {e}")
+        return []
+
+    objects = []
+    for d in data.get("records", []):
+        image_url = d.get("primaryimageurl")
+        if not image_url:
+            continue
+
+        # Only use objects with full image permission (0 = open access)
+        if d.get("imagepermissionlevel", 1) != 0:
+            continue
+
+        # Extract artist from people array
+        artist = None
+        people = d.get("people") or []
+        for person in people:
+            if person.get("role") in ("Artist", "Maker", "Author", "Painter", "Sculptor"):
+                artist = person.get("displayname") or person.get("name")
+                break
+        if not artist and people:
+            artist = people[0].get("displayname") or people[0].get("name")
+
+        # Build description from labeltext and contextualtext
+        desc_parts = []
+        if d.get("labeltext"):
+            desc_parts.append(_strip_html(d["labeltext"]))
+        for ctx in d.get("contextualtext") or []:
+            if isinstance(ctx, dict) and ctx.get("text"):
+                desc_parts.append(_strip_html(ctx["text"]))
+        description = " ".join(desc_parts).strip() or None
+
+        # Additional images
+        additional = []
+        for img in d.get("images") or []:
+            url = img.get("baseimageurl")
+            if url and url != image_url:
+                additional.append(url)
+
+        objects.append(MuseumObject(
+            id=f"harvard_{d.get('objectid', d.get('id', ''))}",
+            museum="harvard",
+            title=d.get("title", "Untitled"),
+            artist=artist,
+            date=d.get("dated") or None,
+            medium=d.get("medium") or None,
+            dimensions=d.get("dimensions") or None,
+            description=description,
+            culture=d.get("culture") or None,
+            period=d.get("period") or None,
+            department=d.get("department") or None,
+            classification=d.get("classification") or None,
+            primary_image_url=image_url,
+            additional_images=additional,
+            object_url=d.get("url", ""),
+            is_public_domain=True,
+            tags=[],
+        ))
+
+        if len(objects) >= limit:
+            break
+
+    return objects
+
+
 # --- Unified search ---
 
 SEARCH_FUNCTIONS = {
@@ -366,6 +468,7 @@ SEARCH_FUNCTIONS = {
     "aic": aic_search,
     "cleveland": cleveland_search,
     "smk": smk_search,
+    "harvard": harvard_search,
 }
 
 

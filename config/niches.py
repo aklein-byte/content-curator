@@ -304,7 +304,7 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         },
         # Museum-specific config
         "museum_config": {
-            "apis": ["met", "aic", "cleveland", "smk"],
+            "apis": ["met", "aic", "cleveland", "smk", "harvard"],
             "posts_per_day": 2,
             "min_queue_size": 20,   # 10 days buffer
             "max_queue_size": 30,   # 15 days buffer
