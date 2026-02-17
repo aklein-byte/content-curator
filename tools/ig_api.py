@@ -1,8 +1,8 @@
 """
-Instagram Graph API client for @tatamispaces.
+Instagram Graph API client — niche-agnostic.
 
 Handles single image and carousel publishing via the official API.
-Requires IG_GRAPH_TOKEN (long-lived token) and IG_USER_ID in .env.
+Credentials resolved from niche config ig_env (token + user_id env var names).
 
 API docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
 """
@@ -19,13 +19,21 @@ log = logging.getLogger(__name__)
 GRAPH_API_BASE = "https://graph.instagram.com/v22.0"
 
 
-def get_ig_credentials() -> tuple[str, str]:
-    """Load IG Graph API credentials from environment."""
-    token = os.environ.get("IG_GRAPH_TOKEN")
-    user_id = os.environ.get("IG_USER_ID")
+def get_ig_credentials(
+    token_env: str = "IG_GRAPH_TOKEN",
+    user_id_env: str = "IG_USER_ID",
+) -> tuple[str, str]:
+    """Load IG Graph API credentials from environment.
+
+    Args:
+        token_env: Name of the env var holding the access token.
+        user_id_env: Name of the env var holding the IG user ID.
+    """
+    token = os.environ.get(token_env)
+    user_id = os.environ.get(user_id_env)
     if not token or not user_id:
         raise RuntimeError(
-            "Missing IG_GRAPH_TOKEN or IG_USER_ID in .env. "
+            f"Missing {token_env} or {user_id_env} in .env. "
             "See plan prerequisites for setup instructions."
         )
     return token, user_id
@@ -43,15 +51,16 @@ def check_token_info(token: str) -> dict:
     return resp.json()
 
 
-def refresh_token_if_needed(token: str, env_path: Path | None = None) -> str:
+def refresh_token_if_needed(token: str, env_path: Path | None = None, token_env: str = "IG_GRAPH_TOKEN") -> str:
     """Refresh a long-lived token if it's within 10 days of expiry.
 
     Long-lived IG tokens last 60 days and can be refreshed when they're
     at least 24 hours old. We refresh proactively when within 10 days.
 
+    Args:
+        token_env: Name of the env var to update in .env file.
     Returns the (possibly new) token.
     """
-    # Check current token debug info
     resp = requests.get(
         "https://graph.instagram.com/refresh_access_token",
         params={
@@ -68,7 +77,7 @@ def refresh_token_if_needed(token: str, env_path: Path | None = None) -> str:
         log.info(f"Token refreshed. Expires in {days_left} days.")
 
         if new_token != token and env_path:
-            _update_env_token(env_path, new_token)
+            _update_env_token(env_path, new_token, token_env)
 
         return new_token
     else:
@@ -76,19 +85,19 @@ def refresh_token_if_needed(token: str, env_path: Path | None = None) -> str:
         return token
 
 
-def _update_env_token(env_path: Path, new_token: str):
-    """Update IG_GRAPH_TOKEN in .env file."""
+def _update_env_token(env_path: Path, new_token: str, token_env: str = "IG_GRAPH_TOKEN"):
+    """Update an IG token env var in .env file."""
     content = env_path.read_text()
     lines = content.split("\n")
     updated = False
     for i, line in enumerate(lines):
-        if line.startswith("IG_GRAPH_TOKEN="):
-            lines[i] = f"IG_GRAPH_TOKEN={new_token}"
+        if line.startswith(f"{token_env}="):
+            lines[i] = f"{token_env}={new_token}"
             updated = True
             break
     if updated:
         env_path.write_text("\n".join(lines))
-        log.info("Updated IG_GRAPH_TOKEN in .env")
+        log.info(f"Updated {token_env} in .env")
 
 
 def _check_container_status(container_id: str, token: str, max_wait: int = 60) -> str:
@@ -123,16 +132,22 @@ def _check_container_status(container_id: str, token: str, max_wait: int = 60) -
     raise TimeoutError(f"Container {container_id} didn't finish in {max_wait}s")
 
 
-def publish_single(image_url: str, caption: str) -> dict:
+def publish_single(image_url: str, caption: str, ig_env: dict | None = None) -> dict:
     """Publish a single image to Instagram.
 
     Two-step process:
     1. Create media container with image_url and caption
     2. Publish the container
 
+    Args:
+        ig_env: Optional dict with 'token' and 'user_id' env var names.
     Returns {"id": media_id} on success.
     """
-    token, user_id = get_ig_credentials()
+    env = ig_env or {}
+    token, user_id = get_ig_credentials(
+        token_env=env.get("token", "IG_GRAPH_TOKEN"),
+        user_id_env=env.get("user_id", "IG_USER_ID"),
+    )
 
     # Step 1: Create media container
     log.info(f"Creating media container for {image_url[:80]}...")
@@ -172,7 +187,7 @@ def publish_single(image_url: str, caption: str) -> dict:
     return result
 
 
-def publish_carousel(image_urls: list[str], caption: str) -> dict:
+def publish_carousel(image_urls: list[str], caption: str, ig_env: dict | None = None) -> dict:
     """Publish a carousel (multi-image) post to Instagram.
 
     Three-step process:
@@ -180,9 +195,15 @@ def publish_carousel(image_urls: list[str], caption: str) -> dict:
     2. Create carousel container referencing children + caption
     3. Publish the carousel container
 
+    Args:
+        ig_env: Optional dict with 'token' and 'user_id' env var names.
     Returns {"id": media_id} on success.
     """
-    token, user_id = get_ig_credentials()
+    env = ig_env or {}
+    token, user_id = get_ig_credentials(
+        token_env=env.get("token", "IG_GRAPH_TOKEN"),
+        user_id_env=env.get("user_id", "IG_USER_ID"),
+    )
 
     if len(image_urls) < 2:
         raise ValueError("Carousel requires at least 2 images")

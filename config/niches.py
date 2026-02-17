@@ -64,6 +64,12 @@ Example captions:
 
 "A tokonoma alcove with a single ikebana arrangement. In traditional Japanese rooms, this recessed space is the spiritual heart—always understated, always intentional."
 """,
+        # Instagram Graph API credential env var names
+        "ig_env": {
+            "token": "IG_GRAPH_TOKEN",
+            "user_id": "IG_USER_ID",
+            "username": "tatamispaces",
+        },
         "communities": {
             # Map content categories to community IDs for cross-posting
             # Posts get cross-posted to 1 matching community after going to timeline
@@ -240,6 +246,11 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
                 "11:00",  # Late morning US East
                 "18:00",  # Evening US East
             ],
+        },
+        # Instagram Graph API credential env var names
+        "ig_env": {
+            "token": "IG_GRAPH_TOKEN_MUSEUM",
+            "user_id": "IG_USER_ID_MUSEUM",
         },
         # X API credential env var names (different from tatami defaults)
         "x_api_env": {

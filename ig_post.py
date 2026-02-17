@@ -28,16 +28,31 @@ from tools.common import load_json, save_json, notify, acquire_lock, release_loc
 log = setup_logging("ig_post")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
-IG_POST_LOG = BASE_DIR / "ig-post-log.json"
+
+# Resolved per-niche at runtime
+_resolved_posts_file: Path = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
+_resolved_ig_log: Path = BASE_DIR / "ig-post-log.json"
+
+
+def _init_paths(niche: dict):
+    """Set posts file and IG log paths based on niche config."""
+    global _resolved_posts_file, _resolved_ig_log
+    posts_filename = niche.get("posts_file", "posts.json")
+    _resolved_posts_file = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
+    # Separate IG log per niche to avoid cross-contamination
+    niche_name = niche.get("name", "").lower().replace(" ", "")
+    if niche_name and niche_name != "tatami":
+        _resolved_ig_log = BASE_DIR / f"ig-post-log-{niche_name}.json"
+    else:
+        _resolved_ig_log = BASE_DIR / "ig-post-log.json"
 
 
 def load_posts() -> dict:
-    return load_json(POSTS_FILE, default={"posts": []})
+    return load_json(_resolved_posts_file, default={"posts": []})
 
 
 def save_posts(data: dict):
-    save_json(POSTS_FILE, data, lock=True)
+    save_json(_resolved_posts_file, data, lock=True)
 
 
 def count_ig_posts_today(posts_data: dict) -> int:
@@ -56,11 +71,11 @@ IG_MAX_PER_DAY = 3
 
 def _load_ig_log() -> list:
     """Load the separate IG post log (dedup source of truth)."""
-    return load_json(IG_POST_LOG, default=[])
+    return load_json(_resolved_ig_log, default=[])
 
 
 def _save_ig_log(entries: list):
-    save_json(IG_POST_LOG, entries)
+    save_json(_resolved_ig_log, entries)
 
 
 def _ig_already_posted(ig_log: list, post_id) -> bool:
@@ -122,6 +137,8 @@ async def main():
     niche_id = args.niche
     niche = get_niche(niche_id)
 
+    _init_paths(niche)
+    ig_env = niche.get("ig_env")
     log.info(f"Instagram cross-post for {niche['handle']} ({'DRY RUN' if args.dry_run else 'LIVE'})")
 
     posts_data = load_posts()
@@ -182,9 +199,9 @@ async def main():
 
         try:
             if len(image_urls) == 1:
-                result = publish_single(image_urls[0], caption)
+                result = publish_single(image_urls[0], caption, ig_env=ig_env)
             else:
-                result = publish_carousel(image_urls, caption)
+                result = publish_carousel(image_urls, caption, ig_env=ig_env)
 
             now = datetime.now(timezone.utc).isoformat()
             post["ig_posted"] = True
