@@ -86,10 +86,15 @@ def score_image_aesthetics(obj: MuseumObject) -> tuple[float | None, float | Non
         import torch
         from PIL import Image
 
-        # Download to temp file
+        # Download to temp file (with User-Agent for APIs that require it)
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             tmp_path = tmp.name
-            urllib.request.urlretrieve(obj.primary_image_url, tmp_path)
+            req = urllib.request.Request(
+                obj.primary_image_url,
+                headers={"User-Agent": "MuseumStories/1.0 (museum content bot)"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                tmp.write(resp.read())
 
         # Score
         nima_score = _nima_model(tmp_path).item()
