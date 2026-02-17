@@ -7,7 +7,7 @@ Supports two post formats:
   1. Flat (tatami): single text + image_urls, thread via X API v2
   2. Museum: pre-written tweets array with per-tweet images, thread via X API v2
 
-Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig]
+Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig] [--post-id 30]
 """
 
 import sys
@@ -279,6 +279,7 @@ def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
 async def main():
     parser = argparse.ArgumentParser(description="Post next scheduled content")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
+    parser.add_argument("--post-id", type=int, default=None, help="Post a specific post by ID (bypasses scheduler/limits)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be posted without posting")
     parser.add_argument("--no-ig", action="store_true", help="Skip Instagram cross-post")
     args = parser.parse_args()
@@ -314,33 +315,48 @@ async def main():
                 except Exception:
                     pass
 
-    # Rate limiting — skip if we've hit daily max or gap is too short
-    if not dry_run:
-        skip_reason = check_posting_limits(posts_data)
-        if skip_reason:
-            log.info(f"Skipping: {skip_reason}")
+    # --post-id: bypass scheduler and limits, post a specific post
+    if args.post_id is not None:
+        post = None
+        for p in posts_data.get("posts", []):
+            if p.get("id") == args.post_id:
+                post = p
+                break
+        if not post:
+            log.error(f"Post #{args.post_id} not found in {_resolved_posts_file.name}")
             return
+        if post.get("status") == "posted":
+            log.error(f"Post #{args.post_id} is already posted (tweet {post.get('tweet_id')})")
+            return
+        log.info(f"Manual post: #{args.post_id} (status={post.get('status')}, bypassing scheduler/limits)")
+    else:
+        # Rate limiting — skip if we've hit daily max or gap is too short
+        if not dry_run:
+            skip_reason = check_posting_limits(posts_data)
+            if skip_reason:
+                log.info(f"Skipping: {skip_reason}")
+                return
 
-    post = find_next_post(posts_data)
-    save_posts(posts_data)  # persist any quality-gate skips
+        post = find_next_post(posts_data)
+        save_posts(posts_data)  # persist any quality-gate skips
 
-    if not post:
-        log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
+        if not post:
+            log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
 
-        # Show upcoming
-        approved = [
-            p for p in posts_data.get("posts", [])
-            if p.get("status") == "approved" and p.get("scheduled_for")
-        ]
-        if approved:
-            log.info("Upcoming approved posts:")
-            for p in approved:
-                log.info(f"  #{p['id']} — scheduled {p['scheduled_for']}")
-        else:
-            drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
-            if drafts:
-                log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
-        return
+            # Show upcoming
+            approved = [
+                p for p in posts_data.get("posts", [])
+                if p.get("status") == "approved" and p.get("scheduled_for")
+            ]
+            if approved:
+                log.info("Upcoming approved posts:")
+                for p in approved:
+                    log.info(f"  #{p['id']} — scheduled {p['scheduled_for']}")
+            else:
+                drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
+                if drafts:
+                    log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
+            return
 
     post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")
     log.info(f"Found post #{post['id']} ready to publish")
