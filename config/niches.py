@@ -184,7 +184,7 @@ Example captions:
         "features": {
             "bookmarks": False,
             "threads": False,
-            "quote_drafts": False,
+            "quote_drafts": True,
             "real_estate_drafts": False,
             "respond": True,
         },
@@ -306,9 +306,9 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         "museum_config": {
             "apis": ["met", "aic", "cleveland", "smk"],
             "posts_per_day": 2,
-            "min_queue_size": 6,    # 3 days buffer
-            "max_queue_size": 14,   # 7 days buffer
-            "generation_batch_size": 4,
+            "min_queue_size": 20,   # 10 days buffer
+            "max_queue_size": 30,   # 15 days buffer
+            "generation_batch_size": 6,
         },
     },
 

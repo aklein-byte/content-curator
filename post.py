@@ -108,8 +108,14 @@ def check_posting_limits(posts_data: dict) -> str | None:
 
 
 CATEGORIES = [
+    # Tatami categories
     "ryokan", "modern-architecture", "historic-house", "temple",
-    "residential", "craft", "adaptive-reuse", "garden", "other",
+    "residential", "craft", "adaptive-reuse", "garden",
+    # Museum categories
+    "painting", "sculpture", "weapons", "ceramics", "jewelry",
+    "textile", "prints", "furniture", "ritual", "manuscript",
+    "automaton", "photography",
+    "other",
 ]
 
 
@@ -124,8 +130,41 @@ def _get_recent_categories(posts_data: dict, n: int = 2) -> list[str]:
 
 
 def _auto_categorize(post: dict) -> str:
-    """Quick keyword-based categorization from post text."""
+    """Quick keyword-based categorization from post text and metadata."""
     text = (post.get("text") or "").lower()
+    medium = (post.get("medium") or "").lower()
+    title = (post.get("title") or "").lower()
+    all_text = f"{text} {medium} {title}"
+
+    # Museum categories (check first — museum posts have type="museum")
+    if post.get("type") == "museum":
+        if any(w in all_text for w in ["painting", "oil on canvas", "watercolor", "fresco", "painted"]):
+            return "painting"
+        if any(w in all_text for w in ["sculpture", "statue", "bust", "relief", "carved figure"]):
+            return "sculpture"
+        if any(w in all_text for w in ["sword", "armor", "dagger", "shield", "weapon", "helmet"]):
+            return "weapons"
+        if any(w in all_text for w in ["ceramic", "pottery", "porcelain", "vase", "stoneware", "faience"]):
+            return "ceramics"
+        if any(w in all_text for w in ["jewelry", "ring", "necklace", "brooch", "crown", "tiara", "cameo"]):
+            return "jewelry"
+        if any(w in all_text for w in ["textile", "silk", "tapestry", "fabric", "embroidery", "kimono", "costume"]):
+            return "textile"
+        if any(w in all_text for w in ["print", "woodcut", "etching", "lithograph", "woodblock"]):
+            return "prints"
+        if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
+            return "furniture"
+        if any(w in all_text for w in ["mask", "ritual", "ceremony", "reliquary", "votive", "altar"]):
+            return "ritual"
+        if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "scroll"]):
+            return "manuscript"
+        if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
+            return "automaton"
+        if any(w in all_text for w in ["photograph", "daguerreotype", "albumen"]):
+            return "photography"
+        return "other"
+
+    # Tatami categories
     if any(w in text for w in ["ryokan", "onsen", "rotenburo", "hot spring", "bath"]):
         return "ryokan"
     if any(w in text for w in ["temple", "shrine", "jinja", "tera", "karesansui"]):

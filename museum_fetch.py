@@ -43,6 +43,70 @@ ET = ZoneInfo("America/New_York")
 
 NICHE_ID = "museumstories"
 
+# --- NIMA/TOPIQ aesthetic scoring (VPS only) ---
+
+_nima_model = None
+_topiq_model = None
+_aesthetic_models_loaded = False
+_aesthetic_models_available = False
+
+
+def _load_aesthetic_models():
+    """Lazy singleton loader for NIMA + TOPIQ models. VPS only."""
+    global _nima_model, _topiq_model, _aesthetic_models_loaded, _aesthetic_models_available
+    if _aesthetic_models_loaded:
+        return _aesthetic_models_available
+    _aesthetic_models_loaded = True
+    try:
+        import pyiqa
+        import torch
+        device = torch.device("cpu")
+        _nima_model = pyiqa.create_metric("nima", device=device)
+        _topiq_model = pyiqa.create_metric("topiq_iaa", device=device)
+        _aesthetic_models_available = True
+        log.info("NIMA + TOPIQ models loaded")
+    except ImportError:
+        log.info("pyiqa not available (local dev), skipping aesthetic scoring")
+    except Exception as e:
+        log.warning(f"Failed to load aesthetic models: {e}")
+    return _aesthetic_models_available
+
+
+def score_image_aesthetics(obj: MuseumObject) -> tuple[float | None, float | None]:
+    """Score primary image with NIMA + TOPIQ. Returns (nima_score, topiq_score) or (None, None)."""
+    if not _load_aesthetic_models():
+        return None, None
+
+    if not obj.primary_image_url:
+        return None, None
+
+    import tempfile
+    import urllib.request
+    try:
+        import torch
+        from PIL import Image
+
+        # Download to temp file
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+            urllib.request.urlretrieve(obj.primary_image_url, tmp_path)
+
+        # Score
+        nima_score = _nima_model(tmp_path).item()
+        topiq_score = _topiq_model(tmp_path).item()
+
+        # Cleanup
+        os.unlink(tmp_path)
+
+        return nima_score, topiq_score
+    except Exception as e:
+        log.warning(f"Aesthetic scoring failed for {obj.title}: {e}")
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return None, None
+
 # --- Discovery strategies ---
 
 NARRATIVE_KEYWORDS = [
@@ -63,6 +127,20 @@ NARRATIVE_KEYWORDS = [
     # Animals & nature
     "lion", "eagle", "dragon", "horse", "snake", "sphinx",
     "hippopotamus", "crocodile",
+    # Textiles & decorative arts (underrepresented)
+    "tapestry", "embroidery", "kimono", "carpet", "velvet", "lace",
+    # Ceramics & glass
+    "porcelain", "stoneware", "faience", "glasswork", "enamel",
+    # Furniture & instruments
+    "harpsichord", "violin", "lute", "cabinet", "clock", "automaton",
+    # Manuscripts & prints
+    "manuscript", "illuminated", "woodblock", "calligraphy", "scroll",
+    # Jewelry & metalwork
+    "brooch", "tiara", "cameo", "inlay", "filigree",
+    # Ritual & sacred
+    "reliquary", "altar", "incense", "devotional", "votive",
+    # Photography
+    "daguerreotype", "photograph", "albumen",
 ]
 
 PERIOD_SEARCHES = [
@@ -82,6 +160,17 @@ PERIOD_SEARCHES = [
     {"query": "impressionist", "period": "modern"},
     {"query": "art nouveau", "period": "modern"},
     {"query": "world war", "period": "contemporary"},
+    # New: underrepresented categories
+    {"query": "Ottoman calligraphy", "period": "islamic"},
+    {"query": "African textile kente", "period": "african"},
+    {"query": "Japanese woodblock ukiyo-e", "period": "asian"},
+    {"query": "pre-Columbian gold", "period": "precolumbian"},
+    {"query": "Art Nouveau jewelry Lalique", "period": "modern"},
+    {"query": "Chinese jade carving", "period": "asian"},
+    {"query": "Persian manuscript illumination", "period": "islamic"},
+    {"query": "Benin bronze", "period": "african"},
+    {"query": "mechanical automaton clock", "period": "modern"},
+    {"query": "Meissen porcelain", "period": "baroque"},
 ]
 
 
@@ -131,6 +220,56 @@ def fetch_candidates() -> list[MuseumObject]:
 
 # --- Quality scoring ---
 
+def score_story_potential(obj: MuseumObject) -> int | None:
+    """Use Haiku to quickly score story potential (1-10). Returns score or None on failure.
+    Cheap gate (~$0.001/call) to prevent wasted Opus calls on boring objects."""
+    try:
+        from anthropic import Anthropic
+        client = Anthropic()
+
+        meta_parts = [f"Title: {obj.title}"]
+        if obj.artist:
+            meta_parts.append(f"Artist: {obj.artist}")
+        if obj.date:
+            meta_parts.append(f"Date: {obj.date}")
+        if obj.medium:
+            meta_parts.append(f"Medium: {obj.medium}")
+        if obj.culture:
+            meta_parts.append(f"Culture: {obj.culture}")
+        if obj.description:
+            meta_parts.append(f"Description: {obj.description[:500]}")
+        if obj.fun_fact:
+            meta_parts.append(f"Fun fact: {obj.fun_fact[:300]}")
+        if obj.did_you_know:
+            meta_parts.append(f"Did you know: {obj.did_you_know[:300]}")
+        if obj.tags:
+            meta_parts.append(f"Tags: {', '.join(obj.tags[:8])}")
+
+        prompt = f"""Score this museum object 1-10 on story potential for a social media post.
+
+{chr(10).join(meta_parts)}
+
+Does this object have a surprising fact, dramatic history, unusual material, or famous connection?
+A 7+ means there's a clear hook for a compelling post. A 6 or below means it's generic or academic.
+Return just the number, nothing else."""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=10,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+        # Extract first number
+        import re
+        match = re.search(r'\d+', text)
+        if match:
+            return int(match.group())
+        return None
+    except Exception as e:
+        log.warning(f"Story scoring failed for {obj.title}: {e}")
+        return None
+
+
 def score_metadata_richness(obj: MuseumObject) -> float:
     """0-100 score based on how much story material we have."""
     score = 0.0
@@ -169,12 +308,30 @@ def score_metadata_richness(obj: MuseumObject) -> float:
 
 
 def score_image_quality(obj: MuseumObject) -> float:
-    """0-100 score based on available images."""
+    """0-100 score based on available images and aesthetic scores.
+    Uses NIMA/TOPIQ when available (VPS), falls back to image count heuristic."""
     if not obj.primary_image_url:
         return 0.0
 
-    score = 50.0  # Has primary image
+    # Use aesthetic scores if already computed
+    nima = getattr(obj, '_nima_score', None)
+    topiq = getattr(obj, '_topiq_score', None)
+    if nima is not None and topiq is not None:
+        # Map NIMA (1-10 scale) and TOPIQ (1-10 scale) to 0-100
+        # NIMA: 4.5 threshold → 45, 6.0 → 80, 7.0 → 100
+        nima_norm = min(100, max(0, (nima - 3.0) * 25))
+        topiq_norm = min(100, max(0, (topiq - 3.0) * 25))
+        score = nima_norm * 0.5 + topiq_norm * 0.5
+        # Bonus for extra images
+        n_additional = len(obj.additional_images)
+        if n_additional >= 1:
+            score = min(100, score + 5)
+        if n_additional >= 2:
+            score = min(100, score + 5)
+        return score
 
+    # Fallback: simple count-based heuristic (local dev)
+    score = 50.0
     n_additional = len(obj.additional_images)
     if n_additional >= 1:
         score += 15
@@ -182,7 +339,6 @@ def score_image_quality(obj: MuseumObject) -> float:
         score += 15
     if n_additional >= 3:
         score += 20
-
     return score
 
 
@@ -241,11 +397,15 @@ def apply_diversity_boost(candidates: list[MuseumObject], post_history: list[dic
         elif museum_freq > 0.3:
             boost *= 0.8
 
-        # Category diversity: penalize paintings, boost rare types
+        # Category diversity: strong penalty for overrepresented, boost rare types
         cat = _classify_category(obj)
         cat_freq = category_counts.get(cat, 0) / total
-        if cat == "painting" and cat_freq > 0.3:
-            boost *= 0.7  # Too many paintings
+        if cat_freq > 0.25:
+            boost *= 0.4  # Strong penalty: >25% of last 30 posts
+        elif cat == "painting" and cat_freq > 0.2:
+            boost *= 0.6  # Extra painting penalty
+        elif cat_freq < 0.05:
+            boost *= 1.4  # Never or rarely seen, big boost
         elif cat_freq < 0.1:
             boost *= 1.3  # Rare category, boost it
 
@@ -733,8 +893,12 @@ def _classify_category(obj: MuseumObject) -> str:
         return "prints"
     if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
         return "furniture"
-    if any(w in all_text for w in ["mask", "ritual", "ceremony"]):
+    if any(w in all_text for w in ["mask", "ritual", "ceremony", "reliquary", "votive"]):
         return "ritual"
+    if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "scroll"]):
+        return "manuscript"
+    if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
+        return "automaton"
     return "other"
 
 
@@ -769,6 +933,42 @@ def main():
         notify("museum: no candidates", "All museum API searches returned 0 results")
         return
 
+    # 1b. Aesthetic image gate (NIMA + TOPIQ, VPS only)
+    if _load_aesthetic_models():
+        passed = []
+        for obj in candidates:
+            nima, topiq = score_image_aesthetics(obj)
+            if nima is not None and topiq is not None:
+                obj._nima_score = nima
+                obj._topiq_score = topiq
+                if nima < 4.5 or topiq < 4.8:
+                    log.info(f"  Rejected (aesthetic): {obj.title[:50]} — NIMA={nima:.2f} TOPIQ={topiq:.2f}")
+                    continue
+                log.info(f"  Passed (aesthetic): {obj.title[:50]} — NIMA={nima:.2f} TOPIQ={topiq:.2f}")
+            passed.append(obj)
+        log.info(f"Aesthetic gate: {len(passed)}/{len(candidates)} passed")
+        candidates = passed
+        if not candidates:
+            log.warning("No candidates passed aesthetic gate")
+            return
+
+    # 1c. Story potential gate (Haiku, cheap pre-filter before Opus)
+    story_passed = []
+    for obj in candidates:
+        story_score = score_story_potential(obj)
+        if story_score is not None:
+            obj._story_score = story_score
+            if story_score < 7:
+                log.info(f"  Rejected (story): {obj.title[:50]} — score {story_score}/10")
+                continue
+            log.info(f"  Passed (story): {obj.title[:50]} — score {story_score}/10")
+        story_passed.append(obj)
+    log.info(f"Story gate: {story_passed and len(story_passed)}/{len(candidates)} passed")
+    candidates = story_passed
+    if not candidates:
+        log.warning("No candidates passed story potential gate")
+        return
+
     # 2. Score and rank
     post_history = get_post_history(posts_data)
     ranked = filter_and_rank(candidates, post_history)
@@ -785,12 +985,31 @@ def main():
             print(f"\n{i}. [{obj._total_score:.0f}] {obj.museum.upper()}: {obj.title}")
             print(f"   Artist: {obj.artist or 'Unknown'} | Date: {obj.date or '?'}")
             print(f"   Format: {fmt} | Images: {1 + len(obj.additional_images)}")
+            nima = getattr(obj, '_nima_score', None)
+            topiq = getattr(obj, '_topiq_score', None)
+            if nima is not None:
+                print(f"   NIMA: {nima:.2f} | TOPIQ: {topiq:.2f}")
+            story_score = getattr(obj, '_story_score', None)
+            if story_score is not None:
+                print(f"   Story potential: {story_score}/10")
             if obj.fun_fact:
                 print(f"   Fun fact: {obj.fun_fact[:100]}...")
             if obj.description:
                 print(f"   Description: {obj.description[:100]}...")
         print(f"{'='*60}")
         return
+
+    # 2b. Format mix: ensure threads aren't underrepresented
+    thread_count = sum(1 for p in pending if p.get("thread"))
+    thread_pct = thread_count / max(len(pending), 1)
+    force_thread_id = None
+    if thread_pct < 0.15:
+        # Find first ranked candidate with 2+ images to force as thread
+        for obj in ranked:
+            if 1 + len(obj.additional_images) >= 2:
+                force_thread_id = obj.id
+                log.info(f"Format mix: threads at {thread_pct:.0%}, forcing thread for {obj.title[:40]}")
+                break
 
     # 3. Generate stories
     batch_size = args.batch_size
@@ -805,7 +1024,7 @@ def main():
             log.warning(f"Too many failures ({failures}), stopping batch")
             break
 
-        fmt = decide_format(obj)
+        fmt = "thread" if obj.id == force_thread_id else decide_format(obj)
         log.info(f"Generating {fmt} for: {obj.title} ({obj.museum})")
 
         story = generate_story(obj, fmt)
