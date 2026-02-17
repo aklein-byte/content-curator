@@ -50,8 +50,16 @@ images/
 
 # Runtime state
 ig-engagement-log.json
+ig-engagement-log-*.json
+ig-post-log*.json
+engagement-log-*.json
 response-log.json
 config.json
+config-museum.json
+
+# Posts data (live data, edited via dashboard — never overwrite)
+posts.json
+posts-museumstories.json
 
 # Browser profile (IG login sessions)
 data/ig_browser_profile/
