@@ -340,11 +340,13 @@ def score_image_quality(obj: MuseumObject) -> float:
         nima_norm = min(100, max(0, (nima - 3.0) * 25))
         topiq_norm = min(100, max(0, (topiq - 3.0) * 25))
         score = nima_norm * 0.5 + topiq_norm * 0.5
-        # Bonus for extra images
+        # Bonus for extra images (multi-image posts perform much better)
         n_additional = len(obj.additional_images)
         if n_additional >= 1:
-            score = min(100, score + 5)
+            score = min(100, score + 8)
         if n_additional >= 2:
+            score = min(100, score + 7)
+        if n_additional >= 3:
             score = min(100, score + 5)
         return score
 

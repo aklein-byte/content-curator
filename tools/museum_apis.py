@@ -131,7 +131,7 @@ AIC_HEADERS = {"AIC-User-Agent": "MuseumStoriesBot (educational, non-commercial)
 AIC_FIELDS = [
     "id", "title", "artist_display", "date_display", "medium_display",
     "dimensions", "place_of_origin", "description", "thumbnail",
-    "image_id", "is_public_domain", "classification_title",
+    "image_id", "alt_image_ids", "is_public_domain", "classification_title",
     "department_title", "style_title", "subject_titles",
 ]
 
@@ -167,8 +167,12 @@ def aic_search(query: str, limit: int = 10) -> list[MuseumObject]:
         if not image_id:
             continue
 
-        image_url = f"{AIC_IIIF}/{image_id}/full/843,/0/default.jpg"
+        image_url = f"{AIC_IIIF}/{image_id}/full/1686,/0/default.jpg"
         subjects = d.get("subject_titles") or []
+
+        # Build additional image URLs from alt_image_ids
+        alt_ids = d.get("alt_image_ids") or []
+        additional = [f"{AIC_IIIF}/{aid}/full/1686,/0/default.jpg" for aid in alt_ids]
 
         objects.append(MuseumObject(
             id=f"aic_{d['id']}",
@@ -184,7 +188,7 @@ def aic_search(query: str, limit: int = 10) -> list[MuseumObject]:
             department=d.get("department_title") or None,
             classification=d.get("classification_title") or None,
             primary_image_url=image_url,
-            additional_images=[],
+            additional_images=additional,
             object_url=f"https://www.artic.edu/artworks/{d['id']}",
             is_public_domain=d.get("is_public_domain", False),
             tags=subjects[:10],
@@ -215,8 +219,10 @@ def cleveland_search(query: str = "", limit: int = 20, require_fun_fact: bool = 
     objects = []
     for d in data.get("data", []):
         images = d.get("images") or {}
+        # Prefer print-tier (higher res ~3400px) over web (~900px)
+        print_img = images.get("print") or {}
         web = images.get("web") or {}
-        image_url = web.get("url")
+        image_url = print_img.get("url") or web.get("url")
         if not image_url:
             continue
 
@@ -225,6 +231,16 @@ def cleveland_search(query: str = "", limit: int = 20, require_fun_fact: bool = 
 
         if require_fun_fact and not (fun_fact or did_you_know):
             continue
+
+        # Extract alternate images (detail shots, alternate views)
+        additional = []
+        for alt in images.get("alternate_images") or []:
+            alt_url = None
+            alt_print = alt.get("print") or {}
+            alt_web = alt.get("web") or {}
+            alt_url = alt_print.get("url") or alt_web.get("url")
+            if alt_url and alt_url != image_url:
+                additional.append(alt_url)
 
         objects.append(MuseumObject(
             id=f"cleveland_{d.get('id', '')}",
@@ -240,7 +256,7 @@ def cleveland_search(query: str = "", limit: int = 20, require_fun_fact: bool = 
             department=d.get("department") or None,
             classification=d.get("type") or None,
             primary_image_url=image_url,
-            additional_images=[],
+            additional_images=additional,
             object_url=d.get("url", ""),
             is_public_domain=True,
             tags=[],
@@ -287,13 +303,16 @@ def smk_search(query: str, limit: int = 10) -> list[MuseumObject]:
 
     objects = []
     for d in data.get("items", []):
-        # Get best image URL
+        # Get all IIIF images (not just first)
         image_url = None
+        additional_iiif = []
         for img in d.get("image_iiif", []):
             if img:
-                # Use native download endpoint (IIIF thumb server is unreliable)
-                image_url = img + "/full/!1000,/0/default.jpg"
-                break
+                url = img + "/full/!1686,/0/default.jpg"
+                if not image_url:
+                    image_url = url
+                else:
+                    additional_iiif.append(url)
 
         if not image_url:
             # Try image_native
@@ -351,7 +370,7 @@ def smk_search(query: str, limit: int = 10) -> list[MuseumObject]:
             department=None,
             classification=", ".join(str(n) for n in d.get("object_names", []) if n) or None,
             primary_image_url=image_url,
-            additional_images=[],
+            additional_images=additional_iiif,
             object_url=f"https://open.smk.dk/artwork/image/{d.get('object_number', '')}",
             is_public_domain=d.get("public_domain", False),
             tags=[],
