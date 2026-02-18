@@ -13,14 +13,21 @@ from pathlib import Path
 log = logging.getLogger("ig_browser")
 
 BASE_DIR = Path(__file__).parent.parent
-IG_BROWSER_PROFILE = BASE_DIR / "data" / "ig_browser_profile"
 
 
-async def get_ig_browser(playwright, headless: bool = True) -> "BrowserContext":
+def _get_browser_profile(niche_id: str = "tatamispaces") -> Path:
+    """Get niche-specific browser profile directory."""
+    if niche_id == "tatamispaces":
+        return BASE_DIR / "data" / "ig_browser_profile"
+    return BASE_DIR / "data" / f"ig_browser_profile_{niche_id}"
+
+
+async def get_ig_browser(playwright, headless: bool = True, niche_id: str = "tatamispaces") -> "BrowserContext":
     """Launch or reuse a persistent Chromium context with IG cookies."""
-    IG_BROWSER_PROFILE.mkdir(parents=True, exist_ok=True)
+    profile_dir = _get_browser_profile(niche_id)
+    profile_dir.mkdir(parents=True, exist_ok=True)
     context = await playwright.chromium.launch_persistent_context(
-        str(IG_BROWSER_PROFILE),
+        str(profile_dir),
         headless=headless,
         viewport={"width": 430, "height": 932},
         user_agent=(

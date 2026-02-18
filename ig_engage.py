@@ -426,8 +426,9 @@ async def main():
     # Load engagement log
     eng_log = load_log()
 
-    # Pick random hashtags for this run
-    hashtags = random.sample(IG_HASHTAGS, min(HASHTAGS_PER_RUN, len(IG_HASHTAGS)))
+    # Pick random hashtags for this run — niche-aware
+    niche_hashtags = niche.get("ig_hashtags", IG_HASHTAGS)
+    hashtags = random.sample(niche_hashtags, min(HASHTAGS_PER_RUN, len(niche_hashtags)))
     log.info(f"Hashtags this run: {', '.join('#' + h for h in hashtags)}")
 
     # Launch Playwright browser with persistent profile
@@ -438,7 +439,7 @@ async def main():
     seen_shortcodes = set()
 
     async with async_playwright() as pw:
-        context = await get_ig_browser(pw, headless=args.headless)
+        context = await get_ig_browser(pw, headless=args.headless, niche_id=niche_id)
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Go to IG home to confirm login
