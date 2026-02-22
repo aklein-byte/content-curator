@@ -131,60 +131,39 @@ def _get_recent_categories(posts_data: dict, n: int = 2) -> list[str]:
 
 def _auto_categorize(post: dict) -> str:
     """Quick keyword-based categorization from post text and metadata."""
-    text = (post.get("text") or "").lower()
-    medium = (post.get("medium") or "").lower()
-    title = (post.get("title") or "").lower()
+    from config.categories import classify_museum_object, classify_tatami_post
+
+    text = (post.get("text") or "")
+    medium = (post.get("medium") or "")
+    title = (post.get("title") or "")
     all_text = f"{text} {medium} {title}"
 
-    # Museum categories (check first — museum posts have type="museum")
     if post.get("type") == "museum":
-        if any(w in all_text for w in ["painting", "oil on canvas", "watercolor", "fresco", "painted"]):
-            return "painting"
-        if any(w in all_text for w in ["sculpture", "statue", "bust", "relief", "carved figure"]):
-            return "sculpture"
-        if any(w in all_text for w in ["sword", "armor", "dagger", "shield", "weapon", "helmet"]):
-            return "weapons"
-        if any(w in all_text for w in ["ceramic", "pottery", "porcelain", "vase", "stoneware", "faience"]):
-            return "ceramics"
-        if any(w in all_text for w in ["jewelry", "ring", "necklace", "brooch", "crown", "tiara", "cameo"]):
-            return "jewelry"
-        if any(w in all_text for w in ["textile", "silk", "tapestry", "fabric", "embroidery", "kimono", "costume"]):
-            return "textile"
-        if any(w in all_text for w in ["print", "woodcut", "etching", "lithograph", "woodblock"]):
-            return "prints"
-        if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
-            return "furniture"
-        if any(w in all_text for w in ["ritual", "ceremony", "reliquary", "votive", "altar"]):
-            return "ritual"
-        if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "parchment"]):
-            return "manuscript"
-        if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
-            return "automaton"
-        if any(w in all_text for w in ["photograph", "daguerreotype", "albumen"]):
-            return "photography"
-        return "other"
-
-    # Tatami categories
-    if any(w in text for w in ["ryokan", "onsen", "rotenburo", "hot spring", "bath"]):
-        return "ryokan"
-    if any(w in text for w in ["temple", "shrine", "jinja", "tera", "karesansui"]):
-        return "temple"
-    if any(w in text for w in ["kominka", "machiya", "taisho", "meiji", "edo-period", "former residence", "preserved"]):
-        return "historic-house"
-    if any(w in text for w in ["architect", "concrete", "steel", "shell", "parabolic", "brutalist", "modernist"]):
-        return "modern-architecture"
-    if any(w in text for w in ["tatami mat", "apartment", "1ldk", "2ldk", "small space"]):
-        return "residential"
-    if any(w in text for w in ["kumiko", "woodwork", "lacquer", "craft", "joinery", "yakimono"]):
-        return "craft"
-    if any(w in text for w in ["sauna", "converted", "repurposed", "adaptive", "pop-up"]):
-        return "adaptive-reuse"
-    if any(w in text for w in ["garden", "engawa", "landscape", "moss", "stone path"]):
-        return "garden"
-    return "other"
+        return classify_museum_object(all_text)
+    return classify_tatami_post(text)
 
 
 MIN_POST_SCORE = 7  # Skip bookmarked posts below this score
+LOW_QUEUE_THRESHOLD = 5  # Warn when fewer than this many approved posts remain
+
+
+def _queue_stats(posts_data: dict) -> tuple[str, bool]:
+    """Count approved and draft posts remaining. Returns (summary_str, is_low)."""
+    approved = 0
+    drafts = 0
+    for p in posts_data.get("posts", []):
+        s = p.get("status")
+        if s == "approved":
+            approved += 1
+        elif s == "draft":
+            drafts += 1
+    is_low = approved <= LOW_QUEUE_THRESHOLD
+    parts = [f"Queue: {approved} approved"]
+    if drafts:
+        parts.append(f"{drafts} drafts")
+    if is_low:
+        parts.append("\u26a0\ufe0f LOW — need more posts!")
+    return " | ".join(parts), is_low
 
 
 def find_next_post(posts_data: dict) -> dict | None:
@@ -596,11 +575,20 @@ async def main():
 
         tweet_ids = post_thread(
             tweets=thread_data,
-            delay_seconds=(120, 300),
+            delay_seconds=(3, 8),
         )
 
         if tweet_ids:
-            post["status"] = "posted"
+            expected = len(thread_data)
+            is_partial = len(tweet_ids) < expected
+
+            if is_partial:
+                post["status"] = "partial_thread"
+                post["fail_reason"] = f"Only {len(tweet_ids)}/{expected} tweets posted"
+                log.error(f"PARTIAL THREAD: {len(tweet_ids)}/{expected} tweets posted for post #{post['id']}")
+            else:
+                post["status"] = "posted"
+
             post["posted_at"] = datetime.now(timezone.utc).isoformat()
             post["tweet_id"] = tweet_ids[0]
             post["thread_tweet_ids"] = tweet_ids
@@ -608,12 +596,16 @@ async def main():
 
             post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
             fmt_label = f"{len(tweet_ids)}-tweet thread" if len(tweet_ids) > 1 else "single tweet"
+            if is_partial:
+                fmt_label += f" (PARTIAL — {len(tweet_ids)}/{expected})"
             log.info(f"Posted ({fmt_label}): {post_url}")
-            notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}")
+            queue_info, queue_low = _queue_stats(posts_data)
+            notify(f"{handle} {'PARTIAL' if is_partial else 'posted'}", f"Post #{post['id']} — {fmt_label}\n{queue_info}", priority="high" if queue_low else "default")
 
-            first_images = thread_data[0].get("image_paths", []) if thread_data else []
-            cross_post_to_community(post, first_images, niche)
-            save_posts(posts_data)
+            if not is_partial:
+                first_images = thread_data[0].get("image_paths", []) if thread_data else []
+                cross_post_to_community(post, first_images, niche)
+                save_posts(posts_data)
         else:
             post["status"] = "failed"
             post["fail_reason"] = "Thread posting returned no tweet IDs"
@@ -638,7 +630,7 @@ async def main():
 
         tweet_ids = post_thread(
             tweets=thread_data,
-            delay_seconds=(120, 300),
+            delay_seconds=(3, 8),
             community_id=community_id,
         )
 
@@ -652,7 +644,8 @@ async def main():
 
             post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
             log.info(f"Thread posted ({len(tweet_ids)} tweets): {post_url}")
-            notify(f"{handle} thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread")
+            queue_info, queue_low = _queue_stats(posts_data)
+            notify(f"{handle} thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread\n{queue_info}", priority="high" if queue_low else "default")
 
             first_image = [image_paths[0]] if image_paths else []
             cross_post_to_community(post, first_image, niche)
@@ -692,7 +685,8 @@ async def main():
 
             post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_id}"
             log.info(f"Posted successfully: {post_url}")
-            notify(f"{handle} posted", f"Post #{post['id']} is live")
+            queue_info, queue_low = _queue_stats(posts_data)
+            notify(f"{handle} posted", f"Post #{post['id']} is live\n{queue_info}", priority="high" if queue_low else "default")
 
             cross_post_to_community(post, image_paths, niche)
             save_posts(posts_data)

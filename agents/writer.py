@@ -8,29 +8,18 @@ import os
 import base64
 import logging
 from pathlib import Path
-from anthropic import Anthropic
 from typing import Optional
 
 from config.niches import get_niche
-from tools.common import load_config
+from tools.common import load_config, get_anthropic, load_voice_guide
 
 logger = logging.getLogger(__name__)
 
 _cfg = load_config().get("models", {})
 
-
-def _load_voice_guide(niche_id: str) -> str:
-    """Load the voice/style guide for writing."""
-    voice_path = Path(__file__).parent.parent / "config" / f"voice-{niche_id}.md"
-    if not voice_path.exists():
-        voice_path = Path(__file__).parent.parent / "config" / "voice.md"
-    if voice_path.exists():
-        return voice_path.read_text()
-    return ""
-
 WRITER_MODEL = _cfg.get("writer", "claude-opus-4-6")
 
-client = Anthropic()
+client = get_anthropic()
 
 
 def build_writer_system_prompt(niche_id: str) -> str:
@@ -39,7 +28,7 @@ def build_writer_system_prompt(niche_id: str) -> str:
 
     hashtags = " ".join(niche.get("hashtags", [])[:5])
 
-    voice_guide = _load_voice_guide(niche_id)
+    voice_guide = load_voice_guide(niche_id)
 
     return f"""You are the caption writer for {niche['name']} ({niche['handle']}).
 

@@ -22,9 +22,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_mentions, reply_to_post, _get_user_id, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config
+from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide
 from config.niches import get_niche
-from anthropic import Anthropic
 
 log = setup_logging("respond")
 
@@ -37,7 +36,7 @@ _delays = load_config().get("delays", {}).get("respond", [30, 90])
 DELAY_MIN = _delays[0]
 DELAY_MAX = _delays[1]
 
-anthropic = Anthropic()
+anthropic = get_anthropic()
 _models = load_config().get("models", {})
 
 
@@ -47,10 +46,7 @@ def already_responded_to_tweet(log_entries: list, tweet_id: str) -> bool:
 
 def _build_response_prompt(niche_id: str) -> str:
     niche = get_niche(niche_id)
-    voice_path = BASE_DIR / "config" / f"voice-{niche_id}.md"
-    if not voice_path.exists():
-        voice_path = BASE_DIR / "config" / "voice.md"
-    voice_guide = voice_path.read_text() if voice_path.exists() else ""
+    voice_guide = load_voice_guide(niche_id)
 
     return f"""You write responses to people who reply to {niche['handle']}'s posts on X.
 

@@ -10,9 +10,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from anthropic import Anthropic
 from config.niches import get_niche
-from tools.common import load_config
+from tools.common import load_config, get_anthropic, load_voice_guide
 
 logger = logging.getLogger(__name__)
 
@@ -20,28 +19,7 @@ _cfg = load_config().get("models", {})
 EVALUATOR_MODEL = _cfg.get("evaluator", "claude-opus-4-6")
 REPLY_MODEL = _cfg.get("reply_drafter", "claude-opus-4-6")
 
-client = Anthropic()
-
-# Load voice guide once
-_voice_guide: Optional[str] = None
-
-
-def _load_voice_guide(niche_id: str) -> str:
-    """Load the voice/style guide for writing."""
-    global _voice_guide
-    if _voice_guide is not None:
-        return _voice_guide
-
-    # Try niche-specific voice file first, fall back to default
-    voice_path = Path(__file__).parent.parent / "config" / f"voice-{niche_id}.md"
-    if not voice_path.exists():
-        voice_path = Path(__file__).parent.parent / "config" / "voice.md"
-
-    if voice_path.exists():
-        _voice_guide = voice_path.read_text()
-    else:
-        _voice_guide = ""
-    return _voice_guide
+client = get_anthropic()
 
 
 def _build_evaluator_prompt(niche_id: str) -> str:
@@ -116,7 +94,7 @@ def _build_reply_prompt(niche_id: str) -> str:
     """Build the system prompt for drafting replies."""
     niche = get_niche(niche_id)
     engagement = niche.get("engagement", {})
-    voice_guide = _load_voice_guide(niche_id)
+    voice_guide = load_voice_guide(niche_id)
 
     reply_voice = engagement.get("reply_voice", "Knowledgeable but casual.")
     examples = _REPLY_EXAMPLES.get(niche_id, _REPLY_EXAMPLES["_default"])
@@ -251,7 +229,7 @@ BAD: AI patterns ("Not just X, it's Y", "truly remarkable")""",
 def _build_original_post_prompt(niche_id: str) -> str:
     """Build the system prompt for drafting original posts from discovered content."""
     niche = get_niche(niche_id)
-    voice_guide = _load_voice_guide(niche_id)
+    voice_guide = load_voice_guide(niche_id)
 
     return f"""You write original posts for the X account {niche['handle']}.
 
@@ -280,7 +258,7 @@ Return JSON:
 def _build_thread_prompt(niche_id: str) -> str:
     """Build the system prompt for generating educational threads."""
     niche = get_niche(niche_id)
-    voice_guide = _load_voice_guide(niche_id)
+    voice_guide = load_voice_guide(niche_id)
 
     return f"""You write educational threads for the X account {niche['handle']}.
 

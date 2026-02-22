@@ -219,6 +219,7 @@ def run_script(name: str, sc: dict, config: dict, dry_run: bool = False) -> dict
             env={
                 **os.environ,
                 "PYTHONUNBUFFERED": "1",
+                "TATAMI_CONFIG": CONFIG_FILE.name,
                 "PATH": f"{BASE_DIR / 'venv' / 'bin'}:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin",
             },
         )
@@ -463,10 +464,10 @@ def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
     # Resolve niche-aware file suffixes
     if niche_id is None:
         niche_id = load_config().get("niche", "tatamispaces")
-    log_suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
+    suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
 
     # X engagement log
-    eng_file = BASE_DIR / f"engagement-log{log_suffix}.json"
+    eng_file = BASE_DIR / f"engagement-log{suffix}.json"
     if eng_file.exists():
         try:
             entries = json.loads(eng_file.read_text())
@@ -485,7 +486,7 @@ def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
             pass
 
     # IG engagement log
-    ig_eng_file = BASE_DIR / f"ig-engagement-log{log_suffix}.json"
+    ig_eng_file = BASE_DIR / f"ig-engagement-log{suffix}.json"
     if ig_eng_file.exists():
         try:
             entries = json.loads(ig_eng_file.read_text())

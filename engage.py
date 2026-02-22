@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost, get_liking_users, get_own_recent_tweets, get_user_recent_tweets, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, niche_log_path
 from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
@@ -303,9 +303,8 @@ async def main():
     # Resolve niche-specific file paths
     posts_filename = niche.get("posts_file", "posts.json")
     POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
-    log_suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
-    ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(BASE_DIR / f"engagement-log{log_suffix}.json")))
-    ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(BASE_DIR / f"engagement-drafts{log_suffix}.json")))
+    ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(niche_log_path("engagement-log.json", niche_id))))
+    ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(niche_log_path("engagement-drafts.json", niche_id))))
 
     engagement_cfg = niche.get("engagement", {})
     queries = engagement_cfg.get("search_queries", [])
@@ -369,6 +368,7 @@ async def main():
         for p in posts:
             if p.post_id not in seen_ids:
                 seen_ids.add(p.post_id)
+                p._source_query = query
                 all_posts.append(p)
 
         # Brief delay between searches (API handles rate limiting, no need for long waits)
@@ -462,6 +462,9 @@ async def main():
                     "post_id": post.post_id,
                     "author": post.author_handle,
                     "score": eval_data["relevance_score"],
+                    "post_likes": post.likes,
+                    "author_followers": post.author_followers,
+                    "query": getattr(post, '_source_query', None),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
                 log.info(f"Liked post by @{post.author_handle} ({likes_done}/{MAX_LIKES_PER_RUN})")
@@ -523,6 +526,9 @@ async def main():
                         "author": post.author_handle,
                         "reply_text": reply_text,
                         "score": eval_data["relevance_score"],
+                        "post_likes": post.likes,
+                        "author_followers": post.author_followers,
+                        "query": getattr(post, '_source_query', None),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
                     log.info(f"Replied to @{post.author_handle} ({replies_done}/{MAX_REPLIES_PER_RUN}): {reply_text[:60]}...")
@@ -565,6 +571,9 @@ async def main():
                     "post_id": post.post_id,
                     "author": post.author_handle,
                     "score": eval_data["relevance_score"],
+                    "post_likes": post.likes,
+                    "author_followers": post.author_followers,
+                    "query": getattr(post, '_source_query', None),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
                 log.info(f"Followed @{post.author_handle} ({follows_done}/{MAX_FOLLOWS_PER_RUN})")

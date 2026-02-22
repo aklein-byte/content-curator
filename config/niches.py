@@ -272,7 +272,7 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
                 "#arthistory has:images -is:retweet",
                 "#museumtwitter has:images -is:retweet",
             ],
-            "min_likes": 5,
+            "min_likes": 15,
             "tracked_accounts": [
                 # Big engagement accounts that post object photos
                 "@archaeologyart",

@@ -580,7 +580,7 @@ def download_image(url: str, save_dir: str = "data/images") -> str | None:
 
 def post_thread(
     tweets: list[dict],
-    delay_seconds: tuple[int, int] = (120, 300),
+    delay_seconds: tuple[int, int] = (3, 8),
     community_id: str | None = None,
 ) -> list[str]:
     """Post a thread (chain of tweets) via X API v2.
@@ -617,18 +617,26 @@ def post_thread(
         # Reply to previous tweet (except first)
         reply_to = posted_ids[-1] if posted_ids else None
 
-        tweet_id = create_tweet(
-            text=text,
-            media_ids=media_ids if media_ids else None,
-            reply_to=reply_to,
-            community_id=community_id if i == 0 else None,
-        )
+        # Retry tweet creation with backoff (handles transient 429s)
+        tweet_id = None
+        for attempt in range(3):
+            tweet_id = create_tweet(
+                text=text,
+                media_ids=media_ids if media_ids else None,
+                reply_to=reply_to,
+                community_id=community_id if i == 0 else None,
+            )
+            if tweet_id:
+                break
+            wait = 60 * (attempt + 1)  # 60s, 120s, 180s
+            log.warning(f"Thread tweet {i+1} attempt {attempt+1} failed, retrying in {wait}s...")
+            _time.sleep(wait)
 
         if tweet_id:
             posted_ids.append(tweet_id)
             log.info(f"Thread {i+1}/{len(tweets)}: {tweet_id}")
         else:
-            log.error(f"Thread broken at tweet {i+1}/{len(tweets)}")
+            log.error(f"Thread broken at tweet {i+1}/{len(tweets)} after 3 attempts")
             break
 
         # Delay between tweets (skip after last)

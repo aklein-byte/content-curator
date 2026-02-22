@@ -34,7 +34,7 @@ load_dotenv()
 from tools.museum_apis import (
     MuseumObject, met_search, aic_search, cleveland_search, smk_search, search_all,
 )
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide
 from config.niches import get_niche
 
 log = setup_logging("museum_fetch")
@@ -114,17 +114,8 @@ def score_image_aesthetics(obj: MuseumObject) -> tuple[float | None, float | Non
         return None, None
 
 
-# --- Anthropic client singleton ---
-
-_anthropic_client = None
-
-
-def _get_anthropic_client():
-    global _anthropic_client
-    if _anthropic_client is None:
-        from anthropic import Anthropic
-        _anthropic_client = Anthropic()
-    return _anthropic_client
+# Use shared Anthropic singleton from tools.common
+_get_anthropic_client = get_anthropic
 
 
 # --- Discovery strategies ---
@@ -500,10 +491,7 @@ def decide_format(obj: MuseumObject) -> str:
 # --- Story generation ---
 
 def _load_voice_guide() -> str:
-    voice_path = BASE_DIR / "config" / "voice-museumstories.md"
-    if voice_path.exists():
-        return voice_path.read_text()
-    return ""
+    return load_voice_guide(NICHE_ID)
 
 
 def generate_story(obj: MuseumObject, fmt: str) -> dict | None:
@@ -886,37 +874,13 @@ def add_to_queue(posts_data: dict, story: dict, obj: MuseumObject) -> dict:
 
 def _classify_category(obj: MuseumObject) -> str:
     """Classify object into broad category for diversity tracking."""
-    classification = (obj.classification or "").lower()
-    medium = (obj.medium or "").lower()
-    dept = (obj.department or "").lower()
-    tags = " ".join(obj.tags).lower()
+    from config.categories import classify_museum_object
+    classification = (obj.classification or "")
+    medium = (obj.medium or "")
+    dept = (obj.department or "")
+    tags = " ".join(obj.tags)
     all_text = f"{classification} {medium} {dept} {tags}"
-
-    if any(w in all_text for w in ["painting", "oil on canvas", "watercolor", "fresco"]):
-        return "painting"
-    if any(w in all_text for w in ["sculpture", "statue", "bust", "relief", "figure"]):
-        return "sculpture"
-    if any(w in all_text for w in ["weapon", "armor", "sword", "dagger", "shield", "arms"]):
-        return "weapons"
-    if any(w in all_text for w in ["jewelry", "ring", "necklace", "brooch", "crown", "gold"]):
-        return "jewelry"
-    if any(w in all_text for w in ["textile", "silk", "tapestry", "fabric", "costume"]):
-        return "textile"
-    if any(w in all_text for w in ["ceramic", "pottery", "porcelain", "vase", "bowl"]):
-        return "ceramics"
-    if any(w in all_text for w in ["photograph", "photo"]):
-        return "photography"
-    if any(w in all_text for w in ["print", "woodcut", "etching", "lithograph"]):
-        return "prints"
-    if any(w in all_text for w in ["furniture", "chair", "table", "cabinet", "desk"]):
-        return "furniture"
-    if any(w in all_text for w in ["ritual", "ceremony", "reliquary", "votive", "altar"]):
-        return "ritual"
-    if any(w in all_text for w in ["manuscript", "illuminat", "codex", "calligraph", "parchment"]):
-        return "manuscript"
-    if any(w in all_text for w in ["automaton", "clockwork", "mechanical", "clock"]):
-        return "automaton"
-    return "other"
+    return classify_museum_object(all_text)
 
 
 # --- Main pipeline ---
