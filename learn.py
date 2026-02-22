@@ -18,7 +18,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tools.common import load_json, save_json, setup_logging, niche_log_path
+from tools.common import load_json, save_json, setup_logging, niche_log_path, get_anthropic
+from config.niches import get_niche
 
 log = setup_logging("learn")
 
@@ -119,6 +120,109 @@ def _analyze_query_performance(niche_id: str) -> dict:
     }
 
 
+def _suggest_new_queries(niche_id: str, query_performance: dict) -> list[str]:
+    """Use Claude to suggest new search queries based on what's working.
+
+    Analyzes top-performing queries and the authors/topics that got engagement,
+    then asks Claude for 2-3 new query suggestions in X search syntax.
+
+    Returns list of suggested query strings (empty if not enough data).
+    """
+    if not query_performance:
+        return []
+
+    # Get current queries from niche config
+    niche = get_niche(niche_id)
+    current_queries = niche.get("engagement", {}).get("search_queries", [])
+
+    # Sort queries by a composite score: reply engagement rate + total reply likes
+    ranked = sorted(
+        query_performance.items(),
+        key=lambda x: (x[1].get("reply_engagement_rate", 0) * 2 + x[1].get("total_reply_likes", 0)),
+        reverse=True,
+    )
+
+    # Need at least 3 queries with data to make useful suggestions
+    queries_with_data = [(q, s) for q, s in ranked if s.get("posts_engaged", 0) >= 3]
+    if len(queries_with_data) < 3:
+        log.info("Not enough query data for suggestions (need 3+ queries with 3+ engagements)")
+        return []
+
+    top_5 = queries_with_data[:5]
+    bottom_3 = queries_with_data[-3:] if len(queries_with_data) > 5 else []
+
+    # Also pull recent engagement log to find common authors/topics
+    eng_log = load_json(niche_log_path("engagement-log.json", niche_id))
+    if not isinstance(eng_log, list):
+        eng_log = []
+
+    # Authors we successfully engaged with (got likes/replies back)
+    successful_authors = set()
+    for e in eng_log:
+        if (e.get("reply_likes", 0) or 0) > 0 or (e.get("reply_replies", 0) or 0) > 0:
+            author = e.get("author")
+            if author:
+                successful_authors.add(author)
+
+    # Build prompt
+    top_summary = "\n".join(
+        f"  - \"{q}\" → engagement_rate={s['reply_engagement_rate']:.0%}, "
+        f"reply_likes={s['total_reply_likes']}, engaged={s['posts_engaged']}"
+        for q, s in top_5
+    )
+    bottom_summary = "\n".join(
+        f"  - \"{q}\" → engagement_rate={s['reply_engagement_rate']:.0%}, "
+        f"reply_likes={s['total_reply_likes']}, engaged={s['posts_engaged']}"
+        for q, s in bottom_3
+    ) if bottom_3 else "(not enough data)"
+
+    authors_str = ", ".join(sorted(successful_authors)[:15]) if successful_authors else "(none yet)"
+
+    prompt = f"""You manage the X/Twitter search queries for @{niche.get('handle', niche_id).lstrip('@')}.
+
+The account's niche: {niche.get('description', niche_id)}
+
+TOP PERFORMING queries (high reply engagement):
+{top_summary}
+
+LOWEST PERFORMING queries:
+{bottom_summary}
+
+Authors who engaged back with our replies: {authors_str}
+
+Current query list ({len(current_queries)} queries):
+{json.dumps(current_queries, indent=2)}
+
+Based on what's working and what's not, suggest 2-3 NEW X search queries that might perform well.
+
+Rules:
+- Use X search syntax: keywords, "exact phrase", has:images, -is:retweet, lang:xx
+- Don't duplicate existing queries
+- Look for gaps: topics/keywords adjacent to top performers that we're not covering
+- Consider what the successful authors post about
+- Each query should be specific enough to find relevant posts but broad enough to return results
+
+Return ONLY a JSON array of query strings, nothing else. Example:
+["new query one has:images -is:retweet", "new query two has:images -is:retweet"]"""
+
+    try:
+        client = get_anthropic()
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = response.content[0].text.strip()
+        # Parse JSON array from response
+        suggestions = json.loads(text)
+        if isinstance(suggestions, list):
+            return [s for s in suggestions if isinstance(s, str)]
+    except Exception as e:
+        log.warning(f"Failed to generate query suggestions: {e}")
+
+    return []
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze engagement data")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -150,6 +254,13 @@ def main():
                 f"reply_likes={stats['total_reply_likes']})"
             )
 
+    # Suggest new queries based on performance data
+    suggestions = _suggest_new_queries(niche_id, qp)
+    if suggestions:
+        log.info(f"\n  Suggested new queries:")
+        for s in suggestions:
+            log.info(f"    + {s}")
+
     # Save to insights file
     insights_path = BASE_DIR / "data" / f"insights-{niche_id}.json"
     existing = load_json(insights_path, default={})
@@ -159,6 +270,8 @@ def main():
     existing["query_performance"] = results["query_performance"]
     existing["recommended_min_likes"] = results["recommended_min_likes"]
     existing["last_analyzed"] = results["analyzed_at"]
+    if suggestions:
+        existing["proposed_queries"] = suggestions
 
     save_json(insights_path, existing)
     log.info(f"\n  Insights saved to {insights_path}")

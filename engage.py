@@ -338,9 +338,55 @@ async def main():
     # Engage back with people who liked our posts (highest ROI)
     engage_back(engagement_log, dry_run)
 
-    # Run a random subset of queries each run (covers different ground each time)
+    # Select queries — weighted by past performance if insights exist,
+    # with 1 slot reserved for random exploration
     max_queries = min(load_config().get("max_queries_per_run", 5), len(queries))
-    shuffled_queries = random.sample(queries, max_queries)
+    insights_path = BASE_DIR / "data" / f"insights-{niche_id}.json"
+    query_perf = load_json(insights_path, default={}).get("query_performance", {})
+
+    # Also read recommended_min_likes from insights
+    rec_min = load_json(insights_path, default={}).get("recommended_min_likes")
+    if rec_min is not None:
+        old_min = min_likes
+        min_likes = rec_min
+        log.info(f"Using learned min_likes={min_likes} (was {old_min})")
+
+    if query_perf and max_queries >= 2:
+        # Weighted selection: score each query, pick top (max_queries - 1),
+        # reserve 1 slot for a random unexplored/low-data query
+        weights = {}
+        for q in queries:
+            stats = query_perf.get(q)
+            if stats and stats.get("posts_engaged", 0) >= 3:
+                w = (stats.get("reply_engagement_rate", 0) * 3) + (stats.get("avg_score", 0) / 10) + 0.5
+                weights[q] = max(w, 0.3)
+            else:
+                weights[q] = 0.3  # unexplored queries get base weight
+
+        weighted_queries = list(weights.keys())
+        w_values = [weights[q] for q in weighted_queries]
+
+        # Pick (max_queries - 1) by weight, 1 random exploration
+        n_weighted = max_queries - 1
+        selected = set()
+        if n_weighted > 0:
+            chosen = random.choices(weighted_queries, weights=w_values, k=n_weighted * 3)
+            for q in chosen:
+                if q not in selected:
+                    selected.add(q)
+                if len(selected) >= n_weighted:
+                    break
+
+        # Exploration slot: pick from queries NOT already selected, prefer low-data
+        remaining = [q for q in queries if q not in selected]
+        if remaining:
+            selected.add(random.choice(remaining))
+
+        shuffled_queries = list(selected)[:max_queries]
+        log.info(f"Query selection: {len(shuffled_queries)} queries ({len(query_perf)} with perf data)")
+    else:
+        shuffled_queries = random.sample(queries, max_queries)
+
     failed_searches = 0
 
     for i, query in enumerate(shuffled_queries):
