@@ -313,6 +313,7 @@
   <div class="filters">
     <button onclick="tatamiFilter('all')">All (POST_COUNT_ALL)</button>
     <button class="active" onclick="tatamiFilter('approved')">Ready (POST_COUNT_APPROVED)</button>
+    <button onclick="tatamiFilter('draft')">Drafts (POST_COUNT_DRAFT)</button>
     <button onclick="tatamiFilter('posted')">Posted (POST_COUNT_POSTED)</button>
     <button onclick="tatamiFilter('dropped')">Dropped (POST_COUNT_DROPPED)</button>
   </div>
@@ -388,7 +389,10 @@ function showToast(msg) {
 // ============================
 let lbImages = [], lbIndex = 0, lbPostId = null;
 
+let currentTatamiFilter = 'approved';
 function tatamiFilter(status) {
+  currentTatamiFilter = status;
+  location.hash = 'filter=' + status;
   document.querySelectorAll('#tatami-view .filters button').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
   document.querySelectorAll('#tatami-view .post').forEach(p => {
@@ -439,10 +443,21 @@ async function resetImages(id) {
 async function setStatus(id, status) {
   const r = await fetch('api/status', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id: id, status: status})
+    body: JSON.stringify({id: id, status: status, niche: 'tatamispaces'})
   });
   const data = await r.json();
-  if (data.ok) { showToast('#' + id + ' \u2192 ' + status); setTimeout(() => location.reload(), 500); }
+  if (data.ok) {
+    showToast('#' + id + ' \u2192 ' + status);
+    const card = document.querySelector('.post[data-id="' + id + '"]');
+    if (card) {
+      card.dataset.status = status;
+      if (currentTatamiFilter !== 'all' && status !== currentTatamiFilter) {
+        card.style.display = 'none';
+      }
+    }
+  } else {
+    showToast('Error: ' + (data.error || 'unknown'));
+  }
 }
 
 // Tatami regenerate
@@ -816,11 +831,20 @@ function exportData() {
   a.click();
 }
 
-// Init museum view
+// Init tatami view — restore filter from URL hash or default to "approved"
 if (NICHE === 'tatamispaces') {
-  // Default to showing "Ready" (approved) posts
+  const hashMatch = location.hash.match(/filter=(\w+)/);
+  const initFilter = hashMatch ? hashMatch[1] : 'approved';
+  currentTatamiFilter = initFilter;
+  document.querySelectorAll('#tatami-view .filters button').forEach(b => {
+    const btnFilter = b.getAttribute('onclick').match(/tatamiFilter\('(\w+)'\)/);
+    if (btnFilter) {
+      b.classList.toggle('active', btnFilter[1] === initFilter);
+    }
+  });
   document.querySelectorAll('#tatami-view .post').forEach(p => {
-    p.style.display = p.dataset.status === 'approved' ? '' : 'none';
+    if (initFilter === 'all') { p.style.display = ''; return; }
+    p.style.display = p.dataset.status === initFilter ? '' : 'none';
   });
 }
 if (NICHE === 'museumstories') {

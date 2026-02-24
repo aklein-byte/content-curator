@@ -486,6 +486,18 @@ async def main():
                     log.info(f"  Limited to first {img_count} image(s)")
 
                 log.info(f"  Images: {len(image_paths)} ready")
+            elif post.get("image_urls") or post.get("image") or post.get("allImages"):
+                # Post expects images but all downloads failed (e.g. source deleted)
+                log.warning(f"  Post #{post['id']} expects images but all downloads failed")
+                if not dry_run:
+                    post["status"] = "failed"
+                    post["fail_reason"] = "All image URLs returned errors (source may be deleted)"
+                    save_posts(posts_data)
+                    skipped_ids.add(post["id"])
+                    log.info(f"  Skipped #{post['id']}, trying next post...")
+                    continue
+                else:
+                    print(f"WARNING: All image downloads failed — would skip in live mode")
             else:
                 log.info("  No images -- will post text-only")
 

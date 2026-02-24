@@ -54,8 +54,8 @@ def _unlock_posts(fd):
 
 
 def save_posts(data: dict, niche_id: str):
-    """Save posts with lock for dashboard concurrent access."""
-    pq_save_posts(data, niche_id, lock=True)
+    """Save posts — caller must hold _lock_posts() already."""
+    pq_save_posts(data, niche_id, lock=False)
 
 
 def render_post_html(post, index):
@@ -460,11 +460,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             data = load_posts(niche)
             posts = data.get("posts", [])
 
-            counts = {"all": len(posts), "approved": 0, "posted": 0, "dropped": 0}
+            counts = {"all": len(posts), "approved": 0, "draft": 0, "posted": 0, "dropped": 0}
             for p in posts:
                 s = p.get("status", "")
                 if s == "approved":
                     counts["approved"] += 1
+                elif s == "draft":
+                    counts["draft"] += 1
                 elif s == "posted":
                     counts["posted"] += 1
                 elif s == "dropped" or s.startswith("skipped"):
@@ -477,6 +479,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = html.replace("POSTS_HTML", posts_html)
             html = html.replace("POST_COUNT_ALL", str(counts["all"]))
             html = html.replace("POST_COUNT_APPROVED", str(counts["approved"]))
+            html = html.replace("POST_COUNT_DRAFT", str(counts["draft"]))
             html = html.replace("POST_COUNT_POSTED", str(counts["posted"]))
             html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
             html = html.replace("__POSTS_DATA__", "[]")
@@ -490,6 +493,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             html = html.replace("POSTS_HTML", "")
             html = html.replace("POST_COUNT_ALL", "0")
             html = html.replace("POST_COUNT_APPROVED", "0")
+            html = html.replace("POST_COUNT_DRAFT", "0")
             html = html.replace("POST_COUNT_POSTED", "0")
             html = html.replace("POST_COUNT_DROPPED", "0")
             html = html.replace("__STATS_HTML__", "")
@@ -516,7 +520,7 @@ def main():
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    server = HTTPServer(("0.0.0.0", args.port), DashboardHandler)
+    server = HTTPServer(("127.0.0.1", args.port), DashboardHandler)
     print(f"Dashboard running at http://localhost:{args.port}")
     try:
         server.serve_forever()
