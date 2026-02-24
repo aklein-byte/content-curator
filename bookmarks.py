@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xapi import get_bookmarks, XPost, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.xapi import get_bookmarks, get_tweet_by_id, XPost, set_niche as set_xapi_niche, check_image_urls_quality
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic
 from agents.engager import evaluate_post, draft_original_post
 from config.niches import get_niche
 
@@ -28,6 +28,164 @@ log = setup_logging("bookmarks")
 
 BASE_DIR = Path(__file__).parent
 POSTS_FILE: Path = None  # resolved in main() from niche config
+
+
+def validate_draft(caption: str, source_text: str, author: str, image_urls: list[str], enriched_context: str = "") -> tuple[bool, str]:
+    """Use Sonnet to QA a draft before it enters the queue.
+
+    Checks that the caption:
+    - Has real body text (not just a credit line)
+    - Makes sense as a standalone post
+    - Appropriately references what the images show
+    - Doesn't hallucinate details not in the source
+
+    Returns (ok, reason).
+    """
+    client = get_anthropic()
+    image_list = "\n".join(f"  {i+1}. {url}" for i, url in enumerate(image_urls))
+
+    context_section = ""
+    if enriched_context:
+        context_section = f"\nEnriched context (vision/links/thread) provided to the drafter:\n{enriched_context}\n"
+
+    try:
+        response = client.messages.create(
+            model=load_config().get("models", {}).get("evaluator", "claude-sonnet-4-20250514"),
+            max_tokens=256,
+            messages=[{"role": "user", "content": f"""You are a QA reviewer for a social media post.
+
+Source post by @{author}:
+{source_text}
+{context_section}
+Images ({len(image_urls)}):
+{image_list}
+
+Draft caption to publish:
+{caption}
+
+Answer these questions:
+1. Does the caption have real body text, or is it just a credit line / attribution?
+2. Does the caption make sense as a standalone post someone would want to read?
+3. CRITICAL — Does the draft contain specific facts (architect names, dates, locations, materials, dimensions) that are NOT in the source text or enriched context above? If the draft names an architect, city, year, or material that doesn't appear in the source or context, it is hallucinated and must FAIL.
+4. Does the caption add value beyond just restating the source?
+
+Respond with EXACTLY one line:
+PASS — if the draft is good to post
+FAIL: <brief reason> — if the draft should be rejected"""}],
+        )
+        result = response.content[0].text.strip().split("\n")[0]
+        if result.startswith("PASS"):
+            return True, "ok"
+        else:
+            reason = result.replace("FAIL:", "").replace("FAIL", "").strip() or "QA rejected"
+            return False, reason
+    except Exception as e:
+        log.warning(f"Draft QA call failed: {e} — allowing draft through")
+        return True, "qa-error-passthrough"
+
+async def enrich_context(post: XPost) -> str:
+    """Gather rich context for a bookmarked post before drafting a caption.
+
+    Assembles vision descriptions, thread context, and link content
+    into a context string passed to draft_original_post().
+    """
+    import re
+    import base64
+    import httpx
+
+    parts = []
+
+    # --- Step A: Vision — describe what the images show ---
+    if post.image_urls:
+        try:
+            content_blocks = []
+            downloaded = 0
+            for url in post.image_urls[:4]:
+                try:
+                    resp = httpx.get(url, timeout=10, follow_redirects=True)
+                    if resp.status_code != 200:
+                        continue
+                    ct = resp.headers.get("content-type", "")
+                    if "image" not in ct:
+                        continue
+                    if len(resp.content) < 5000:
+                        continue
+                    media_type = ct.split(";")[0].strip()
+                    if media_type not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+                        media_type = "image/jpeg"
+                    img_bytes = resp.content
+                    if len(img_bytes) > 4_500_000:
+                        from PIL import Image as _PILImg
+                        import io as _io
+                        pil = _PILImg.open(_io.BytesIO(img_bytes))
+                        pil.thumbnail((1920, 1920))
+                        buf = _io.BytesIO()
+                        pil.save(buf, format="JPEG", quality=85)
+                        img_bytes = buf.getvalue()
+                        media_type = "image/jpeg"
+                    b64 = base64.b64encode(img_bytes).decode()
+                    content_blocks.append({
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": media_type, "data": b64},
+                    })
+                    downloaded += 1
+                except Exception as e:
+                    log.debug(f"  Vision: failed to download {url[:60]}: {e}")
+
+            if content_blocks:
+                content_blocks.append({
+                    "type": "text",
+                    "text": "Describe what these images show. Be specific about architecture, materials, spaces, objects, and any visible text or signage.",
+                })
+                client = get_anthropic()
+                _vision_model = load_config().get("models", {}).get("enrich_vision", "claude-sonnet-4-20250514")
+                vision_resp = client.messages.create(
+                    model=_vision_model,
+                    max_tokens=300,
+                    messages=[{"role": "user", "content": content_blocks}],
+                )
+                desc = vision_resp.content[0].text.strip()
+                parts.append(f"Images show: {desc}")
+                log.info(f"  Context enrichment — vision ({downloaded} images): {desc[:80]}...")
+        except Exception as e:
+            log.warning(f"  Context enrichment — vision failed: {e}")
+
+    # --- Step B: Thread context — fetch root tweet if this is a reply ---
+    if post.conversation_id and post.conversation_id != post.post_id:
+        try:
+            root = get_tweet_by_id(post.conversation_id)
+            if root and root.text:
+                parts.append(f"Thread root by @{root.author_handle}: {root.text}")
+                log.info(f"  Context enrichment — thread root: @{root.author_handle}: {root.text[:60]}...")
+        except Exception as e:
+            log.warning(f"  Context enrichment — thread fetch failed: {e}")
+
+    # --- Step C: Link content — extract and fetch URLs ---
+    urls = re.findall(r'https?://\S+', post.text)
+    # Filter out Twitter/X internal links
+    urls = [u for u in urls if not any(d in u for d in ['t.co', 'twitter.com', 'pic.twitter.com', 'x.com'])]
+    for url in urls[:2]:
+        try:
+            import requests as _requests
+            resp = _requests.get(url, timeout=10, headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            }, allow_redirects=True)
+            if resp.status_code == 200:
+                text = resp.text[:8000]
+                # Strip HTML tags with simple regex
+                clean = re.sub(r'<[^>]+>', ' ', text)
+                clean = re.sub(r'\s+', ' ', clean).strip()[:2000]
+                if len(clean) > 100:
+                    parts.append(f"Link content ({url[:60]}): {clean}")
+                    log.info(f"  Context enrichment — link: {url[:60]} ({len(clean)} chars)")
+        except Exception as e:
+            log.debug(f"  Context enrichment — link fetch failed for {url[:60]}: {e}")
+
+    context = "\n\n".join(parts)
+    if not context:
+        log.info("  Context enrichment — no additional context gathered")
+    return context
+
 
 _pw = load_config().get("posting_window", {})
 
@@ -100,6 +258,9 @@ def next_schedule_slot(posts_data: dict) -> datetime:
     return datetime.now(et) + timedelta(days=30)
 
 
+MAX_REPOST_QUEUE = 10  # Skip run if this many reposts are already waiting
+
+
 def already_in_queue(posts_data: dict, post_id: str) -> bool:
     """Check if a post ID or source URL containing it is already queued."""
     for p in posts_data.get("posts", []):
@@ -132,19 +293,39 @@ async def main():
     bookmark_posts = get_bookmarks(max_results=40)
     log.info(f"Got {len(bookmark_posts)} bookmarks")
 
+    # Load existing posts to check queue depth and skip duplicates
+    posts_data = load_posts()
+
+    # Skip if enough reposts already queued (same pattern as quote_drafts.py)
+    queued = sum(
+        1 for p in posts_data.get("posts", [])
+        if p.get("type") == "repost-with-credit" and p.get("status") == "approved"
+    )
+    if queued >= MAX_REPOST_QUEUE:
+        log.info(f"Already {queued} reposts in queue (approved). Skipping bookmark run.")
+        print()
+        print("=" * 60)
+        print(f"BOOKMARKS SKIPPED for {niche['handle']}")
+        print("=" * 60)
+        print(f"Already {queued} approved reposts in queue (max {MAX_REPOST_QUEUE})")
+        print()
+        return
+
+    # Cap max drafts to remaining queue space
+    remaining_slots = MAX_REPOST_QUEUE - queued
+    effective_max = min(args.max_drafts, remaining_slots)
+    log.info(f"Queue: {queued} approved reposts, {remaining_slots} slots remaining (cap: {effective_max})")
+
     # Filter: must have images
     with_images = [p for p in bookmark_posts if len(p.image_urls) > 0]
     log.info(f"{len(with_images)} have images")
-
-    # Load existing posts to skip duplicates
-    posts_data = load_posts()
 
     # Evaluate and draft
     drafts_created = 0
     skipped = 0
 
     for post in with_images:
-        if drafts_created >= args.max_drafts:
+        if drafts_created >= effective_max:
             break
 
         if already_in_queue(posts_data, post.post_id):
@@ -172,16 +353,34 @@ async def main():
 
         log.info(f"  @{post.author_handle} — score {score}/10, {post.likes} likes")
 
+        # Pre-check image quality before spending API calls on caption drafting
+        has_good_images, img_details = check_image_urls_quality(post.image_urls)
+        if not has_good_images:
+            log.info(f"  Skip @{post.author_handle} — all images too small:")
+            for d in img_details:
+                log.info(d)
+            continue
+
+        # Enrich context before drafting (vision, thread, links)
+        context = await enrich_context(post)
+
         # Draft caption
         caption_data = await draft_original_post(
             source_text=post.text,
             author=post.author_handle,
             niche_id=niche_id,
+            image_description=context if context else None,
         )
 
         caption_text = caption_data.get("text", "")
         if not caption_text:
             log.warning(f"  Empty caption for @{post.author_handle}, skipping")
+            continue
+
+        # QA check: Sonnet validates the draft makes sense and references images
+        qa_ok, qa_reason = validate_draft(caption_text, post.text, post.author_handle, post.image_urls, enriched_context=context)
+        if not qa_ok:
+            log.warning(f"  Draft QA failed for @{post.author_handle}: {qa_reason}")
             continue
 
         if len(caption_text) > 4000:

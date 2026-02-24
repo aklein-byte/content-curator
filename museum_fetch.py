@@ -736,6 +736,13 @@ No markdown, no explanation, just the JSON."""
             log.warning(f"Em-dash found in generated post for {obj.title} — rejecting")
             return None
 
+        # QA check: Sonnet validates the draft is a coherent post
+        image_urls_for_qa = [t.get("image_url") for t in story["tweets"] if t.get("image_url")]
+        qa_ok, qa_reason = _validate_museum_draft(story, obj, image_urls_for_qa)
+        if not qa_ok:
+            log.warning(f"Draft QA failed for {obj.title}: {qa_reason}")
+            return None
+
         # Add metadata
         story["metadata"] = {
             "object_id": obj.id,
@@ -753,6 +760,58 @@ No markdown, no explanation, just the JSON."""
     except Exception as e:
         log.error(f"Story generation failed for {obj.title}: {e}")
         return None
+
+
+def _validate_museum_draft(story: dict, obj, image_urls: list[str]) -> tuple[bool, str]:
+    """Use Sonnet to QA a museum draft before it enters the queue.
+
+    Checks that the post:
+    - Has real body text (not just a signature/attribution line)
+    - Makes sense as a standalone post
+    - Appropriately references what the images would show
+    - Doesn't hallucinate wild claims
+    """
+    client = _get_anthropic_client()
+    all_text = "\n---\n".join(t["text"] for t in story["tweets"])
+    n_tweets = len(story["tweets"])
+    format_label = f"{n_tweets}-tweet thread" if n_tweets > 1 else "single tweet"
+    image_list = "\n".join(f"  {i+1}. {url}" for i, url in enumerate(image_urls))
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6-20250514",
+            max_tokens=256,
+            messages=[{"role": "user", "content": f"""You are a QA reviewer for a museum/art social media account.
+
+Object: {obj.title} by {obj.artist or 'Unknown'}
+Date: {obj.date or 'Unknown'} | Medium: {obj.medium or 'Unknown'}
+Museum: {obj.museum}
+
+Images ({len(image_urls)}):
+{image_list}
+
+Draft post ({format_label}):
+{all_text}
+
+Answer these questions:
+1. Does each tweet have real body text, or is any tweet just attribution/signature with no content?
+2. Does the post make sense as something people would want to read?
+3. If the post describes visual details, are they plausible for a museum object ({obj.medium or 'unknown medium'})?
+4. Is the signature/attribution line (e.g. "Artist, Title, Year. Museum.") present and at the end, not the only content?
+
+Respond with EXACTLY one line:
+PASS — if the draft is good to post
+FAIL: <brief reason> — if the draft should be rejected"""}],
+        )
+        result = response.content[0].text.strip().split("\n")[0]
+        if result.startswith("PASS"):
+            return True, "ok"
+        else:
+            reason = result.replace("FAIL:", "").replace("FAIL", "").strip() or "QA rejected"
+            return False, reason
+    except Exception as e:
+        log.warning(f"Museum draft QA call failed: {e} — allowing draft through")
+        return True, "qa-error-passthrough"
 
 
 # --- Queue management ---

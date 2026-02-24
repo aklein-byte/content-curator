@@ -9,22 +9,167 @@
     "museum_fetch": {
       "type": "scheduled",
       "file": "museum_fetch.py",
-      "times_et": ["08:00"],
+      "times_et": [
+        "08:00"
+      ],
       "jitter_minutes": 30,
       "enabled": true,
       "timeout_seconds": 600,
-      "extra_args": ["--batch-size", "4", "--auto-approve"],
+      "extra_args": [
+        "--batch-size",
+        "6"
+      ],
       "limits": {}
     },
     "post": {
       "type": "scheduled",
       "file": "post.py",
-      "times_et": ["11:00", "18:00"],
+      "times_et": [
+        "11:00",
+        "18:00"
+      ],
       "jitter_minutes": 45,
       "enabled": true,
       "timeout_seconds": 300,
       "limits": {},
-      "extra_args": ["--no-ig"]
+      "extra_args": []
+    },
+    "ig_post": {
+      "type": "scheduled",
+      "file": "ig_post.py",
+      "times_et": [
+        "11:30",
+        "18:30"
+      ],
+      "jitter_minutes": 15,
+      "enabled": true,
+      "timeout_seconds": 300,
+      "extra_args": []
+    },
+    "engage": {
+      "type": "scheduled",
+      "file": "engage.py",
+      "times_et": [
+        "10:00",
+        "14:00",
+        "19:00"
+      ],
+      "jitter_minutes": 15,
+      "enabled": true,
+      "timeout_seconds": 1200,
+      "limits": {
+        "--max-likes": 10,
+        "--max-replies": 6,
+        "--max-follows": 2
+      }
+    },
+    "respond": {
+      "type": "scheduled",
+      "file": "respond.py",
+      "times_et": [
+        "11:00",
+        "16:00",
+        "21:00"
+      ],
+      "jitter_minutes": 15,
+      "enabled": true,
+      "timeout_seconds": 600,
+      "limits": {
+        "--max-responses": 5
+      }
+    },
+    "healthcheck": {
+      "type": "scheduled",
+      "file": "healthcheck.py",
+      "times_et": [
+        "06:00"
+      ],
+      "jitter_minutes": 5,
+      "enabled": true,
+      "timeout_seconds": 60,
+      "extra_args": []
+    },
+    "ig_engage": {
+      "type": "scheduled",
+      "file": "ig_engage.py",
+      "times_et": [
+        "10:30",
+        "15:30",
+        "21:30"
+      ],
+      "jitter_minutes": 15,
+      "enabled": true,
+      "timeout_seconds": 1800,
+      "limits": {
+        "--max-likes": 10,
+        "--max-comments": 3,
+        "--max-follows": 5
+      }
+    },
+    "quote_drafts": {
+      "enabled": true,
+      "file": "quote_drafts.py",
+      "type": "scheduled",
+      "times_et": [
+        "12:00"
+      ],
+      "jitter_minutes": 30,
+      "timeout_seconds": 300,
+      "extra_args": [
+        "--max-drafts",
+        "3"
+      ]
+    },
+    "track_performance": {
+      "enabled": true,
+      "file": "track_performance.py",
+      "type": "scheduled",
+      "times_et": [
+        "06:00",
+        "18:00"
+      ],
+      "jitter_minutes": 15,
+      "timeout_seconds": 120,
+      "extra_args": []
+    },
+    "learn": {
+      "enabled": true,
+      "file": "learn.py",
+      "type": "scheduled",
+      "times_et": [
+        "05:00"
+      ],
+      "jitter_minutes": 30,
+      "timeout_seconds": 300,
+      "extra_args": []
     }
-  }
+  },
+  "models": {
+    "evaluator": "claude-haiku-4-5-20251001",
+    "writer": "claude-opus-4-6",
+    "reply_drafter": "claude-opus-4-6",
+    "vision": "claude-opus-4-6"
+  },
+  "delays": {
+    "engage": [
+      60,
+      240
+    ],
+    "respond": [
+      30,
+      90
+    ],
+    "ig_engage": [
+      20,
+      60
+    ]
+  },
+  "max_queries_per_run": 3,
+  "posting_window": {
+    "start_hour_et": 9,
+    "end_hour_et": 22,
+    "max_per_day": 2,
+    "min_gap_hours": 4
+  },
+  "ig_hashtags_per_run": 4
 }

@@ -120,6 +120,7 @@ class XPost:
     language: Optional[str]
     created_at: Optional[str]
     author_followers: int = 0
+    conversation_id: Optional[str] = None
 
 
 def search_posts(query: str, max_results: int = 15) -> list[XPost]:
@@ -203,6 +204,69 @@ def search_posts(query: str, max_results: int = 15) -> list[XPost]:
     remaining = r.headers.get("x-rate-limit-remaining", "?")
     log.debug(f"Search returned {len(posts)} tweets (rate limit remaining: {remaining})")
     return posts
+
+
+def get_tweet_by_id(tweet_id: str) -> Optional[XPost]:
+    """Fetch a single tweet by ID with full context.
+
+    Used to retrieve thread root tweets for context enrichment.
+    """
+    auth = _get_auth()
+
+    r = requests.get(
+        f"{API_BASE}/tweets/{tweet_id}",
+        params={
+            "tweet.fields": "public_metrics,author_id,created_at,lang,attachments,text,conversation_id",
+            "expansions": "author_id,attachments.media_keys",
+            "media.fields": "url,type,preview_image_url",
+            "user.fields": "username,name",
+        },
+        auth=auth,
+        timeout=15,
+    )
+
+    if r.status_code == 429:
+        log.warning("Rate limited on tweet lookup")
+        return None
+    if r.status_code != 200:
+        log.error(f"Tweet lookup failed for {tweet_id}: {r.status_code} {r.text[:200]}")
+        return None
+
+    data = r.json()
+    tweet = data.get("data")
+    if not tweet:
+        return None
+
+    users = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+    media_map = {m["media_key"]: m for m in data.get("includes", {}).get("media", [])}
+
+    user = users.get(tweet.get("author_id"), {})
+    metrics = tweet.get("public_metrics", {})
+
+    image_urls = []
+    media_keys = tweet.get("attachments", {}).get("media_keys", [])
+    for mk in media_keys:
+        m = media_map.get(mk, {})
+        if m.get("type") == "photo":
+            url = m.get("url") or m.get("preview_image_url")
+            if url:
+                image_urls.append(_to_orig_url(url))
+
+    return XPost(
+        post_id=tweet["id"],
+        author_handle=user.get("username", ""),
+        author_name=user.get("name", ""),
+        author_id=tweet.get("author_id", ""),
+        text=tweet.get("text", ""),
+        image_urls=image_urls,
+        likes=metrics.get("like_count", 0),
+        reposts=metrics.get("retweet_count", 0),
+        replies=metrics.get("reply_count", 0),
+        views=metrics.get("impression_count", 0),
+        language=tweet.get("lang"),
+        created_at=tweet.get("created_at"),
+        conversation_id=tweet.get("conversation_id"),
+    )
 
 
 def like_post(tweet_id: str) -> bool:
@@ -544,8 +608,12 @@ def get_liking_users(tweet_id: str, max_results: int = 20) -> list[dict]:
     return r.json().get("data", [])
 
 
-def download_image(url: str, save_dir: str = "data/images") -> str | None:
-    """Download image from URL to local path. Returns local file path or None."""
+def download_image(url: str, save_dir: str = "data/images", force: bool = False) -> str | None:
+    """Download image from URL to local path. Returns local file path or None.
+
+    Args:
+        force: If True, re-download even if cached (useful for retrying with different resolution).
+    """
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     ext = ".jpg"
@@ -556,7 +624,7 @@ def download_image(url: str, save_dir: str = "data/images") -> str | None:
     filename = hashlib.md5(url.encode()).hexdigest() + ext
     save_path = str(Path(save_dir) / filename)
 
-    if Path(save_path).exists():
+    if Path(save_path).exists() and not force:
         return save_path
 
     # Upgrade Twitter image URLs to original resolution
@@ -576,6 +644,46 @@ def download_image(url: str, save_dir: str = "data/images") -> str | None:
     except Exception as e:
         log.error(f"Failed to download image {url}: {e}")
     return None
+
+
+def check_image_urls_quality(image_urls: list[str], min_dimension: int = 800) -> tuple[bool, list[str]]:
+    """Pre-check image URLs for quality by downloading to temp and checking size.
+
+    Returns (has_good_images, details_list).
+    Cleans up cached files that are too small so they don't persist.
+    """
+    import tempfile
+    from PIL import Image
+
+    if not image_urls:
+        return False, ["No image URLs"]
+
+    details = []
+    good_count = 0
+    temp_dir = tempfile.mkdtemp(prefix="imgcheck_")
+
+    for url in image_urls:
+        try:
+            path = download_image(url, save_dir=temp_dir)
+            if not path:
+                details.append(f"  {url[:60]}... — download failed")
+                continue
+            with Image.open(path) as img:
+                w, h = img.size
+                longest = max(w, h)
+                if longest >= min_dimension:
+                    good_count += 1
+                    details.append(f"  {w}x{h} OK")
+                else:
+                    details.append(f"  {w}x{h} too small (need {min_dimension}px)")
+        except Exception as e:
+            details.append(f"  {url[:60]}... — error: {e}")
+
+    # Clean up temp dir
+    import shutil
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return good_count > 0, details
 
 
 def post_thread(
@@ -788,7 +896,7 @@ def get_bookmarks(max_results: int = 40) -> list[XPost]:
         f"{API_BASE}/users/{user_id}/bookmarks",
         params={
             "max_results": min(max_results, 100),
-            "tweet.fields": "public_metrics,author_id,created_at,lang,attachments,text",
+            "tweet.fields": "public_metrics,author_id,created_at,lang,attachments,text,conversation_id",
             "expansions": "author_id,attachments.media_keys",
             "media.fields": "url,type,preview_image_url",
             "user.fields": "username,name",
@@ -839,6 +947,7 @@ def get_bookmarks(max_results: int = 40) -> list[XPost]:
             views=metrics.get("impression_count", 0),
             language=tweet.get("lang"),
             created_at=tweet.get("created_at"),
+            conversation_id=tweet.get("conversation_id"),
         ))
 
     log.info(f"Fetched {len(posts)} bookmarks")

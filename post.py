@@ -12,6 +12,7 @@ Usage: python post.py [--niche tatamispaces] [--dry-run] [--no-ig] [--post-id 30
 
 import sys
 import os
+import re
 import json
 import asyncio
 import argparse
@@ -121,12 +122,24 @@ CATEGORIES = [
 
 def _get_recent_categories(posts_data: dict, n: int = 2) -> list[str]:
     """Get categories of the last N posted posts."""
+    posted = _get_recent_posted(posts_data, n)
+    return [p.get("category", "other") for p in posted]
+
+
+def _get_recent_posted(posts_data: dict, n: int = 3) -> list[dict]:
+    """Get the last N posted posts, sorted most-recent first."""
     posted = [
         p for p in posts_data.get("posts", [])
         if p.get("status") == "posted" and p.get("posted_at")
     ]
     posted.sort(key=lambda p: p.get("posted_at", ""), reverse=True)
-    return [p.get("category", "other") for p in posted[:n]]
+    return posted[:n]
+
+
+def _get_recent_source_handles(posts_data: dict, n: int = 3) -> list[str]:
+    """Get source handles of the last N posted posts."""
+    recent = _get_recent_posted(posts_data, n)
+    return [p.get("source_handle", "").lstrip("@").lower() for p in recent]
 
 
 def _auto_categorize(post: dict) -> str:
@@ -166,21 +179,25 @@ def _queue_stats(posts_data: dict) -> tuple[str, bool]:
     return " | ".join(parts), is_low
 
 
-def find_next_post(posts_data: dict) -> dict | None:
+def find_next_post(posts_data: dict, exclude_ids: set | None = None) -> dict | None:
     """Find the best approved post to publish next.
 
     Picks from ready posts, preferring:
-    1. Different category from last 2 posts (variety)
-    2. Higher score if available
-    3. Falls back to random if all same category
+    1. Different source handle from last 3 posts (avoid same-source runs)
+    2. Different category from last 2 posts (variety)
+    3. Higher score if available
+    4. Falls back to random if all same category/source
 
     Quality gate: bookmarked posts with score < MIN_POST_SCORE get skipped.
     """
     now = datetime.now(timezone.utc)
+    exclude_ids = exclude_ids or set()
 
     ready = []
     for post in posts_data.get("posts", []):
         if post.get("status") not in ("approved",):
+            continue
+        if post.get("id") in exclude_ids:
             continue
         scheduled = post.get("scheduled_for")
         if not scheduled:
@@ -206,21 +223,39 @@ def find_next_post(posts_data: dict) -> dict | None:
         return None
 
     recent_cats = _get_recent_categories(posts_data)
+    recent_handles = _get_recent_source_handles(posts_data)
     log.info(f"Recent categories: {recent_cats}")
-    log.info(f"Ready posts: {[(p['id'], p.get('category')) for p in ready]}")
+    log.info(f"Recent source handles: {recent_handles}")
+    log.info(f"Ready posts: {[(p['id'], p.get('category'), p.get('source_handle','?')) for p in ready]}")
 
-    # Prefer posts NOT in recent categories
-    diverse = [p for p in ready if p.get("category") not in recent_cats]
-    if diverse:
-        # Pick highest score, or random if no scores
-        scored = [p for p in diverse if p.get("score")]
+    def _pick_best(candidates: list[dict]) -> dict:
+        """Pick best from candidates: highest score or random."""
+        scored = [p for p in candidates if p.get("score")]
         if scored:
             scored.sort(key=lambda p: p.get("score", 0), reverse=True)
             return scored[0]
         import random
-        return random.choice(diverse)
+        return random.choice(candidates)
 
-    # All same category — just pick random from ready
+    # Filter: different source handle AND different category (best diversity)
+    def _handle_of(p):
+        return (p.get("source_handle") or "").lstrip("@").lower()
+
+    fresh_handle = [p for p in ready if _handle_of(p) not in recent_handles]
+    fresh_both = [p for p in fresh_handle if p.get("category") not in recent_cats]
+    if fresh_both:
+        return _pick_best(fresh_both)
+
+    # At least different source handle
+    if fresh_handle:
+        return _pick_best(fresh_handle)
+
+    # At least different category
+    fresh_cat = [p for p in ready if p.get("category") not in recent_cats]
+    if fresh_cat:
+        return _pick_best(fresh_cat)
+
+    # All same — just pick random from ready
     import random
     return random.choice(ready)
 
@@ -258,6 +293,40 @@ def download_post_images(post: dict) -> list[str]:
     return paths
 
 
+
+
+def _retry_download_images(post: dict, min_dimension: int = 800) -> list[str]:
+    """Re-download images with force=True to bypass cache, check quality.
+
+    Returns list of good image paths, or empty list if all still too small.
+    """
+    from PIL import Image
+
+    image_urls = post.get("image_urls", [])
+    if not image_urls:
+        return []
+
+    handle = post.get("source_handle", "unknown").lstrip("@")
+    save_dir = str(BASE_DIR / "images" / handle)
+
+    good_paths = []
+    for url in image_urls:
+        local_path = download_image(url, save_dir=save_dir, force=True)
+        if not local_path:
+            continue
+        try:
+            with Image.open(local_path) as img:
+                w, h = img.size
+                if max(w, h) >= min_dimension:
+                    good_paths.append(local_path)
+                    log.info(f"  Re-downloaded {Path(local_path).name}: {w}x{h} OK")
+                else:
+                    log.info(f"  Re-downloaded {Path(local_path).name}: {w}x{h} still too small")
+        except Exception as e:
+            log.warning(f"  Could not check re-downloaded {local_path}: {e}")
+            good_paths.append(local_path)
+
+    return good_paths
 
 
 def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
@@ -378,84 +447,105 @@ async def main():
                 log.info(f"Skipping: {skip_reason}")
                 return
 
-        post = find_next_post(posts_data)
-        save_posts(posts_data)  # persist any quality-gate skips
+        # Retry loop: if a post's images all fail quality check, try the next one
+        MAX_IMAGE_RETRIES = 5
+        skipped_ids = set()
+        post = None
+        image_paths = []
 
-        if not post:
-            log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
+        for _attempt in range(MAX_IMAGE_RETRIES):
+            post = find_next_post(posts_data, exclude_ids=skipped_ids)
+            save_posts(posts_data)  # persist any quality-gate skips
 
-            # Show upcoming
-            approved = [
-                p for p in posts_data.get("posts", [])
-                if p.get("status") == "approved" and p.get("scheduled_for")
-            ]
-            if approved:
-                log.info("Upcoming approved posts:")
-                for p in approved:
-                    log.info(f"  #{p['id']} — scheduled {p['scheduled_for']}")
-            else:
-                drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
-                if drafts:
-                    log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
-            return
-
-    post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")
-    log.info(f"Found post #{post['id']} ready to publish")
-    log.info(f"  Text: {post_text[:100]}...")
-    log.info(f"  Source: {post.get('source_handle', 'original')}")
-
-    # Download images
-    image_paths = download_post_images(post)
-    if image_paths:
-        log.info(f"  Images: {len(image_paths)} downloaded")
-
-        # Image selection: use image_index for specific image, image_count for limit
-        img_index = post.get("image_index")
-        img_count = post.get("image_count")
-        if img_index is not None and 0 <= img_index < len(image_paths):
-            image_paths = [image_paths[img_index]]
-            log.info(f"  Selected image #{img_index}: {Path(image_paths[0]).name}")
-        elif img_count is not None and img_count < len(image_paths):
-            image_paths = image_paths[:img_count]
-            log.info(f"  Limited to first {img_count} image(s)")
-
-        log.info(f"  Images: {len(image_paths)} ready")
-    else:
-        log.info("  No images -- will post text-only")
-
-    # Check image quality — filter out small images, skip post only if ALL fail
-    if image_paths:
-        from PIL import Image
-        MIN_DIMENSION = 800  # minimum pixels on longest side
-        good_paths = []
-        for img_path in image_paths:
-            try:
-                with Image.open(img_path) as img:
-                    w, h = img.size
-                    longest = max(w, h)
-                    log.info(f"  Image {Path(img_path).name}: {w}x{h}")
-                    if longest < MIN_DIMENSION:
-                        log.warning(f"  Filtering out small image: {Path(img_path).name} ({w}x{h})")
-                        if dry_run:
-                            print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would filter out in live mode")
-                    else:
-                        good_paths.append(img_path)
-            except Exception as e:
-                log.warning(f"  Could not check image {img_path}: {e}")
-                good_paths.append(img_path)  # keep if we can't check
-
-        if not good_paths and image_paths:
-            log.warning(f"  ALL images failed quality check")
-            if not dry_run:
-                post["status"] = "skipped_low_res"
-                post["skip_reason"] = f"All {len(image_paths)} images below {MIN_DIMENSION}px"
-                save_posts(posts_data)
-                notify(f"{niche['handle']} post skipped", f"Post #{post['id']} all images too small")
+            if not post:
+                log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
+                approved = [
+                    p for p in posts_data.get("posts", [])
+                    if p.get("status") == "approved" and p.get("scheduled_for")
+                ]
+                if approved:
+                    log.info("Upcoming approved posts:")
+                    for p in approved:
+                        log.info(f"  #{p['id']} — scheduled {p['scheduled_for']}")
+                else:
+                    drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
+                    if drafts:
+                        log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
                 return
+
+            post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")
+            log.info(f"Trying post #{post['id']} (attempt {_attempt + 1})")
+            log.info(f"  Text: {post_text[:100]}...")
+            log.info(f"  Source: {post.get('source_handle', 'original')}")
+
+            # Download images
+            image_paths = download_post_images(post)
+            if image_paths:
+                log.info(f"  Images: {len(image_paths)} downloaded")
+
+                # Image selection
+                img_index = post.get("image_index")
+                img_count = post.get("image_count")
+                if img_index is not None and 0 <= img_index < len(image_paths):
+                    image_paths = [image_paths[img_index]]
+                    log.info(f"  Selected image #{img_index}: {Path(image_paths[0]).name}")
+                elif img_count is not None and img_count < len(image_paths):
+                    image_paths = image_paths[:img_count]
+                    log.info(f"  Limited to first {img_count} image(s)")
+
+                log.info(f"  Images: {len(image_paths)} ready")
             else:
-                print(f"WARNING: All images too small — would skip in live mode")
+                log.info("  No images -- will post text-only")
+
+            # Check image quality — filter out small images
+            if image_paths:
+                from PIL import Image
+                MIN_DIMENSION = 800
+                good_paths = []
+                bad_urls = []
+                for img_path in image_paths:
+                    try:
+                        with Image.open(img_path) as img:
+                            w, h = img.size
+                            longest = max(w, h)
+                            log.info(f"  Image {Path(img_path).name}: {w}x{h}")
+                            if longest < MIN_DIMENSION:
+                                log.warning(f"  Filtering out small image: {Path(img_path).name} ({w}x{h})")
+                                bad_urls.append(img_path)
+                                if dry_run:
+                                    print(f"WARNING: Image {Path(img_path).name} is only {w}x{h} — would filter out in live mode")
+                            else:
+                                good_paths.append(img_path)
+                    except Exception as e:
+                        log.warning(f"  Could not check image {img_path}: {e}")
+                        good_paths.append(img_path)
+
+                if not good_paths and image_paths:
+                    # Try re-downloading (cache may be stale/degraded)
+                    log.info("  All images too small — trying fresh re-download...")
+                    good_paths = _retry_download_images(post, MIN_DIMENSION)
+
+                if not good_paths and image_paths:
+                    log.warning(f"  ALL images failed quality check for post #{post['id']}")
+                    if not dry_run:
+                        post["status"] = "skipped_low_res"
+                        post["skip_reason"] = f"All {len(image_paths)} images below {MIN_DIMENSION}px"
+                        save_posts(posts_data)
+                        skipped_ids.add(post["id"])
+                        log.info(f"  Skipped #{post['id']}, trying next post...")
+                        continue  # try next post
+                    else:
+                        print(f"WARNING: All images too small — would skip in live mode")
+                else:
+                    image_paths = good_paths
+
+            # Post passed quality check (or has no images) — proceed to publish
+            break
         else:
-            image_paths = good_paths
+            # Exhausted all retries
+            log.warning(f"All {MAX_IMAGE_RETRIES} post attempts had image quality issues")
+            notify(f"{niche['handle']} post failed", f"All attempted posts had image quality issues")
+            return
 
     # Determine post format
     # Museum posts have type="museum" and a pre-written "tweets" array
@@ -504,6 +594,20 @@ async def main():
         return
 
     handle = niche['handle']
+
+    # Check minimum content — reject posts that are only a credit line with no body
+    if not is_thread:
+        check_text = post.get("text", "")
+        if is_museum and post.get("tweets"):
+            check_text = post["tweets"][0].get("text", "")
+        body_only = re.sub(r'📷\s*@\S+', '', check_text).strip()
+        if len(body_only) < 20:
+            log.error(f"Post #{post['id']} has no real body text ({len(body_only)}c without credit). Marking as failed.")
+            post["status"] = "failed"
+            post["fail_reason"] = f"No body text (only {len(body_only)}c without credit line)"
+            save_posts(posts_data)
+            notify(f"{handle} post FAILED", f"Post #{post['id']} has no body text — only credit line")
+            return
 
     # Check character limit — Premium allows up to 4000 chars
     if not is_museum and not is_thread and len(post.get("text", "")) > 4000:

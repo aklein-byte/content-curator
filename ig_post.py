@@ -95,6 +95,10 @@ def find_unposted_to_ig(posts_data: dict, ig_log: list, max_count: int = 3) -> l
         # Check posts.json flags
         if post.get("ig_posted") or post.get("ig_container_created"):
             continue
+        # Skip dedup-recovered posts — they were already live on X and may
+        # have been manually crossposted to IG already
+        if post.get("dedup_recovered"):
+            continue
         # Check separate dedup log (survives posts.json clobbers)
         if _ig_already_posted(ig_log, post.get("id")):
             continue

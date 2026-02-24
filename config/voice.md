@@ -83,3 +83,23 @@ When doing an intro/showcase thread:
 - Tweet 1: What this account is. No image. Short.
 - Tweets 2-5: One image each, full caption using the structure above
 - Pin the thread
+
+## Western Audience Context
+Our audience is primarily English-speaking and may not be familiar with Japanese conventions. Always provide context:
+
+### Prices
+- Always include USD equivalent for yen amounts: "¥160,000/month (~$1,070)"
+- Use ~$X format, rounded to nearest $10
+
+### Japanese Terms
+- **Room layouts**: Explain once — "1LDK (one-bedroom)", "2LDK (two-bedroom)". LDK = Living/Dining/Kitchen.
+- **Common terms** that DON'T need explanation (our audience has learned these): kominka, tatami, shoji, ryokan, machiya, engawa, tokonoma, fusuma
+- **Less common terms** that DO need brief inline context: "nagaya (row house)", "kura (storehouse)", "irori (sunken hearth)", "genkan (entryway)"
+- Don't define terms like a textbook — weave context into the sentence naturally: "the irori (sunken hearth) is original" not "An irori is a traditional Japanese sunken hearth used for cooking"
+
+### Measurements
+- Include both metric and imperial when it helps: "3mm" is fine alone, but "34㎡ (~366 sq ft)" helps people picture the space
+- Yen prices always get USD: "¥16.8M (~$112K)"
+
+### Locations
+- Add brief context for lesser-known places: "Monzen-nakacho" is fine for Tokyo neighborhoods, but "Misato, Akita Prefecture" helps more than just "Misato"
