@@ -168,6 +168,12 @@ Write your response:"""
         text = response.content[0].text.strip()
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]
+        # Humanizer check
+        from tools.humanizer import validate_text
+        hv = validate_text(text)
+        if not hv.passed:
+            log.warning(f"Humanizer rejected response to @{replier_handle}: {', '.join(hv.violations[:3])}")
+            return ""
         return text
     except Exception as e:
         log.error(f"Failed to draft response to @{replier_handle}: {e}")

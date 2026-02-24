@@ -29,7 +29,8 @@ from tools.xapi import (
     create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche,
     post_thread, download_image,
 )
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.post_queue import resolve_posts_file, load_posts as pq_load_posts, save_posts as pq_save_posts
 from agents.writer import generate_thread_captions
 from config.niches import get_niche
 
@@ -42,26 +43,16 @@ IMAGES_DIR = BASE_DIR / "data" / "images"
 MAX_POSTS_PER_DAY = 3
 MIN_GAP_HOURS = 2
 
-# Resolved once by main(), used by load_posts/save_posts
-_resolved_posts_file: Path | None = None
-
-
-def _resolve_posts_file(niche_id: str) -> Path:
-    """Resolve the posts file path for a niche. Called once by main()."""
-    env_file = os.environ.get("POSTS_FILE")
-    if env_file:
-        return Path(env_file)
-    niche = get_niche(niche_id)
-    filename = niche.get("posts_file", "posts.json")
-    return BASE_DIR / filename
+# Set once by main(), used by module-level load/save wrappers
+_niche_id: str | None = None
 
 
 def load_posts() -> dict:
-    return load_json(_resolved_posts_file, default={"posts": []})
+    return pq_load_posts(_niche_id)
 
 
 def save_posts(data: dict):
-    save_json(_resolved_posts_file, data, lock=True)
+    pq_save_posts(data, _niche_id, lock=True)
 
 
 def parse_time(ts: str) -> datetime:
@@ -401,11 +392,12 @@ async def main():
     # Set X API credentials for this niche
     set_xapi_niche(niche_id)
 
-    # Resolve posts file for this niche (must happen before any load_posts/save_posts calls)
-    global _resolved_posts_file
-    _resolved_posts_file = _resolve_posts_file(niche_id)
+    # Set niche for module-level load/save wrappers
+    global _niche_id
+    _niche_id = niche_id
+    posts_file = resolve_posts_file(niche_id)
 
-    log.info(f"Checking post queue for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'}) — {_resolved_posts_file.name}")
+    log.info(f"Checking post queue for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'}) — {posts_file.name}")
 
     posts_data = load_posts()
 
@@ -433,7 +425,7 @@ async def main():
                 post = p
                 break
         if not post:
-            log.error(f"Post #{args.post_id} not found in {_resolved_posts_file.name}")
+            log.error(f"Post #{args.post_id} not found in {posts_file.name}")
             return
         if post.get("status") == "posted":
             log.error(f"Post #{args.post_id} is already posted (tweet {post.get('tweet_id')})")

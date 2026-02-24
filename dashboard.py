@@ -29,6 +29,7 @@ load_dotenv(BASE_DIR / ".env")
 
 sys.path.insert(0, str(BASE_DIR))
 from config.niches import get_niche, list_niches
+from tools.post_queue import resolve_posts_file, load_posts, save_posts as pq_save_posts
 
 # URL path -> niche_id shortcut routes (e.g., /museum -> museumstories)
 _NICHE_ROUTES = {n: n for n in list_niches()}
@@ -36,15 +37,9 @@ _NICHE_ROUTES["museum"] = "museumstories"
 _NICHE_ROUTES["tatami"] = "tatamispaces"
 
 
-def _get_posts_file(niche_id: str) -> Path:
-    """Resolve posts file path from niche config."""
-    niche = get_niche(niche_id)
-    return BASE_DIR / niche.get("posts_file", "posts.json")
-
-
 def _lock_posts(niche_id: str):
     """Acquire exclusive lock for a niche's posts file."""
-    posts_file = _get_posts_file(niche_id)
+    posts_file = resolve_posts_file(niche_id)
     lock_path = posts_file.parent / f".{posts_file.name}.lock"
     lock_path.touch(exist_ok=True)
     fd = open(lock_path, "r")
@@ -58,22 +53,9 @@ def _unlock_posts(fd):
     fd.close()
 
 
-def load_posts(niche_id: str) -> dict:
-    posts_file = _get_posts_file(niche_id)
-    if not posts_file.exists():
-        return {"posts": []}
-    data = json.loads(posts_file.read_text())
-    if isinstance(data, list):
-        data = {"posts": data}
-    return data
-
-
 def save_posts(data: dict, niche_id: str):
-    """Atomic write: tmp file then rename (matches tools/common.py save_json)."""
-    posts_file = _get_posts_file(niche_id)
-    tmp = posts_file.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False))
-    tmp.rename(posts_file)
+    """Save posts with lock for dashboard concurrent access."""
+    pq_save_posts(data, niche_id, lock=True)
 
 
 def render_post_html(post, index):

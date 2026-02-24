@@ -24,6 +24,7 @@ load_dotenv()
 
 from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost, get_liking_users, get_own_recent_tweets, get_user_recent_tweets, set_niche as set_xapi_niche
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, niche_log_path
+from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts, next_post_id
 from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
@@ -78,7 +79,7 @@ log = setup_logging("engage")
 BASE_DIR = Path(__file__).parent
 
 # Resolved per-niche in main()
-POSTS_FILE: Path = BASE_DIR / "posts.json"
+_niche_id: str | None = None
 ENGAGEMENT_LOG: Path = BASE_DIR / "engagement-log.json"
 ENGAGEMENT_DRAFTS: Path = BASE_DIR / "engagement-drafts.json"
 
@@ -201,17 +202,16 @@ def load_source_tweet_ids() -> set:
     We shouldn't like/engage with these — it looks weird to like the original
     of content we've already curated and reposted."""
     ids = set()
-    if POSTS_FILE.exists():
-        try:
-            data = json.loads(POSTS_FILE.read_text())
-            for p in data.get("posts", []):
-                src = p.get("source_url") or ""
-                if src:
-                    tweet_id = src.rstrip("/").split("/")[-1]
-                    if tweet_id.isdigit():
-                        ids.add(tweet_id)
-        except Exception:
-            pass
+    try:
+        data = pq_load_posts(_niche_id)
+        for p in data.get("posts", []):
+            src = p.get("source_url") or ""
+            if src:
+                tweet_id = src.rstrip("/").split("/")[-1]
+                if tweet_id.isdigit():
+                    ids.add(tweet_id)
+    except Exception:
+        pass
     return ids
 
 
@@ -278,7 +278,7 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
 
 async def main():
     global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
-    global POSTS_FILE, ENGAGEMENT_LOG, ENGAGEMENT_DRAFTS
+    global _niche_id, ENGAGEMENT_LOG, ENGAGEMENT_DRAFTS
 
     parser = argparse.ArgumentParser(description="Engage with JP architecture posts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -301,8 +301,7 @@ async def main():
     _apply_niche_limits(niche_id)
 
     # Resolve niche-specific file paths
-    posts_filename = niche.get("posts_file", "posts.json")
-    POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
+    _niche_id = niche_id
     ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(niche_log_path("engagement-log.json", niche_id))))
     ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(niche_log_path("engagement-drafts.json", niche_id))))
 
@@ -631,10 +630,7 @@ async def main():
     MIN_SCORE_FOR_QUOTE = 9
 
     # Load posts file to check for existing quote drafts
-    if POSTS_FILE.exists():
-        posts_data = load_json(POSTS_FILE, default={"posts": []})
-    else:
-        posts_data = {"posts": []}
+    posts_data = pq_load_posts(_niche_id)
     existing_quote_ids = {
         str(p.get("quote_tweet_id")) for p in posts_data.get("posts", [])
         if p.get("quote_tweet_id")
@@ -661,9 +657,8 @@ async def main():
         )
 
         if qt_text:
-            max_id = max((p.get("id", 0) for p in posts_data.get("posts", [])), default=0)
             new_post = {
-                "id": max_id + 1,
+                "id": next_post_id(posts_data),
                 "status": "draft",
                 "type": "quote",
                 "text": qt_text,
@@ -675,7 +670,7 @@ async def main():
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             posts_data["posts"].append(new_post)
-            save_json(POSTS_FILE, posts_data, lock=True)
+            pq_save_posts(posts_data, _niche_id, lock=True)
             quotes_drafted += 1
             log.info(f"Quote tweet draft #{new_post['id']}: {qt_text[:80]}...")
 

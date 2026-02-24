@@ -435,6 +435,12 @@ async def draft_reply(
         # Remove any wrapping quotes the model might add
         if reply.startswith('"') and reply.endswith('"'):
             reply = reply[1:-1]
+        # Humanizer check
+        from tools.humanizer import validate_text
+        hv = validate_text(reply)
+        if not hv.passed:
+            logger.warning(f"Humanizer rejected reply to @{author}: {', '.join(hv.violations[:3])}")
+            return ""
         return reply
     except Exception as e:
         logger.error(f"Failed to draft reply to @{author}: {e}")
@@ -484,6 +490,12 @@ Write the quote tweet:"""
         text = response.content[0].text.strip()
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]
+        # Humanizer check
+        from tools.humanizer import validate_text
+        hv = validate_text(text)
+        if not hv.passed:
+            logger.warning(f"Humanizer rejected quote tweet for @{author}: {', '.join(hv.violations[:3])}")
+            return ""
         return text
     except Exception as e:
         logger.error(f"Failed to draft quote tweet for @{author}: {e}")
@@ -533,18 +545,31 @@ async def draft_original_post(
                     if depth == 0:
                         try:
                             result = json.loads(text[json_start:i + 1])
-                            return {
+                            parsed = {
                                 "text": result.get("text", ""),
                                 "credit_handle": result.get("credit_handle", author),
                             }
+                            from tools.humanizer import validate_text as _hv2
+                            hv = _hv2(parsed["text"])
+                            if not hv.passed:
+                                logger.warning(f"Humanizer rejected original post from @{author}: {', '.join(hv.violations[:3])}")
+                                return {"text": "", "credit_handle": author}
+                            return parsed
                         except json.JSONDecodeError:
                             break
 
         # Fallback: use the whole response as text
-        return {
+        result = {
             "text": text.strip(),
             "credit_handle": author,
         }
+        # Humanizer check on final text
+        from tools.humanizer import validate_text as _hv
+        hv = _hv(result["text"])
+        if not hv.passed:
+            logger.warning(f"Humanizer rejected original post from @{author}: {', '.join(hv.violations[:3])}")
+            return {"text": "", "credit_handle": author}
+        return result
     except Exception as e:
         logger.error(f"Failed to draft original post from @{author}: {e}")
         return {"text": "", "credit_handle": author}

@@ -20,69 +20,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_bookmarks, get_tweet_by_id, XPost, set_niche as set_xapi_niche, check_image_urls_quality
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic
+from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic
+from tools.post_queue import (
+    load_posts as pq_load_posts, save_posts as pq_save_posts,
+    next_post_id, already_in_queue, next_schedule_slot,
+)
 from agents.engager import evaluate_post, draft_original_post
-from agents.fact_checker import fact_check_draft, SourceContext
+from agents.fact_checker import fact_check_draft, quick_validate, SourceContext
 from config.niches import get_niche
 
 log = setup_logging("bookmarks")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE: Path = None  # resolved in main() from niche config
 
+# Set once by main()
+_niche_id: str | None = None
 
-def validate_draft(caption: str, source_text: str, author: str, image_urls: list[str], enriched_context: str = "") -> tuple[bool, str]:
-    """Use Sonnet to QA a draft before it enters the queue.
-
-    Checks that the caption:
-    - Has real body text (not just a credit line)
-    - Makes sense as a standalone post
-    - Appropriately references what the images show
-    - Doesn't hallucinate details not in the source
-
-    Returns (ok, reason).
-    """
-    client = get_anthropic()
-    image_list = "\n".join(f"  {i+1}. {url}" for i, url in enumerate(image_urls))
-
-    context_section = ""
-    if enriched_context:
-        context_section = f"\nEnriched context (vision/links/thread) provided to the drafter:\n{enriched_context}\n"
-
-    try:
-        response = client.messages.create(
-            model=load_config().get("models", {}).get("evaluator", "claude-sonnet-4-20250514"),
-            max_tokens=256,
-            messages=[{"role": "user", "content": f"""You are a QA reviewer for a social media post.
-
-Source post by @{author}:
-{source_text}
-{context_section}
-Images ({len(image_urls)}):
-{image_list}
-
-Draft caption to publish:
-{caption}
-
-Answer these questions:
-1. Does the caption have real body text, or is it just a credit line / attribution?
-2. Does the caption make sense as a standalone post someone would want to read?
-3. CRITICAL — Does the draft contain specific facts (architect names, dates, locations, materials, dimensions) that are NOT in the source text or enriched context above? If the draft names an architect, city, year, or material that doesn't appear in the source or context, it is hallucinated and must FAIL.
-4. Does the caption add value beyond just restating the source?
-
-Respond with EXACTLY one line:
-PASS — if the draft is good to post
-FAIL: <brief reason> — if the draft should be rejected"""}],
-        )
-        result = response.content[0].text.strip().split("\n")[0]
-        if result.startswith("PASS"):
-            return True, "ok"
-        else:
-            reason = result.replace("FAIL:", "").replace("FAIL", "").strip() or "QA rejected"
-            return False, reason
-    except Exception as e:
-        log.warning(f"Draft QA call failed: {e} — allowing draft through")
-        return True, "qa-error-passthrough"
 
 async def enrich_context(post: XPost) -> str:
     """Gather rich context for a bookmarked post before drafting a caption.
@@ -188,87 +141,15 @@ async def enrich_context(post: XPost) -> str:
     return context
 
 
-_pw = load_config().get("posting_window", {})
-
-
-def load_posts() -> dict:
-    return load_json(POSTS_FILE, default={"posts": []})
-
-
-def save_posts(data: dict):
-    save_json(POSTS_FILE, data)
-
-
-def next_post_id(posts_data: dict) -> int:
-    existing_ids = [p.get("id", 0) for p in posts_data.get("posts", [])]
-    return max(existing_ids, default=0) + 1
-
-
-MAX_PER_DAY = _pw.get("max_per_day", 4)
-MIN_GAP_HOURS = _pw.get("min_gap_hours", 2)
-WINDOW_START = _pw.get("start_hour_et", 7)
-WINDOW_END = _pw.get("end_hour_et", 22)
-
-
-def next_schedule_slot(posts_data: dict) -> datetime:
-    """Find the next available posting slot with random timing across the day."""
-    import random
-    from zoneinfo import ZoneInfo
-    et = ZoneInfo("America/New_York")
-
-    # Collect all scheduled times as datetimes
-    taken_times = []
-    for p in posts_data.get("posts", []):
-        sf = p.get("scheduled_for")
-        if sf and p.get("status") in ("approved", "posted", "scheduled_native"):
-            try:
-                taken_times.append(datetime.fromisoformat(sf).astimezone(et))
-            except Exception:
-                pass
-
-    now_et = datetime.now(et)
-    check_date = now_et.date()
-    if now_et.hour >= WINDOW_END:
-        check_date += timedelta(days=1)
-
-    for day_offset in range(30):
-        d = check_date + timedelta(days=day_offset)
-
-        posts_on_day = sum(1 for t in taken_times if t.date() == d)
-        if posts_on_day >= MAX_PER_DAY:
-            continue
-
-        # Try random times within the window, up to 20 attempts
-        for _ in range(20):
-            hour = random.randint(WINDOW_START, WINDOW_END - 1)
-            minute = random.randint(0, 59)
-            candidate = datetime(d.year, d.month, d.day, hour, minute, tzinfo=et)
-
-            if candidate <= now_et:
-                continue
-
-            too_close = any(
-                abs((candidate - t).total_seconds()) < MIN_GAP_HOURS * 3600
-                for t in taken_times
-            )
-            if too_close:
-                continue
-
-            return candidate
-
-    return datetime.now(et) + timedelta(days=30)
-
-
 MAX_REPOST_QUEUE = 10  # Skip run if this many reposts are already waiting
 
 
-def already_in_queue(posts_data: dict, post_id: str) -> bool:
-    """Check if a post ID or source URL containing it is already queued."""
-    for p in posts_data.get("posts", []):
-        src = p.get("source_url") or ""
-        if post_id in src:
-            return True
-    return False
+def load_posts() -> dict:
+    return pq_load_posts(_niche_id)
+
+
+def save_posts(data: dict):
+    pq_save_posts(data, _niche_id)
 
 
 async def main():
@@ -281,9 +162,9 @@ async def main():
     niche_id = args.niche
     niche = get_niche(niche_id)
 
-    # Resolve niche-aware posts file
-    global POSTS_FILE
-    POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / niche.get("posts_file", "posts.json"))))
+    # Set niche for module-level load/save wrappers
+    global _niche_id
+    _niche_id = niche_id
 
     log.info(f"Fetching bookmarks for {niche['handle']}")
 
@@ -388,10 +269,18 @@ async def main():
             continue
         caption_text = fc_story["tweets"][0]["text"]
 
-        # QA check: Sonnet validates the draft makes sense and references images
-        qa_ok, qa_reason = validate_draft(caption_text, post.text, post.author_handle, post.image_urls, enriched_context=context)
+        # QA check: Sonnet validates the draft makes sense and doesn't hallucinate
+        qa_source = SourceContext.from_bookmark(post.text, post.author_handle, enriched_context=context)
+        qa_ok, qa_reason = quick_validate(caption_text, qa_source)
         if not qa_ok:
             log.warning(f"  Draft QA failed for @{post.author_handle}: {qa_reason}")
+            continue
+
+        # Humanizer check: banned words, phrases, AI patterns, em-dashes
+        from tools.humanizer import validate_text
+        hv = validate_text(caption_text)
+        if not hv.passed:
+            log.warning(f"  Humanizer rejected draft for @{post.author_handle}: {', '.join(hv.violations[:3])}")
             continue
 
         if len(caption_text) > 4000:
@@ -399,7 +288,7 @@ async def main():
             continue
 
         source_url = f"https://x.com/{post.author_handle}/status/{post.post_id}"
-        sched = next_schedule_slot(posts_data)
+        sched = next_schedule_slot(posts_data, niche_id)
 
         new_post = {
             "id": next_post_id(posts_data),

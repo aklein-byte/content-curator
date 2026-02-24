@@ -9,7 +9,6 @@ Usage: python ig_post.py [--niche tatamispaces] [--dry-run] [--max 3]
 """
 
 import sys
-import os
 import json
 import asyncio
 import argparse
@@ -25,22 +24,20 @@ from config.niches import get_niche
 from tools.ig_api import publish_single, publish_carousel
 from tools.ig_browser import adapt_caption_for_ig
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
+from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts
 
 log = setup_logging("ig_post")
 
 BASE_DIR = Path(__file__).parent
 
-# Resolved per-niche at runtime
-_resolved_posts_file: Path = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
+# Set once by main()
+_niche_id: str | None = None
 _resolved_ig_log: Path = BASE_DIR / "ig-post-log.json"
 
 
 def _init_paths(niche: dict):
-    """Set posts file and IG log paths based on niche config."""
-    global _resolved_posts_file, _resolved_ig_log
-    posts_filename = niche.get("posts_file", "posts.json")
-    _resolved_posts_file = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / posts_filename)))
-    # Separate IG log per niche to avoid cross-contamination
+    """Set IG log path based on niche config."""
+    global _resolved_ig_log
     niche_name = niche.get("name", "").lower().replace(" ", "")
     if niche_name and niche_name != "tatami":
         _resolved_ig_log = BASE_DIR / f"ig-post-log-{niche_name}.json"
@@ -49,11 +46,11 @@ def _init_paths(niche: dict):
 
 
 def load_posts() -> dict:
-    return load_json(_resolved_posts_file, default={"posts": []})
+    return pq_load_posts(_niche_id)
 
 
 def save_posts(data: dict):
-    save_json(_resolved_posts_file, data, lock=True)
+    pq_save_posts(data, _niche_id, lock=True)
 
 
 def count_ig_posts_today(posts_data: dict) -> int:
@@ -156,6 +153,8 @@ async def main():
     niche_id = args.niche
     niche = get_niche(niche_id)
 
+    global _niche_id
+    _niche_id = niche_id
     _init_paths(niche)
     ig_env = niche.get("ig_env")
     log.info(f"Instagram cross-post for {niche['handle']} ({'DRY RUN' if args.dry_run else 'LIVE'})")

@@ -24,7 +24,6 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from collections import Counter
-from dataclasses import asdict
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -35,8 +34,13 @@ from tools.museum_apis import (
     MuseumObject, met_search, aic_search, cleveland_search, smk_search, search_all,
 )
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide
+from tools.post_queue import (
+    resolve_posts_file as pq_resolve_posts_file,
+    load_posts as pq_load_posts, save_posts as pq_save_posts,
+    next_post_id, next_schedule_slot,
+)
 from config.niches import get_niche
-from agents.fact_checker import fact_check_draft, SourceContext
+from agents.fact_checker import fact_check_draft, quick_validate, SourceContext
 
 log = setup_logging("museum_fetch")
 
@@ -684,44 +688,12 @@ No markdown, no explanation, just the JSON."""
             log.warning(f"Fact-check rejected post for {obj.title}")
             return None
 
-        # Validate: reject banned words
-        banned = ["delve", "tapestry", "vibrant", "realm", "nestled", "testament", "beacon",
-                  "multifaceted", "landscape", "groundbreaking", "fostering", "leveraging",
-                  "spearheading", "navigating", "game-changer", "revolutionize", "cutting-edge"]
-        banned_phrases = ["not just", "more than just", "isn't merely", "a testament to",
-                         "a beacon of", "at the heart of", "rich tapestry", "diverse range",
-                         "in today's", "it's important to note", "it's worth noting",
-                         "stands as a", "whether you're", "valuable insights",
-                         "resonate with", "align with"]
-        all_text = " ".join(t["text"] for t in story["tweets"])
-        all_lower = all_text.lower()
-        for word in banned:
-            if word.lower() in all_lower:
-                log.warning(f"Banned word '{word}' in generated post for {obj.title} — rejecting")
-                return None
-        for phrase in banned_phrases:
-            if phrase in all_lower:
-                log.warning(f"Banned phrase '{phrase}' in generated post for {obj.title} — rejecting")
-                return None
-
-        # Validate: reject AI structural patterns (regex)
-        ai_patterns = [
-            (r"the real \w+ (?:isn't|wasn't|isn't|wasn't)", "the real X isn't Y"),
-            (r"(?:not|isn't|wasn't|isn't|wasn't) [\w\s,]+\. it'?s ", "negative parallelism (not X. it's Y)"),
-            (r"more than (?:just )?(?:a|an) \w+", "more than just a"),
-            (r"what makes (?:this|it) [\w\s]+ (?:remarkable|special|unique|extraordinary)", "what makes this remarkable"),
-            (r"(?:creating|making|transforming|establishing|forging|cementing|solidifying) (?:a|an|the|it) [\w\s]*(?:sense|space|legacy|symbol|reminder|testament)", "participle tack-on"),
-            (r"perhaps (?:the|what|that)", "philosophical wrap-up"),
-            (r"(?:it |this )reminds us", "philosophical wrap-up"),
-            (r"in (?:a|some) (?:way|sense),", "hedging significance"),
-            (r"(?:highlighting|underscoring|illustrating|demonstrating|showcasing) the (?:importance|significance|power|beauty)", "significance claim"),
-            (r"(?:truly|genuinely) (?:remarkable|extraordinary|unique|special)", "vague superlative"),
-            (r"but what (?:makes|made) (?:this|it)", "rhetorical question for profundity"),
-        ]
-        for pattern, label in ai_patterns:
-            if re.search(pattern, all_lower):
-                log.warning(f"AI pattern '{label}' in generated post for {obj.title} — rejecting")
-                return None
+        # Validate: humanizer check (banned words, phrases, AI patterns, em-dashes)
+        from tools.humanizer import validate_tweets
+        hv = validate_tweets(story["tweets"])
+        if not hv.passed:
+            log.warning(f"Humanizer rejected post for {obj.title}: {', '.join(hv.violations[:3])}")
+            return None
 
         # Validate tweet length. Account is Premium (25k limit) so no hard 280 cap.
         # Thread tweets: keep under 600 for readability (threads should be punchy)
@@ -739,14 +711,9 @@ No markdown, no explanation, just the JSON."""
                 log.warning(f"Duplicate images in thread for {obj.title} — rejecting")
                 return None
 
-        # Validate: em-dashes
-        if "\u2014" in all_text or "—" in all_text:
-            log.warning(f"Em-dash found in generated post for {obj.title} — rejecting")
-            return None
-
-        # QA check: Sonnet validates the draft is a coherent post
-        image_urls_for_qa = [t.get("image_url") for t in story["tweets"] if t.get("image_url")]
-        qa_ok, qa_reason = _validate_museum_draft(story, obj, image_urls_for_qa)
+        # QA check: Sonnet validates coherence and catches hallucinations
+        all_text = " ".join(t["text"] for t in story["tweets"])
+        qa_ok, qa_reason = quick_validate(all_text, fc_source)
         if not qa_ok:
             log.warning(f"Draft QA failed for {obj.title}: {qa_reason}")
             return None
@@ -770,71 +737,14 @@ No markdown, no explanation, just the JSON."""
         return None
 
 
-def _validate_museum_draft(story: dict, obj, image_urls: list[str]) -> tuple[bool, str]:
-    """Use Sonnet to QA a museum draft before it enters the queue.
-
-    Checks that the post:
-    - Has real body text (not just a signature/attribution line)
-    - Makes sense as a standalone post
-    - Appropriately references what the images would show
-    - Doesn't hallucinate wild claims
-    """
-    client = _get_anthropic_client()
-    all_text = "\n---\n".join(t["text"] for t in story["tweets"])
-    n_tweets = len(story["tweets"])
-    format_label = f"{n_tweets}-tweet thread" if n_tweets > 1 else "single tweet"
-    image_list = "\n".join(f"  {i+1}. {url}" for i, url in enumerate(image_urls))
-
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6-20250514",
-            max_tokens=256,
-            messages=[{"role": "user", "content": f"""You are a QA reviewer for a museum/art social media account.
-
-Object: {obj.title} by {obj.artist or 'Unknown'}
-Date: {obj.date or 'Unknown'} | Medium: {obj.medium or 'Unknown'}
-Museum: {obj.museum}
-
-Images ({len(image_urls)}):
-{image_list}
-
-Draft post ({format_label}):
-{all_text}
-
-Answer these questions:
-1. Does each tweet have real body text, or is any tweet just attribution/signature with no content?
-2. Does the post make sense as something people would want to read?
-3. If the post describes visual details, are they plausible for a museum object ({obj.medium or 'unknown medium'})?
-4. Is the signature/attribution line (e.g. "Artist, Title, Year. Museum.") present and at the end, not the only content?
-
-Respond with EXACTLY one line:
-PASS — if the draft is good to post
-FAIL: <brief reason> — if the draft should be rejected"""}],
-        )
-        result = response.content[0].text.strip().split("\n")[0]
-        if result.startswith("PASS"):
-            return True, "ok"
-        else:
-            reason = result.replace("FAIL:", "").replace("FAIL", "").strip() or "QA rejected"
-            return False, reason
-    except Exception as e:
-        log.warning(f"Museum draft QA call failed: {e} — allowing draft through")
-        return True, "qa-error-passthrough"
-
-
 # --- Queue management ---
 
-def get_posts_file() -> Path:
-    niche = get_niche(NICHE_ID)
-    return BASE_DIR / niche.get("posts_file", "posts-museumstories.json")
-
-
 def load_posts() -> dict:
-    return load_json(get_posts_file(), default={"posts": []})
+    return pq_load_posts(NICHE_ID)
 
 
 def save_posts(data: dict):
-    save_json(get_posts_file(), data)
+    pq_save_posts(data, NICHE_ID)
 
 
 def get_post_history(posts_data: dict) -> list[dict]:
@@ -853,52 +763,10 @@ def get_post_history(posts_data: dict) -> list[dict]:
     ]
 
 
-def next_post_id(posts_data: dict) -> int:
-    existing = [p.get("id", 0) for p in posts_data.get("posts", [])]
-    return max(existing, default=0) + 1
-
-
-def calculate_next_slot(posts_data: dict) -> str:
-    """Find next available posting time."""
-    niche = get_niche(NICHE_ID)
-    posting_times = niche.get("engagement", {}).get("posting_times", ["11:00", "18:00"])
-
-    # Get all scheduled times
-    scheduled = set()
-    for p in posts_data.get("posts", []):
-        sf = p.get("scheduled_for")
-        if sf and p.get("status") in ("approved", "draft"):
-            scheduled.add(sf[:16])  # YYYY-MM-DDTHH:MM
-
-    now = datetime.now(ET)
-    candidate = now
-
-    for _ in range(100):  # max 50 days ahead
-        for time_str in posting_times:
-            h, m = time_str.split(":")
-            base_slot = candidate.replace(hour=int(h), minute=int(m), second=0, microsecond=0)
-
-            # Apply jitter before checking collisions
-            jitter = random.randint(-30, 30)
-            slot = base_slot + timedelta(minutes=jitter)
-
-            if slot <= now:
-                continue
-
-            slot_key = slot.isoformat()[:16]
-            if slot_key not in scheduled:
-                return slot.isoformat()
-
-        candidate += timedelta(days=1)
-
-    # Fallback
-    return (now + timedelta(days=1)).isoformat()
-
-
 def add_to_queue(posts_data: dict, story: dict, obj: MuseumObject) -> dict:
     """Convert a generated story into a posts.json entry."""
     post_id = next_post_id(posts_data)
-    scheduled = calculate_next_slot(posts_data)
+    scheduled = next_schedule_slot(posts_data, NICHE_ID)
     tweets = story["tweets"]
     is_thread = len(tweets) > 1
 
