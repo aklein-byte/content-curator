@@ -36,6 +36,7 @@ from tools.museum_apis import (
 )
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide
 from config.niches import get_niche
+from agents.fact_checker import fact_check_draft, SourceContext
 
 log = setup_logging("museum_fetch")
 
@@ -675,6 +676,13 @@ No markdown, no explanation, just the JSON."""
             if cleaned != tweet["text"]:
                 log.info(f"Stripped URL from tweet text for {obj.title}")
                 tweet["text"] = cleaned
+
+        # Fact-check: extract claims, verify against source, web-search, rewrite if needed
+        fc_source = SourceContext.from_museum_object(obj)
+        story, _fc_verifications = fact_check_draft(story, fc_source, system)
+        if story is None:
+            log.warning(f"Fact-check rejected post for {obj.title}")
+            return None
 
         # Validate: reject banned words
         banned = ["delve", "tapestry", "vibrant", "realm", "nestled", "testament", "beacon",

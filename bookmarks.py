@@ -22,6 +22,7 @@ load_dotenv()
 from tools.xapi import get_bookmarks, get_tweet_by_id, XPost, set_niche as set_xapi_niche, check_image_urls_quality
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic
 from agents.engager import evaluate_post, draft_original_post
+from agents.fact_checker import fact_check_draft, SourceContext
 from config.niches import get_niche
 
 log = setup_logging("bookmarks")
@@ -376,6 +377,16 @@ async def main():
         if not caption_text:
             log.warning(f"  Empty caption for @{post.author_handle}, skipping")
             continue
+
+        # Fact-check caption against source tweet
+        fc_source = SourceContext.from_bookmark(post.text, post.author_handle)
+        fc_story, _fc_verifications = fact_check_draft(
+            {"tweets": [{"text": caption_text}]}, fc_source,
+        )
+        if fc_story is None:
+            log.warning(f"  Fact-check rejected draft for @{post.author_handle}")
+            continue
+        caption_text = fc_story["tweets"][0]["text"]
 
         # QA check: Sonnet validates the draft makes sense and references images
         qa_ok, qa_reason = validate_draft(caption_text, post.text, post.author_handle, post.image_urls, enriched_context=context)
