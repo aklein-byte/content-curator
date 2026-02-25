@@ -29,9 +29,9 @@ from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
 # Daily caps — hard limits across all runs (overridable per niche in _apply_niche_limits)
-DAILY_MAX_REPLIES = 30
-DAILY_MAX_LIKES = 60
-DAILY_MAX_FOLLOWS = 10
+DAILY_MAX_REPLIES = 15
+DAILY_MAX_LIKES = 30
+DAILY_MAX_FOLLOWS = 6
 
 # Minimum author followers to reply to (smaller accounts = wasted visibility)
 MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 300
@@ -347,7 +347,7 @@ async def main():
     rec_min = load_json(insights_path, default={}).get("recommended_min_likes")
     if rec_min is not None:
         old_min = min_likes
-        min_likes = rec_min
+        min_likes = min(rec_min, 15)  # Cap at 15 — higher kills discovery
         log.info(f"Using learned min_likes={min_likes} (was {old_min})")
 
     if query_perf and max_queries >= 2:

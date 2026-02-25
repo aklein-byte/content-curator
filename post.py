@@ -173,7 +173,8 @@ def _queue_stats(posts_data: dict) -> tuple[str, bool]:
 def find_next_post(posts_data: dict, exclude_ids: set | None = None) -> dict | None:
     """Find the best approved post to publish next.
 
-    Picks from ready posts, preferring:
+    Called at post time by the orchestrator. Picks from ALL approved posts,
+    preferring variety over recent posts:
     1. Different source handle from last 3 posts (avoid same-source runs)
     2. Different category from last 2 posts (variety)
     3. Higher score if available
@@ -181,7 +182,6 @@ def find_next_post(posts_data: dict, exclude_ids: set | None = None) -> dict | N
 
     Quality gate: bookmarked posts with score < MIN_POST_SCORE get skipped.
     """
-    now = datetime.now(timezone.utc)
     exclude_ids = exclude_ids or set()
 
     ready = []
@@ -190,25 +190,17 @@ def find_next_post(posts_data: dict, exclude_ids: set | None = None) -> dict | N
             continue
         if post.get("id") in exclude_ids:
             continue
-        scheduled = post.get("scheduled_for")
-        if not scheduled:
+        # Quality gate: skip low-score bookmarked posts
+        score = post.get("score")
+        if score is not None and score < MIN_POST_SCORE:
+            log.info(f"Skipping post #{post.get('id')} — score {score} below threshold {MIN_POST_SCORE}")
+            post["status"] = "skipped_low_quality"
+            post["skip_reason"] = f"Score {score}/10 below minimum {MIN_POST_SCORE}"
             continue
-        try:
-            scheduled_dt = parse_time(scheduled)
-            if scheduled_dt <= now:
-                # Quality gate: skip low-score bookmarked posts
-                score = post.get("score")
-                if score is not None and score < MIN_POST_SCORE:
-                    log.info(f"Skipping post #{post.get('id')} — score {score} below threshold {MIN_POST_SCORE}")
-                    post["status"] = "skipped_low_quality"
-                    post["skip_reason"] = f"Score {score}/10 below minimum {MIN_POST_SCORE}"
-                    continue
-                # Auto-categorize if not already tagged
-                if not post.get("category"):
-                    post["category"] = _auto_categorize(post)
-                ready.append(post)
-        except Exception as e:
-            log.warning(f"Bad scheduled_for on post #{post.get('id')}: {e}")
+        # Auto-categorize if not already tagged
+        if not post.get("category"):
+            post["category"] = _auto_categorize(post)
+        ready.append(post)
 
     if not ready:
         return None
@@ -450,19 +442,10 @@ async def main():
             save_posts(posts_data)  # persist any quality-gate skips
 
             if not post:
-                log.info("No posts ready to publish. Queue is empty or nothing scheduled yet.")
-                approved = [
-                    p for p in posts_data.get("posts", [])
-                    if p.get("status") == "approved" and p.get("scheduled_for")
-                ]
-                if approved:
-                    log.info("Upcoming approved posts:")
-                    for p in approved:
-                        log.info(f"  #{p['id']} — scheduled {p['scheduled_for']}")
-                else:
-                    drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
-                    if drafts:
-                        log.info(f"{len(drafts)} draft(s) need review. Edit posts.json to approve them.")
+                log.info("No approved posts available to publish.")
+                drafts = [p for p in posts_data.get("posts", []) if p.get("status") == "draft"]
+                if drafts:
+                    log.info(f"{len(drafts)} draft(s) need review. Approve them via dashboard.")
                 return
 
             post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")

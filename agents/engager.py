@@ -22,6 +22,30 @@ REPLY_MODEL = _cfg.get("reply_drafter", "claude-opus-4-6")
 client = get_anthropic()
 
 
+def _humanizer_rewrite(text: str, violations: list[str], system_prompt: str, max_tokens: int = 280) -> str:
+    """Ask Claude to rewrite text fixing humanizer violations. One attempt."""
+    fix_prompt = f"""Your previous draft had these writing issues:
+{chr(10).join(f'- {v}' for v in violations)}
+
+Original draft: {text}
+
+Rewrite it fixing ALL the issues above. Keep the same meaning and tone. Just output the rewritten text, nothing else."""
+    try:
+        resp = client.messages.create(
+            model=REPLY_MODEL,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": fix_prompt}],
+        )
+        rewrite = resp.content[0].text.strip()
+        if rewrite.startswith('"') and rewrite.endswith('"'):
+            rewrite = rewrite[1:-1]
+        return rewrite
+    except Exception as e:
+        logger.error(f"Humanizer rewrite failed: {e}")
+        return ""
+
+
 def _build_evaluator_prompt(niche_id: str) -> str:
     """Build the system prompt for evaluating posts."""
     niche = get_niche(niche_id)
@@ -435,12 +459,18 @@ async def draft_reply(
         # Remove any wrapping quotes the model might add
         if reply.startswith('"') and reply.endswith('"'):
             reply = reply[1:-1]
-        # Humanizer check
+        # Humanizer check — rewrite if violations found
         from tools.humanizer import validate_text
         hv = validate_text(reply)
         if not hv.passed:
-            logger.warning(f"Humanizer rejected reply to @{author}: {', '.join(hv.violations[:3])}")
-            return ""
+            logger.info(f"Humanizer flagged reply to @{author}: {', '.join(hv.violations[:3])} — rewriting")
+            reply = _humanizer_rewrite(reply, hv.violations, _build_reply_prompt(niche_id))
+            if not reply:
+                return ""
+            hv2 = validate_text(reply)
+            if not hv2.passed:
+                logger.warning(f"Humanizer still flagged reply to @{author} after rewrite: {', '.join(hv2.violations[:3])}")
+                return ""
         return reply
     except Exception as e:
         logger.error(f"Failed to draft reply to @{author}: {e}")
@@ -490,12 +520,18 @@ Write the quote tweet:"""
         text = response.content[0].text.strip()
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]
-        # Humanizer check
+        # Humanizer check — rewrite if violations found
         from tools.humanizer import validate_text
         hv = validate_text(text)
         if not hv.passed:
-            logger.warning(f"Humanizer rejected quote tweet for @{author}: {', '.join(hv.violations[:3])}")
-            return ""
+            logger.info(f"Humanizer flagged quote tweet for @{author}: {', '.join(hv.violations[:3])} — rewriting")
+            text = _humanizer_rewrite(text, hv.violations, system)
+            if not text:
+                return ""
+            hv2 = validate_text(text)
+            if not hv2.passed:
+                logger.warning(f"Humanizer still flagged quote tweet for @{author} after rewrite: {', '.join(hv2.violations[:3])}")
+                return ""
         return text
     except Exception as e:
         logger.error(f"Failed to draft quote tweet for @{author}: {e}")
@@ -552,7 +588,14 @@ async def draft_original_post(
                             from tools.humanizer import validate_text as _hv2
                             hv = _hv2(parsed["text"])
                             if not hv.passed:
-                                logger.warning(f"Humanizer rejected original post from @{author}: {', '.join(hv.violations[:3])}")
+                                logger.info(f"Humanizer flagged original post from @{author}: {', '.join(hv.violations[:3])} — rewriting")
+                                rewritten = _humanizer_rewrite(parsed["text"], hv.violations, _build_original_post_prompt(niche_id), max_tokens=512)
+                                if rewritten:
+                                    hv2 = _hv2(rewritten)
+                                    if hv2.passed:
+                                        parsed["text"] = rewritten
+                                        return parsed
+                                logger.warning(f"Humanizer still flagged original post from @{author} after rewrite")
                                 return {"text": "", "credit_handle": author}
                             return parsed
                         except json.JSONDecodeError:
@@ -563,11 +606,18 @@ async def draft_original_post(
             "text": text.strip(),
             "credit_handle": author,
         }
-        # Humanizer check on final text
+        # Humanizer check on final text — rewrite if violations found
         from tools.humanizer import validate_text as _hv
         hv = _hv(result["text"])
         if not hv.passed:
-            logger.warning(f"Humanizer rejected original post from @{author}: {', '.join(hv.violations[:3])}")
+            logger.info(f"Humanizer flagged original post from @{author}: {', '.join(hv.violations[:3])} — rewriting")
+            rewritten = _humanizer_rewrite(result["text"], hv.violations, _build_original_post_prompt(niche_id), max_tokens=512)
+            if rewritten:
+                hv2 = _hv(rewritten)
+                if hv2.passed:
+                    result["text"] = rewritten
+                    return result
+            logger.warning(f"Humanizer still flagged original post from @{author} after rewrite")
             return {"text": "", "credit_handle": author}
         return result
     except Exception as e:

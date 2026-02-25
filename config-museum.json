@@ -42,7 +42,7 @@
         "18:30"
       ],
       "jitter_minutes": 15,
-      "enabled": true,
+      "enabled": false,
       "timeout_seconds": 300,
       "extra_args": []
     },
@@ -55,7 +55,7 @@
         "19:00"
       ],
       "jitter_minutes": 15,
-      "enabled": true,
+      "enabled": false,
       "timeout_seconds": 1200,
       "limits": {
         "--max-likes": 10,
@@ -72,7 +72,7 @@
         "21:00"
       ],
       "jitter_minutes": 15,
-      "enabled": true,
+      "enabled": false,
       "timeout_seconds": 600,
       "limits": {
         "--max-responses": 5
@@ -98,7 +98,7 @@
         "21:30"
       ],
       "jitter_minutes": 15,
-      "enabled": true,
+      "enabled": false,
       "timeout_seconds": 1800,
       "limits": {
         "--max-likes": 10,
