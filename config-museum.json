@@ -98,7 +98,7 @@
         "21:30"
       ],
       "jitter_minutes": 15,
-      "enabled": false,
+      "enabled": true,
       "timeout_seconds": 1800,
       "limits": {
         "--max-likes": 10,
