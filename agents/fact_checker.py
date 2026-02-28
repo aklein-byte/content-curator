@@ -604,7 +604,7 @@ def quick_validate(draft_text: str, source: SourceContext) -> tuple[bool, str]:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-6-20250514",
+            model="claude-haiku-4-5-20251001",
             max_tokens=256,
             messages=[{"role": "user", "content": f"""You are a QA reviewer for a social media post.
 

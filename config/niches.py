@@ -188,6 +188,19 @@ Example captions:
             "real_estate_drafts": False,
             "respond": True,
         },
+        "qt_queries": [
+            "(sculpture OR armor OR tapestry OR manuscript) (museum OR century) has:images -is:retweet",
+            "(sword OR dagger OR helmet OR shield) (medieval OR ancient) has:images -is:retweet",
+            "(painting OR portrait) (century OR museum OR gallery) has:images -is:retweet",
+            "(artifact OR artefact OR relic) (museum OR excavation) has:images -is:retweet",
+            "(bronze OR marble OR ivory OR gold) (ancient OR medieval) has:images -is:retweet",
+            "(fresco OR mosaic OR mural) (ancient OR roman OR medieval) has:images -is:retweet",
+            "#arthistory museum has:images -is:retweet",
+            "#museumtwitter has:images -is:retweet",
+            "(Egyptian OR Roman OR Greek OR Persian) (artifact OR object OR sculpture) has:images -is:retweet",
+            "(ceramics OR porcelain) (dynasty OR century OR museum) has:images -is:retweet",
+        ],
+        "qt_categories": ["painting", "sculpture", "armor-weapons", "decorative-arts", "antiquities", "textiles", "manuscripts", "photography", "ceramics", "other"],
         "curator_prompt": """You evaluate museum objects for story potential on X/Twitter.
 
 Score each object 1-10 on "would someone stop scrolling for this?":
