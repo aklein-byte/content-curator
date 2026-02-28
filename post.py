@@ -43,6 +43,15 @@ IMAGES_DIR = BASE_DIR / "data" / "images"
 MAX_POSTS_PER_DAY = 3
 MIN_GAP_HOURS = 2
 
+
+def _strip_mentions(text: str) -> str:
+    """Strip @ from @mentions to avoid X API 403 on mention restrictions.
+
+    Converts '📷 @SciFiArchives' to '📷 SciFiArchives'.
+    Only strips the @ symbol, preserves the handle text.
+    """
+    return re.sub(r'@(\w+)', r'\1', text)
+
 # Set once by main(), used by module-level load/save wrappers
 _niche_id: str | None = None
 
@@ -335,7 +344,7 @@ def cross_post_to_community(post: dict, image_paths: list[str], niche: dict):
     if not community_ids:
         return
 
-    text = post.get("text") or post.get("tweets", [{}])[0].get("text", "")
+    text = _strip_mentions(post.get("text") or post.get("tweets", [{}])[0].get("text", ""))
 
     # Upload media once, reuse across communities
     media_ids = []
@@ -423,6 +432,9 @@ async def main():
             log.error(f"Post #{args.post_id} is already posted (tweet {post.get('tweet_id')})")
             return
         log.info(f"Manual post: #{args.post_id} (status={post.get('status')}, bypassing scheduler/limits)")
+        image_paths = download_post_images(post)
+        if image_paths:
+            log.info(f"  Images: {len(image_paths)} downloaded")
     else:
         # Rate limiting — skip if we've hit daily max or gap is too short
         if not dry_run:
@@ -533,6 +545,9 @@ async def main():
             log.warning(f"All {MAX_IMAGE_RETRIES} post attempts had image quality issues")
             notify(f"{niche['handle']} post failed", f"All attempted posts had image quality issues")
             return
+
+    # Resolve post text (works for both flat and museum formats)
+    post_text = post.get("text") or (post.get("tweets") or [{}])[0].get("text", "")
 
     # Determine post format
     # Museum posts have type="museum" and a pre-written "tweets" array
@@ -660,7 +675,7 @@ async def main():
                     return
 
             thread_data.append({
-                "text": tw["text"],
+                "text": _strip_mentions(tw["text"]),
                 "image_paths": local_paths,
             })
 
@@ -715,7 +730,7 @@ async def main():
         )
 
         thread_data = [
-            {"text": cap, "image_paths": [img]}
+            {"text": _strip_mentions(cap), "image_paths": [img]}
             for cap, img in zip(captions, image_paths)
         ]
 
@@ -763,7 +778,7 @@ async def main():
         quote_tweet_id = post.get("quote_tweet_id")
 
         tweet_id = create_tweet(
-            text=post["text"],
+            text=_strip_mentions(post["text"]),
             media_ids=media_ids if media_ids else None,
             quote_tweet_id=quote_tweet_id,
         )
