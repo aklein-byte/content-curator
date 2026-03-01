@@ -1,0 +1,137 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "type": "original",
+      "title": "Lalique Archers Vase",
+      "artist": "René Lalique",
+      "date": "1921",
+      "text": "Twelve archers in a circle, all drawing their bows outward. René Lalique pressed them into green-gray glass in 1921, each figure barely two inches tall but caught mid-pull with the string taut.\n\nThe glass is cased — a layer of clear over colored — then acid-etched to pull the figures out of the surface. You don't see them at first. The archers emerge as the light shifts.\n\nLalique made this at Wingen-sur-Moder, the factory he built in Alsace after outgrowing his Paris workshop. By 1921 he'd abandoned jewelry entirely. Glass was the thing now.\n\nRené Lalique, Archers Vase, 1921. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "Twelve archers in a circle, all drawing their bows outward. René Lalique pressed them into green-gray glass in 1921, each figure barely two inches tall but caught mid-pull with the string taut.\n\nThe glass is cased — a layer of clear over colored — then acid-etched to pull the figures out of the surface. You don't see them at first. The archers emerge as the light shifts.\n\nLalique made this at Wingen-sur-Moder, the factory he built in Alsace after outgrowing his Paris workshop. By 1921 he'd abandoned jewelry entirely. Glass was the thing now.\n\nRené Lalique, Archers Vase, 1921. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/f7add848-2ea5-1a56-905f-ba4761816042/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/f7add848-2ea5-1a56-905f-ba4761816042/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/f7add848-2ea5-1a56-905f-ba4761816042/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/69382",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 2,
+      "type": "original",
+      "title": "Skyscraper Cabinet",
+      "artist": "Paul Theodore Frankl",
+      "date": "c. 1927",
+      "text": "Paul Frankl looked at the Manhattan skyline and built a bookcase.\n\nHis \"Skyscraper\" furniture line, started around 1926, stacked geometric blocks into setback silhouettes that mirrored the new zoning law towers going up all over Midtown. This cabinet is painted wood — no expensive veneers, no gilt hardware. The geometry does the work.\n\nFrankl was born in Vienna, trained under Josef Hoffmann, arrived in New York in 1914 and never went back. He opened a gallery on 48th Street selling what he called \"American modernism\" to anyone who'd listen.\n\nMost of these cabinets were made to order. No factory line. Each one slightly different.\n\nPaul Theodore Frankl, Skyscraper Cabinet, c. 1927. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "Paul Frankl looked at the Manhattan skyline and built a bookcase.\n\nHis \"Skyscraper\" furniture line, started around 1926, stacked geometric blocks into setback silhouettes that mirrored the new zoning law towers going up all over Midtown. This cabinet is painted wood — no expensive veneers, no gilt hardware. The geometry does the work.\n\nFrankl was born in Vienna, trained under Josef Hoffmann, arrived in New York in 1914 and never went back. He opened a gallery on 48th Street selling what he called \"American modernism\" to anyone who'd listen.\n\nPaul Theodore Frankl, Skyscraper Cabinet, c. 1927. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/7faa3158-22a5-58f0-facb-8ed2b23f28fa/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/7faa3158-22a5-58f0-facb-8ed2b23f28fa/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/7faa3158-22a5-58f0-facb-8ed2b23f28fa/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/151371",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 3,
+      "type": "original",
+      "title": "Cobra Lamp",
+      "artist": "Edgar Brandt",
+      "date": "c. 1925",
+      "text": "A cobra made of bronze, hood flared, holding a glass shade in its mouth. Edgar Brandt, 1925.\n\nBrandt was France's most sought-after ironworker. His shop on Boulevard Murat turned out everything from elevator doors to radiator covers, but the animal lamps were what people wanted for their apartments. The cobra. The pelican. The parrot.\n\nThe glass shade is attributed to Daum — the Nancy glassworks that supplied half the lampmakers in Paris. Brandt bent the metal. Daum blew the glass. Together they cost more than most people's furniture.\n\nBrandt showed the cobra at the 1925 Paris Exposition — the same fair that gave Art Deco its name.\n\nEdgar Brandt, Cobra Lamp, c. 1925. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "A cobra made of bronze, hood flared, holding a glass shade in its mouth. Edgar Brandt, 1925.\n\nBrandt was France's most sought-after ironworker. His shop on Boulevard Murat turned out elevator doors, radiator covers, but the animal lamps were what people wanted. The cobra. The pelican. The parrot.\n\nThe glass shade is attributed to Daum — the Nancy glassworks that supplied half the lampmakers in Paris.\n\nBrandt showed this at the 1925 Paris Exposition — the same fair that gave Art Deco its name.\n\nEdgar Brandt, Cobra Lamp, c. 1925. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/425646c2-789d-6ab3-e3cf-3357a55426c3/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/425646c2-789d-6ab3-e3cf-3357a55426c3/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/425646c2-789d-6ab3-e3cf-3357a55426c3/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/109535",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 4,
+      "type": "original",
+      "title": "Manhattan Cocktail Set",
+      "artist": "Norman Bel Geddes",
+      "date": "1934-35",
+      "text": "Norman Bel Geddes designed a cocktail set that looks like it landed from the future.\n\nChrome-plated brass, 1934. The shaker is a skyscraper in miniature — stepped shoulders tapering to a finial. The tray is a perfect circle. Six cups nest into it like engine cylinders. Everything fits. Nothing extra.\n\nBel Geddes wasn't a metalworker. He was a theater set designer who wandered into industrial design and never left. He designed the Futurama exhibit at the 1939 World's Fair. He redesigned stove ranges for Standard Gas. He proposed a teardrop car, a flying wing, a floating airport.\n\nThe cocktail set was one of the few things that actually got manufactured. Revere Copper and Brass produced it. Not many survive.\n\nNorman Bel Geddes, Manhattan Cocktail Set, 1934-35. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "Norman Bel Geddes designed a cocktail set that looks like it landed from the future.\n\nChrome-plated brass, 1934. The shaker is a skyscraper in miniature — stepped shoulders tapering to a finial. Six cups nest into a circular tray like engine cylinders. Nothing extra.\n\nBel Geddes was a theater set designer who wandered into industrial design. He designed Futurama at the 1939 World's Fair. The cocktail set was one of the few things that actually got manufactured.\n\nNorman Bel Geddes, Manhattan Cocktail Set, 1934-35. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/9f62b947-7f55-29e2-c617-5d64227db5f0/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/9f62b947-7f55-29e2-c617-5d64227db5f0/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/9f62b947-7f55-29e2-c617-5d64227db5f0/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/184673",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 5,
+      "type": "original",
+      "title": "Georg Jensen Cocktail Shaker",
+      "artist": "Georg Jensen",
+      "date": "1926",
+      "text": "Georg Jensen, 1926. Solid silver. Copenhagen.\n\nNo ornament. No engraving. Just the shape — a gentle taper, a domed lid, and a pour spout that curves like it was drawn in a single breath. The handle is ebony.\n\nJensen started as a sculptor. Switched to silver in 1904 because sculptors starved and silversmiths didn't. By the 1920s his Copenhagen workshop employed 250 people and supplied half the embassies in Europe.\n\nThis shaker predates the American cocktail craze by about three years. Jensen was making barware for European diplomats who drank martinis before Manhattan did.\n\nGeorg Jensen, Cocktail Shaker, 1926. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "Georg Jensen, 1926. Solid silver. Copenhagen.\n\nNo ornament. No engraving. Just the shape — a gentle taper, a domed lid, a pour spout that curves like a single breath. Handle is ebony.\n\nJensen started as a sculptor. Switched to silver in 1904 because sculptors starved and silversmiths didn't. By the 1920s his workshop employed 250 people and supplied half the embassies in Europe.\n\nThis shaker predates the American cocktail craze by three years.\n\nGeorg Jensen, Cocktail Shaker, 1926. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/4c691524-ed0d-a05a-4d9f-790891cf307a/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/4c691524-ed0d-a05a-4d9f-790891cf307a/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/4c691524-ed0d-a05a-4d9f-790891cf307a/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/120050",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 6,
+      "type": "original",
+      "title": "Ceres",
+      "artist": "John Bradley Storrs",
+      "date": "1928",
+      "text": "John Storrs made a 30-foot version of this for the top of the Chicago Board of Trade Building. This is the maquette — two feet tall, copper alloy plated first with nickel, then chrome.\n\nCeres. Roman goddess of grain. She stands at the top of the tallest building in Chicago (in 1930), holding a sheaf of wheat in her left hand. Below her, men in suits traded the wheat futures that built the city.\n\nStorrs studied under Rodin in Paris. Came back to America and made sculpture that looked like buildings. Angular. Stepped. Metallic. The art world mostly ignored him. The architects loved him.\n\nHe died in 1956. The retrospective didn't happen until 1987.\n\nJohn Bradley Storrs, Ceres, 1928. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "John Storrs made a 30-foot version of this for the top of the Chicago Board of Trade Building. This is the maquette — two feet tall, copper alloy plated with nickel, then chrome.\n\nCeres. Roman goddess of grain. She stands atop the tallest building in Chicago (in 1930), holding wheat. Below her, men traded wheat futures that built the city.\n\nStorrs studied under Rodin in Paris. Came back and made sculpture that looked like buildings. The art world ignored him. The architects loved him.\n\nJohn Bradley Storrs, Ceres, 1928. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/45ebf173-79f7-bd76-b217-8f4f2ca29fd5/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/45ebf173-79f7-bd76-b217-8f4f2ca29fd5/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/45ebf173-79f7-bd76-b217-8f4f2ca29fd5/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/63178",
+      "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 7,
+      "type": "original",
+      "title": "Diana the Huntress Wall Panel",
+      "artist": "André Marty",
+      "date": "1925",
+      "text": "Screen-printed linen, 1925. Diana with a bow, two greyhounds at her feet, a forest of stylized trees behind her. André Marty designed it. Maison Isidore Leroy printed it in Mulhouse.\n\nSix feet tall, meant to dominate a room. Hang it flat like a tapestry or stretch it across a folding screen.\n\nMarty was an illustrator first — he drew for Gazette du Bon Ton, the fashion magazine that defined Parisian taste before Vogue existed. His textile designs have the same flat perspective and clean outlines.\n\nThe greyhounds are pure Deco shorthand. Speed. Luxury. Sleekness. Every Deco designer used them.\n\nAndré Marty, \"Diane Chasseresse\", 1925. Art Institute of Chicago.",
+      "tweets": [
+        {
+          "text": "Screen-printed linen, 1925. Diana with a bow, two greyhounds at her feet, stylized trees behind her. André Marty designed it. Maison Isidore Leroy printed it in Mulhouse.\n\nSix feet tall, meant to dominate a room. Hang it flat like a tapestry or stretch it across a folding screen.\n\nMarty drew for Gazette du Bon Ton — the fashion magazine that defined Parisian taste before Vogue existed.\n\nThe greyhounds are pure Deco shorthand. Speed. Luxury. Sleekness.\n\nAndré Marty, \"Diane Chasseresse\", 1925. Art Institute of Chicago.",
+          "image_url": "https://www.artic.edu/iiif/2/911e362d-a326-c73d-33ec-01a649a8f7f3/full/843,/0/default.jpg",
+          "images": ["https://www.artic.edu/iiif/2/911e362d-a326-c73d-33ec-01a649a8f7f3/full/843,/0/default.jpg"]
+        }
+      ],
+      "image_urls": ["https://www.artic.edu/iiif/2/911e362d-a326-c73d-33ec-01a649a8f7f3/full/843,/0/default.jpg"],
+      "status": "draft",
+      "object_url": "https://www.artic.edu/artworks/158996",
+      "source": "Art Institute of Chicago"
+    }
+  ]
+}

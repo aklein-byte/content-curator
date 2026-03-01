@@ -290,6 +290,14 @@
     .img-panel { width: 100%; min-width: 0; max-height: 300px; border-right: none; border-bottom: 1px solid var(--border); }
     .post-summary .preview { display: none; }
   }
+  @media (max-width: 600px) {
+    .topbar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+    .niche-toggle { width: 100%; }
+    .niche-toggle a { flex: 1; text-align: center; padding: 8px 4px; font-size: 12px; }
+    .topbar .stats { font-size: 11px; gap: 8px; flex-wrap: wrap; }
+    .topbar .spacer { display: none; }
+    #tatami-view .filters { margin: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -299,8 +307,8 @@
   <div class="niche-toggle">
     <a href="?niche=tatamispaces" class="__ACTIVE_TATAMISPACES__">tatami</a>
     <a href="?niche=museumstories" class="__ACTIVE_MUSEUMSTORIES__">museum</a>
-    <a href="?niche=historicalphotos" class="__ACTIVE_HISTORICALPHOTOS__">history</a>
-    <a href="?niche=spacestories" class="__ACTIVE_SPACESTORIES__">space</a>
+    <a href="?niche=artdeco" class="__ACTIVE_ARTDECO__">deco</a>
+    <a href="?niche=deepocean" class="__ACTIVE_DEEPOCEAN__">ocean</a>
   </div>
   <div class="stats" id="stats">__STATS_HTML__</div>
   <div class="spacer"></div>
@@ -378,7 +386,7 @@ if (NICHE === 'tatamispaces') {
   document.getElementById('museum-topbar-buttons').style.display = '';
 }
 // Set page title
-const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',historicalphotos:'History',spacestories:'Space'};
+const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',artdeco:'Deco',deepocean:'Ocean'};
 document.title = (nicheNames[NICHE] || NICHE) + ' - Post Manager';
 
 function showToast(msg) {
@@ -853,7 +861,7 @@ if (NICHE === 'tatamispaces') {
     p.style.display = p.dataset.status === initFilter ? '' : 'none';
   });
 }
-if (NICHE === 'museumstories') {
+if (NICHE !== 'tatamispaces') {
   museumRender();
 }
 </script>

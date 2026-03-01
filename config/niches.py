@@ -361,11 +361,11 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         },
     },
 
-    "historicalphotos": {
-        "handle": "@AmericaInFrames",
-        "name": "Historical Photos",
-        "description": "Stories behind historical photographs from the Library of Congress",
-        "posts_file": "posts-historicalphotos.json",
+    "artdeco": {
+        "handle": "@DecoDaily_",
+        "name": "Art Deco",
+        "description": "Art Deco architecture, design, posters, and decorative arts from the 1920s-1940s",
+        "posts_file": "posts-artdeco.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -373,40 +373,41 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate historical photographs for story potential on X/Twitter.
+        "curator_prompt": """You evaluate Art Deco objects and architecture for visual impact on X/Twitter.
 
-Score each photograph 1-10 on "would someone stop scrolling for this?":
-- 9-10: Famous moment captured, unknown angle on a well-known event, haunting portrait, dramatic scene
-- 7-8: Interesting historical context, good composition, reveals something about the era
-- 5-6: Generic historical photo, nothing surprising about the story
-- 3-4: Blurry, badly composed, or no clear story to tell
-- 1-2: No image, fragment, or purely technical documentation
+Score each item 1-10 on "would someone stop scrolling for this?":
+- 9-10: Iconic building (Chrysler, Empire State, Palacio de Bellas Artes), stunning poster, ornate metalwork, bold geometric pattern
+- 7-8: Strong Deco aesthetic, good photo quality, interesting backstory or location
+- 5-6: Generic Deco-adjacent, nothing surprising about the design
+- 3-4: Low resolution, partial view, or barely Art Deco
+- 1-2: No clear Deco connection, purely text-based, or damaged beyond appreciation
 
-Prefer photos with: known photographers, specific dates, human subjects with identifiable stories,
-surprising contrasts between then and now, social commentary, unusual perspectives.""",
-        "writer_prompt": """Write posts for @AmericaInFrames about historical photographs. Write like a human, not an AI.
+Prefer items with: strong geometric patterns, metalwork detail, bold color, luxury materials (chrome, marble, lacquer),
+global locations (NYC, Miami, Mumbai, Shanghai, Buenos Aires, London), famous designers (Erté, Lalique, Cassandre, Chiparus).""",
+        "writer_prompt": """Write posts for @DecoDaily_ about Art Deco design and architecture. Write like a human, not an AI.
 
-SHOW, DON'T TELL SIGNIFICANCE. Never tell the reader something is remarkable or important. Give them the facts.
+LET THE DESIGN SPEAK. Never say something is "stunning" or "iconic." Describe the materials, the geometry, the scale.
 
 RULES:
-1. HOOK FIRST. Lead with what makes this photo interesting, not "This photograph shows..."
-2. Specific facts: who, when, where, what happened next.
-3. Short sentences. Fragments ok.
-4. End with the fact that sticks, not a philosophical observation.
-5. Last line: "Photographer, Title/Description, Year. Library of Congress."
+1. HOOK FIRST. Lead with the specific detail that makes this piece Deco. Not "This is an Art Deco..."
+2. Materials matter: chrome, Bakelite, lacquer, terrazzo, zigzag brick, gold leaf. Name them.
+3. Context: who commissioned it, what it cost, what happened to it.
+4. Short sentences. Fragments ok.
+5. End with a concrete fact, not appreciation.
+6. Credit the source: museum name, photographer, or archive.
 
-TONE: A friend who works at a photo archive showing you something they found in the stacks.
+TONE: A design nerd at a flea market who just found something incredible. Specific, excited, zero pretension.
 
-NEVER: em-dashes, "not just X but Y", "more than just", "captures the essence", "a window into",
-"frozen in time", "a testament to", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "the roaring twenties",
+"Jazz Age glamour", "stands as", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#HistoricalPhotos",
-            "#AmericanHistory",
-            "#VintagePhotography",
+            "#ArtDeco",
+            "#DecoArchitecture",
+            "#1920s",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -420,23 +421,23 @@ NEVER: em-dashes, "not just X but Y", "more than just", "captures the essence", 
         },
         "engagement": {
             "search_queries": [
-                "historical photography has:images -is:retweet",
-                "vintage photograph has:images -is:retweet",
-                "#historicalphotos has:images -is:retweet",
-                "Library of Congress photograph has:images -is:retweet",
-                "(great depression OR dust bowl) photograph has:images -is:retweet",
-                "(world war OR civil war) photograph has:images -is:retweet",
+                "art deco architecture has:images -is:retweet",
+                "art deco building has:images -is:retweet",
+                "art deco interior has:images -is:retweet",
+                "(Chrysler Building OR Empire State) has:images -is:retweet",
+                "art deco poster has:images -is:retweet",
+                "#artdeco has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@liaborhinus",
-                "@PulpLibrarian",
-                "@historydefined",
-                "@LOCphotography",
+                "@artaborhinus",
+                "@HistArtFund",
+                "@artaborhinus",
+                "@deaborhinus",
             ],
             "reply_voice": (
-                "You're @AmericaInFrames. Add ONE specific fact the poster didn't mention. "
-                "A name, a date, what happened next, the photographer's backstory. "
+                "You're @DecoDaily_. Add ONE specific detail the poster didn't mention. "
+                "The architect, the year, the material, who commissioned it, what it cost to build. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -451,19 +452,20 @@ NEVER: em-dashes, "not just X but Y", "more than just", "captures the essence", 
                 "20:00",
             ],
         },
-        "loc_config": {
-            "collections": ["fsa", "detroit", "gotfryd", "civil-war", "highsmith"],
-            "posts_per_day": 3,
+        "generation": {
+            "sources": ["met_api", "smithsonian_api", "wikimedia"],
+            "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,
+            "generation_batch_size": 6,
         },
     },
 
-    "spacestories": {
-        "handle": "@CosmicStrange",
-        "name": "Space Stories",
-        "description": "The strange, beautiful, and terrifying universe explained through NASA images",
-        "posts_file": "posts-spacestories.json",
+    "deepocean": {
+        "handle": "@TheDeepReport",
+        "name": "Deep Ocean",
+        "description": "Creatures, expeditions, and landscapes from the deep ocean",
+        "posts_file": "posts-deepocean.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -471,40 +473,41 @@ NEVER: em-dashes, "not just X but Y", "more than just", "captures the essence", 
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate space/astronomy images for story potential on X/Twitter.
+        "curator_prompt": """You evaluate deep ocean imagery for "holy shit" factor on X/Twitter.
 
 Score each image 1-10 on "would someone stop scrolling for this?":
-- 9-10: Visually stunning (Hubble/JWST deep field, detailed nebula), mind-bending scale, surprising fact
-- 7-8: Good image with interesting science backstory
-- 5-6: Standard space photo without a compelling hook
-- 3-4: Technical/diagram, low resolution, or no story
-- 1-2: Artist rendering with no real data, or purely technical
+- 9-10: Never-before-seen creature, bioluminescence in the dark, hydrothermal vent ecosystems, giant scale
+- 7-8: Interesting deep sea organism, good image quality, surprising biology
+- 5-6: Standard underwater photo, surface-level content
+- 3-4: Low resolution ROV footage, barely visible subject
+- 1-2: Diagram, illustration, or no actual ocean imagery
 
-Prefer images with: extreme scales, surprising facts, recent discoveries,
-counter-intuitive physics, beautiful color, death/birth of stars, exotic objects.""",
-        "writer_prompt": """Write posts for @CosmicStrange about space and astronomy. Write like a human, not an AI.
+Prefer images with: bizarre morphology, extreme depth, bioluminescence, scale reference,
+known expeditions (Okeanos Explorer, Nautilus, Alvin), rare species, first discoveries.""",
+        "writer_prompt": """Write posts for @TheDeepReport about the deep ocean. Write like a human, not an AI.
 
-SHOW, DON'T TELL AWE. Never tell the reader something is "breathtaking" or "awe-inspiring". Give them the numbers and let their jaw drop on its own.
+LET THE WEIRD SPEAK FOR ITSELF. The deep ocean is already alien. Don't oversell it.
 
 RULES:
-1. HOOK FIRST. Lead with the mind-bending fact, not "This image shows..."
-2. Scale is your weapon: light-years, temperatures, masses, ages.
-3. Short sentences. Fragments ok. Let numbers land.
-4. End with the fact that recontextualizes everything.
-5. Last line: "Image: NASA/[instrument], [year]."
+1. HOOK FIRST. Lead with the most alien detail. Not "Scientists discovered..."
+2. Numbers are your friend: depth in meters, pressure in atmospheres, temperature, how many ever found.
+3. Name the species (common AND scientific). Name the expedition or submersible.
+4. Short sentences. Fragments ok. Let the biology be the punchline.
+5. End with the detail that makes someone text a friend about it.
+6. Credit: "Image: NOAA/[vessel]" or "Photo: [institution/photographer]"
 
-TONE: Neil deGrasse Tyson at a bar after two drinks. Excited but precise.
+TONE: A marine biologist showing you ROV footage at 2am, three coffees deep. Excited. Precise. Slightly unhinged about how weird this all is.
 
-NEVER: em-dashes, "not just X but Y", "the vastness of space", "our place in the universe",
-"humbling reminder", "cosmic dance", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "the depths of the ocean", "mysterious depths",
+"alien world", "the abyss", "deep blue", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#Space",
-            "#Astronomy",
-            "#NASA",
+            "#DeepSea",
+            "#OceanExploration",
+            "#MarineBiology",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -518,42 +521,44 @@ NEVER: em-dashes, "not just X but Y", "the vastness of space", "our place in the
         },
         "engagement": {
             "search_queries": [
-                "NASA image has:images -is:retweet",
-                "(nebula OR galaxy OR supernova) has:images -is:retweet",
-                "Hubble OR JWST has:images -is:retweet",
-                "astronomy photograph has:images -is:retweet",
-                "(mars rover OR perseverance OR curiosity) has:images -is:retweet",
-                "#astrophotography has:images -is:retweet",
+                "deep sea creature has:images -is:retweet",
+                "(NOAA OR ocean exploration) has:images -is:retweet",
+                "deep ocean has:images -is:retweet",
+                "(bioluminescence OR hydrothermal vent) has:images -is:retweet",
+                "#deepsea has:images -is:retweet",
+                "(marine biology OR deep sea fish) has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@NASA",
-                "@NASAHubble",
-                "@NASAWebb",
-                "@apaborhinus",
+                "@NOAAOceanExpo",
+                "@EVNautilus",
+                "@SchmidtOcean",
+                "@ABORHINUS",
+                "@MBABORHINUS",
             ],
             "reply_voice": (
-                "You're @CosmicStrange. Add ONE specific number or fact the poster didn't mention. "
-                "A distance, a temperature, a mass, how long light took to reach us. "
+                "You're @TheDeepReport. Add ONE specific fact the poster didn't mention. "
+                "The depth it lives at, how many have been found, what it eats, how it survives the pressure. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
                 "replies_per_day": 5,
                 "likes_per_day": 10,
                 "reposts_per_day": 2,
-                "original_posts_per_day": 3,
+                "original_posts_per_day": 2,
             },
             "posting_times": [
                 "09:30",
-                "15:00",
+                "14:30",
                 "20:30",
             ],
         },
-        "nasa_config": {
-            "apis": ["images", "apod"],
-            "posts_per_day": 3,
+        "generation": {
+            "sources": ["noaa_api", "smithsonian_api", "nasa_api"],
+            "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,
+            "generation_batch_size": 6,
         },
     },
 
