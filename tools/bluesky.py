@@ -450,19 +450,11 @@ def search_posts(query: str, limit: int = 25, sort: str = "top", lang: str | Non
                 if hasattr(record.embed, 'images'):
                     img_count = len(record.embed.images or [])
 
-            # Get follower count from cache or fetch
+            # Get follower count from cache if available (don't fetch during search)
             followers = 0
             cached = _profile_cache.get(author.did)
             if cached and time.time() - cached[1] < _PROFILE_CACHE_TTL:
                 followers = cached[0].get("followers_count", 0)
-            elif author.did not in _profile_cache:
-                # Batch-friendly: cache the handle->profile mapping
-                _profile_cache[author.did] = ({
-                    "did": author.did,
-                    "handle": author.handle,
-                    "display_name": author.display_name or "",
-                    "followers_count": 0,
-                }, time.time())
 
             posts.append(BskyPost(
                 uri=item.uri,
