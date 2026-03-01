@@ -77,6 +77,14 @@ Example captions:
             "user_id": "IG_USER_ID",
             "username": "tatamispaces",
         },
+        "bluesky_env": {
+            "handle": "BLUESKY_HANDLE_TATAMI",
+            "app_password": "BLUESKY_APP_PASSWORD_TATAMI",
+        },
+        "bluesky_profile": {
+            "display_name": "Tatami Spaces",
+            "description": "Japanese architecture and interior design. Tatami rooms, shoji screens, engawa verandas, tea houses. The details that make Japanese spaces feel different.",
+        },
         "communities": {
             # Map content categories to community IDs for cross-posting
             # Posts get cross-posted to 1 matching community after going to timeline
@@ -350,6 +358,14 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
             "consumer_secret": "X_API_KEY_SECRET",
             "access_token": "X_ACCESS_TOKEN",
             "access_token_secret": "X_ACCESS_TOKEN_SECRET",
+        },
+        "bluesky_env": {
+            "handle": "BLUESKY_HANDLE_MUSEUM",
+            "app_password": "BLUESKY_APP_PASSWORD_MUSEUM",
+        },
+        "bluesky_profile": {
+            "display_name": "Museum Stories",
+            "description": "Stories behind museum objects. Art, weapons, jewelry, sculpture, textiles from open collections worldwide. The facts the label doesn't tell you.",
         },
         # Museum-specific config
         "museum_config": {
@@ -778,6 +794,14 @@ NEVER: em-dashes, "not just X but Y", "the cosmos", "awe-inspiring", "breathtaki
             "consumer_secret": "X_API_CONSUMER_SECRET",
             "access_token": "COSMIC_X_ACCESS_TOKEN",
             "access_token_secret": "COSMIC_X_ACCESS_TOKEN_SECRET",
+        },
+        "bluesky_env": {
+            "handle": "BLUESKY_HANDLE_COSMIC",
+            "app_password": "BLUESKY_APP_PASSWORD_COSMIC",
+        },
+        "bluesky_profile": {
+            "display_name": "Cosmic Shots",
+            "description": "Space photography from NASA, ESA, and JWST. Planets, nebulae, galaxies, and spacecraft in actual images. No artist renderings.",
         },
         "nasa_config": {
             "search_queries": [

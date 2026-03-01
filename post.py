@@ -29,6 +29,12 @@ from tools.xapi import (
     create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche,
     post_thread, download_image,
 )
+from tools.bluesky import (
+    set_niche as set_bsky_niche,
+    create_post as bsky_create_post,
+    post_thread as bsky_post_thread,
+    count_graphemes,
+)
 from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_model
 from tools.post_queue import resolve_posts_file, load_posts as pq_load_posts, save_posts as pq_save_posts
 from agents.writer import generate_thread_captions
@@ -666,6 +672,85 @@ def _mark_failed(post, posts_data, handle, reason):
     notify(f"{handle} post FAILED", f"Post #{post['id']} {reason}")
 
 
+def cross_post_to_bluesky(post: dict, image_paths: list[str], niche: dict):
+    """Cross-post to Bluesky. Non-fatal — logs warnings on failure.
+
+    Handles 3 post formats:
+    - Flat (tatami/cosmic): single post or auto-split if >300 graphemes
+    - Museum (tweets array): map to Bluesky thread
+    - Thread (tatami threads): map thread_captions to Bluesky thread
+    """
+    if not niche.get("bluesky_env"):
+        return
+
+    try:
+        set_bsky_niche(_niche_id)
+
+        is_museum = post.get("type") == "museum" and post.get("tweets")
+        has_thread_captions = post.get("thread_captions") and len(post.get("thread_captions", [])) > 1
+
+        if is_museum and len(post.get("tweets", [])) > 1:
+            # Museum thread — map tweets array to Bluesky thread
+            thread_posts = []
+            for i, tw in enumerate(post["tweets"]):
+                tw_images = []
+                if tw.get("image_url"):
+                    tw_images = [tw["image_url"]]
+                elif tw.get("images") and post.get("allImages"):
+                    tw_images = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
+
+                # Resolve to local paths
+                local_paths = []
+                for img_url in tw_images:
+                    local_path = download_image(img_url, save_dir=str(IMAGES_DIR / "museum"))
+                    if local_path:
+                        local_paths.append(local_path)
+
+                thread_posts.append({
+                    "text": _strip_mentions(tw["text"]),
+                    "image_paths": local_paths,
+                    "alt_texts": [],
+                })
+
+            uris = bsky_post_thread(thread_posts)
+            if uris:
+                post["bluesky_post_uri"] = uris[0]
+                post["bluesky_thread_uris"] = uris
+                log.info(f"  Bluesky cross-post: {len(uris)}-post thread")
+
+        elif has_thread_captions:
+            # Tatami thread — use saved captions
+            thread_posts = []
+            captions = post["thread_captions"]
+            for i, cap in enumerate(captions):
+                img = [image_paths[i]] if i < len(image_paths) else []
+                thread_posts.append({
+                    "text": _strip_mentions(cap),
+                    "image_paths": img,
+                    "alt_texts": [],
+                })
+
+            uris = bsky_post_thread(thread_posts)
+            if uris:
+                post["bluesky_post_uri"] = uris[0]
+                post["bluesky_thread_uris"] = uris
+                log.info(f"  Bluesky cross-post: {len(uris)}-post thread")
+
+        else:
+            # Flat post (tatami single, museum single, cosmic)
+            text = _strip_mentions(post.get("text") or "")
+            if is_museum and post.get("tweets"):
+                text = _strip_mentions(post["tweets"][0].get("text", ""))
+
+            uri = bsky_create_post(text=text, image_paths=image_paths)
+            if uri:
+                post["bluesky_post_uri"] = uri
+                log.info(f"  Bluesky cross-post: single post")
+
+    except Exception as e:
+        log.warning(f"  Bluesky cross-post failed (non-fatal): {e}")
+
+
 def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, community_images):
     """Mark a post as posted, notify, and cross-post to communities."""
     post["status"] = "posted"
@@ -681,6 +766,7 @@ def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, communit
     notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}\n{queue_info}", priority="high" if queue_low else "default")
 
     cross_post_to_community(post, community_images, niche)
+    cross_post_to_bluesky(post, community_images, niche)
     save_posts(posts_data)
 
 
