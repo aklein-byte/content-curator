@@ -26,7 +26,8 @@
       "file": "post.py",
       "times_et": [
         "11:00",
-        "18:00"
+        "15:30",
+        "20:00"
       ],
       "jitter_minutes": 45,
       "enabled": true,
@@ -39,7 +40,8 @@
       "file": "ig_post.py",
       "times_et": [
         "11:30",
-        "18:30"
+        "16:00",
+        "20:30"
       ],
       "jitter_minutes": 15,
       "enabled": false,
@@ -58,8 +60,8 @@
       "enabled": false,
       "timeout_seconds": 1200,
       "limits": {
-        "--max-likes": 10,
-        "--max-replies": 6,
+        "--max-likes": 5,
+        "--max-replies": 8,
         "--max-follows": 2
       }
     },
@@ -176,8 +178,8 @@
   "posting_window": {
     "start_hour_et": 9,
     "end_hour_et": 22,
-    "max_per_day": 2,
-    "min_gap_hours": 4,
+    "max_per_day": 3,
+    "min_gap_hours": 3,
     "min_post_score": 7,
     "low_queue_threshold": 5,
     "min_image_dimension": 800

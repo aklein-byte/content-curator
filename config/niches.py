@@ -104,7 +104,7 @@ Example captions:
         ],
         "engage_limits": {
             "daily_max_replies": 30,
-            "daily_max_likes": 60,
+            "daily_max_likes": 35,
             "daily_max_follows": 10,
             "min_author_followers_for_reply": 300,
             "min_post_likes_for_reply": 3,
@@ -279,8 +279,8 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
             "illuminatedmanuscript",
         ],
         "engage_limits": {
-            "daily_max_replies": 20,
-            "daily_max_likes": 40,
+            "daily_max_replies": 30,
+            "daily_max_likes": 25,
             "daily_max_follows": 8,
             "min_author_followers_for_reply": 500,
             "min_post_likes_for_reply": 10,
