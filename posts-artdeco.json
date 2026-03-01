@@ -132,6 +132,101 @@
       "status": "draft",
       "object_url": "https://www.artic.edu/artworks/158996",
       "source": "Art Institute of Chicago"
+    },
+    {
+      "id": 8,
+      "type": "original",
+      "title": "Puiforcat Tea and Coffee Service",
+      "artist": "Jean E. Puiforcat",
+      "date": "ca. 1922",
+      "text": "Silver, lapis lazuli, ivory, and gold. Jean Puiforcat, Paris, around 1922.\n\nPuiforcat was 25 when he made this. Already the best silversmith in France and he knew it. While everyone else was still doing flowers and scrollwork, he stripped everything back to geometry. Cylinders. Spheres. Flat planes of polished silver interrupted by bands of blue stone.\n\nThe lapis lazuli isn't decoration. It's insulation. The blue stone handles keep your fingers off hot metal. Form following function before anyone in Paris was using that phrase.\n\nHe produced about 3,000 designs in his career. Died at 48 in 1945. Most of his work is now in private collections where nobody sees it.\n\nJean E. Puiforcat, Tea and Coffee Service, ca. 1922. Metropolitan Museum of Art.",
+      "tweets": [
+        {
+          "text": "Silver, lapis lazuli, ivory, and gold. Jean Puiforcat, Paris, around 1922.\n\nPuiforcat was 25. Already the best silversmith in France. While everyone did flowers and scrollwork, he stripped everything to geometry. Cylinders. Spheres. Flat planes of polished silver interrupted by bands of blue stone.\n\nThe lapis lazuli isn't decoration. It's insulation. Blue stone handles keep your fingers off hot metal. Form following function before Paris was using that phrase.\n\nAbout 3,000 designs in his career. Died at 48. Most of his work is in private collections where nobody sees it.\n\nJean E. Puiforcat, ca. 1922. Metropolitan Museum of Art.",
+          "image_url": "https://images.metmuseum.org/CRDImages/ma/web-large/DP281162.jpg",
+          "images": ["https://images.metmuseum.org/CRDImages/ma/web-large/DP281162.jpg"]
+        }
+      ],
+      "image_urls": ["https://images.metmuseum.org/CRDImages/ma/web-large/DP281162.jpg"],
+      "status": "draft",
+      "object_url": "https://www.metmuseum.org/art/collection/search/493856",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "id": 9,
+      "type": "original",
+      "title": "Fantasque Vase by Clarice Cliff",
+      "artist": "Clarice Cliff",
+      "date": "1929-39",
+      "text": "Clarice Cliff, \"Fantasque\" vase. Earthenware. Stoke-on-Trent, sometime between 1929 and 1939.\n\nCliff was a factory painter at A.J. Wilkinson Ltd. She started at 13, painting freehand borders on cheap tableware. By 27 she was running her own studio inside the factory, hand-painting what she wanted on shapes she designed herself.\n\nThe Fantasque line was her breakout. Bold, abstract landscapes in orange, blue, green, and black. No subtlety. Every piece screamed from the shelf. Department stores couldn't keep them in stock.\n\nShe employed about 70 women to paint her designs — the \"Bizarre Girls.\" Each piece was hand-painted, so no two are exactly alike. Collectors now pay thousands for pieces that originally sold for shillings.\n\nClarice Cliff, \"Fantasque\" Vase, 1929-39. Metropolitan Museum of Art.",
+      "tweets": [
+        {
+          "text": "Clarice Cliff, \"Fantasque\" vase. Earthenware. Stoke-on-Trent, 1929-39.\n\nCliff started in a pottery factory at 13, painting borders on cheap tableware. By 27 she ran her own studio inside the factory, painting what she wanted on shapes she designed herself.\n\nThe Fantasque line was the breakout. Bold abstract landscapes in orange, blue, green, black. No subtlety. Every piece screamed from the shelf. Department stores couldn't keep them in stock.\n\nShe employed about 70 women — the \"Bizarre Girls\" — to hand-paint her designs. No two pieces exactly alike. Now they sell for thousands.\n\nClarice Cliff, \"Fantasque\" Vase, 1929-39. Met Museum.",
+          "image_url": "https://images.metmuseum.org/CRDImages/ma/web-large/DT7348.jpg",
+          "images": ["https://images.metmuseum.org/CRDImages/ma/web-large/DT7348.jpg"]
+        }
+      ],
+      "image_urls": ["https://images.metmuseum.org/CRDImages/ma/web-large/DT7348.jpg"],
+      "status": "draft",
+      "object_url": "https://www.metmuseum.org/art/collection/search/482495",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "id": 10,
+      "type": "original",
+      "title": "Chanel Coat",
+      "artist": "Gabrielle Chanel",
+      "date": "ca. 1927",
+      "text": "Silk and metal. House of Chanel, around 1927.\n\nChanel was 44. She'd already killed the corset, introduced jersey knit to high fashion, and launched No. 5. This coat is from her peak period — simple cut, luxe materials, zero ornament except the fabric itself.\n\nThe metal thread woven through the silk catches light as the wearer moves. It's not sequins or beading. The sparkle is structural. Built into the cloth.\n\nBy 1927 Chanel employed 2,600 women and dressed half the women who mattered in Paris, London, and New York. Her competitors were still doing elaborate embroidery. She was doing this.\n\nGabrielle Chanel, Coat, ca. 1927. Metropolitan Museum of Art, Costume Institute.",
+      "tweets": [
+        {
+          "text": "Silk and metal. House of Chanel, around 1927.\n\nChanel was 44. She'd already killed the corset, introduced jersey to high fashion, launched No. 5. This coat is from her peak — simple cut, luxe materials, zero ornament except the fabric itself.\n\nMetal thread woven through silk catches light as the wearer moves. Not sequins or beading. The sparkle is structural. Built into the cloth.\n\nBy 1927 she employed 2,600 women and dressed half the women who mattered in Paris, London, and New York. Her competitors did elaborate embroidery. She did this.\n\nGabrielle Chanel, Coat, ca. 1927. Met Museum, Costume Institute.",
+          "image_url": "https://images.metmuseum.org/CRDImages/ci/web-large/DT415.jpg",
+          "images": ["https://images.metmuseum.org/CRDImages/ci/web-large/DT415.jpg"]
+        }
+      ],
+      "image_urls": ["https://images.metmuseum.org/CRDImages/ci/web-large/DT415.jpg"],
+      "status": "draft",
+      "object_url": "https://www.metmuseum.org/art/collection/search/81114",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "id": 11,
+      "type": "original",
+      "title": "Art Deco Trumpet in B-flat",
+      "artist": "Anton Riedl",
+      "date": "ca. 1930",
+      "text": "A trumpet. Brass, silver plate, mother-of-pearl. Made by Anton Riedl in Czechoslovakia, around 1930.\n\nArt Deco hit everything. Furniture, buildings, jewelry, posters. Also musical instruments. This trumpet has faceted bell sections and geometric engraving that would look right on the Chrysler Building elevator doors.\n\nThe mother-of-pearl finger buttons are a nice touch. Most trumpets had plain nickel caps. Riedl made them decorative because someone was going to look at this thing on a bandstand and he wanted it to look like it belonged in 1930.\n\nNot much is known about Riedl. Czech instrument maker, active in the interwar period. This is one of the only pieces of his in a major museum collection.\n\nAnton Riedl, Trumpet in B-flat, ca. 1930. Metropolitan Museum of Art.",
+      "tweets": [
+        {
+          "text": "A trumpet. Brass, silver plate, mother-of-pearl. Anton Riedl, Czechoslovakia, around 1930.\n\nArt Deco hit everything. Furniture, buildings, jewelry, posters. Also musical instruments. This trumpet has faceted bell sections and geometric engraving that would look right on the Chrysler Building elevator doors.\n\nThe mother-of-pearl finger buttons — most trumpets had plain nickel caps. Riedl made them decorative because someone was going to look at this on a bandstand.\n\nNot much is known about Riedl. Czech maker, interwar period. One of his only pieces in a major museum.\n\nAnton Riedl, Trumpet, ca. 1930. Met Museum.",
+          "image_url": "https://images.metmuseum.org/CRDImages/mi/web-large/DP-12319-040.jpg",
+          "images": ["https://images.metmuseum.org/CRDImages/mi/web-large/DP-12319-040.jpg"]
+        }
+      ],
+      "image_urls": ["https://images.metmuseum.org/CRDImages/mi/web-large/DP-12319-040.jpg"],
+      "status": "draft",
+      "object_url": "https://www.metmuseum.org/art/collection/search/742529",
+      "source": "Metropolitan Museum of Art"
+    },
+    {
+      "id": 12,
+      "type": "original",
+      "title": "Forms in Space No. 1",
+      "artist": "John Storrs",
+      "date": "ca. 1927",
+      "text": "Copper and nickel silver, about two feet tall. John Storrs, around 1927.\n\nThis is a sculpture that thinks it's a skyscraper. Or a skyscraper that thinks it's a sculpture. Storrs never decided and didn't care. He stacked geometric volumes — rectangles, setbacks, tapered shafts — in the same proportions architects were using for the new towers going up in Chicago and New York.\n\nStorrs showed this kind of work at the 1927 Arts Club of Chicago exhibition. The critics didn't know what to do with it. Was it architecture? Abstract art? Industrial design? All three.\n\nHe split his time between Chicago and a castle he bought in the Loire Valley. The French loved him. America forgot about him. His studio was looted during WWII and he spent three months in an internment camp.\n\nJohn Storrs, Forms in Space No. 1, ca. 1927. Metropolitan Museum of Art.",
+      "tweets": [
+        {
+          "text": "Copper and nickel silver, about two feet tall. John Storrs, around 1927.\n\nA sculpture that thinks it's a skyscraper. Storrs stacked geometric volumes — rectangles, setbacks, tapered shafts — in the same proportions architects used for the new towers going up in Chicago and New York.\n\nThe critics didn't know what to do with it. Architecture? Abstract art? Industrial design?\n\nHe split time between Chicago and a castle in the Loire Valley. The French loved him. America forgot him. His studio was looted in WWII.\n\nJohn Storrs, Forms in Space No. 1, ca. 1927. Met Museum.",
+          "image_url": "https://images.metmuseum.org/CRDImages/ma/web-large/67.238%28A%29.jpg",
+          "images": ["https://images.metmuseum.org/CRDImages/ma/web-large/67.238%28A%29.jpg"]
+        }
+      ],
+      "image_urls": ["https://images.metmuseum.org/CRDImages/ma/web-large/67.238%28A%29.jpg"],
+      "status": "draft",
+      "object_url": "https://www.metmuseum.org/art/collection/search/489654",
+      "source": "Metropolitan Museum of Art"
     }
   ]
 }
