@@ -102,6 +102,16 @@ Example captions:
             "#JapanDesign",
             "#InteriorDesign",
         ],
+        "engage_limits": {
+            "daily_max_replies": 30,
+            "daily_max_likes": 60,
+            "daily_max_follows": 10,
+            "min_author_followers_for_reply": 300,
+            "min_post_likes_for_reply": 3,
+            "like_delay": [10, 35],
+            "reply_delay": [30, 120],
+            "follow_delay": [20, 60],
+        },
         "engagement": {
             "search_queries": [
                 # Japanese language — architecture & interiors
@@ -268,6 +278,16 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
             "metalwork",
             "illuminatedmanuscript",
         ],
+        "engage_limits": {
+            "daily_max_replies": 20,
+            "daily_max_likes": 40,
+            "daily_max_follows": 8,
+            "min_author_followers_for_reply": 500,
+            "min_post_likes_for_reply": 10,
+            "like_delay": [15, 45],
+            "reply_delay": [45, 180],
+            "follow_delay": [25, 75],
+        },
         "engagement": {
             "search_queries": [
                 # Object-specific searches (broad net, Basic tier friendly)

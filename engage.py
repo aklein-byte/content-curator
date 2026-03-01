@@ -28,51 +28,26 @@ from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_
 from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
-# Daily caps — hard limits across all runs (overridable per niche in _apply_niche_limits)
-DAILY_MAX_REPLIES = 15
-DAILY_MAX_LIKES = 30
-DAILY_MAX_FOLLOWS = 6
-
-# Minimum author followers to reply to (smaller accounts = wasted visibility)
-MIN_AUTHOR_FOLLOWERS_FOR_REPLY = 300
-
-# Minimum post likes to reply to (more eyeballs on our reply)
-MIN_POST_LIKES_FOR_REPLY = 3
-
-# Per-niche engagement limits — conservative for new accounts, higher for established
-_NICHE_ENGAGE_LIMITS = {
-    "tatamispaces": {
-        "daily_max_replies": 30,
-        "daily_max_likes": 60,
-        "daily_max_follows": 10,
-        "min_author_followers_for_reply": 300,
-        "min_post_likes_for_reply": 3,
-        "like_delay": (10, 35),      # seconds (min, max)
-        "reply_delay": (30, 120),
-        "follow_delay": (20, 60),
-    },
-    "museumstories": {
-        "daily_max_replies": 20,
-        "daily_max_likes": 40,
-        "daily_max_follows": 8,
-        "min_author_followers_for_reply": 500,
-        "min_post_likes_for_reply": 10,
-        "like_delay": (15, 45),
-        "reply_delay": (45, 180),
-        "follow_delay": (25, 75),
-    },
+# Default engagement limits (overridden per-niche via engage_limits in config/niches.py)
+_DEFAULT_ENGAGE_LIMITS = {
+    "daily_max_replies": 15,
+    "daily_max_likes": 30,
+    "daily_max_follows": 6,
+    "min_author_followers_for_reply": 300,
+    "min_post_likes_for_reply": 3,
+    "like_delay": [15, 45],
+    "reply_delay": [45, 180],
+    "follow_delay": [20, 60],
 }
 
-def _apply_niche_limits(niche_id: str):
-    """Apply niche-specific engagement limits."""
-    global DAILY_MAX_REPLIES, DAILY_MAX_LIKES, DAILY_MAX_FOLLOWS
-    global MIN_AUTHOR_FOLLOWERS_FOR_REPLY, MIN_POST_LIKES_FOR_REPLY
-    limits = _NICHE_ENGAGE_LIMITS.get(niche_id, {})
-    DAILY_MAX_REPLIES = limits.get("daily_max_replies", DAILY_MAX_REPLIES)
-    DAILY_MAX_LIKES = limits.get("daily_max_likes", DAILY_MAX_LIKES)
-    DAILY_MAX_FOLLOWS = limits.get("daily_max_follows", DAILY_MAX_FOLLOWS)
-    MIN_AUTHOR_FOLLOWERS_FOR_REPLY = limits.get("min_author_followers_for_reply", MIN_AUTHOR_FOLLOWERS_FOR_REPLY)
-    MIN_POST_LIKES_FOR_REPLY = limits.get("min_post_likes_for_reply", MIN_POST_LIKES_FOR_REPLY)
+
+def _get_limits(niche_id: str) -> dict:
+    """Get engagement limits for a niche (from config, with defaults)."""
+    niche = get_niche(niche_id)
+    limits = niche.get("engage_limits", {})
+    merged = dict(_DEFAULT_ENGAGE_LIMITS)
+    merged.update(limits)
+    return merged
 
 log = setup_logging("engage")
 
@@ -277,7 +252,6 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
 
 
 async def main():
-    global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
     global _niche_id, ENGAGEMENT_LOG, ENGAGEMENT_DRAFTS
 
     parser = argparse.ArgumentParser(description="Engage with JP architecture posts")
@@ -288,17 +262,17 @@ async def main():
     parser.add_argument("--max-follows", type=int, default=MAX_FOLLOWS_PER_RUN, help="Max follows per run")
     args = parser.parse_args()
 
-    MAX_LIKES_PER_RUN = args.max_likes
-    MAX_REPLIES_PER_RUN = args.max_replies
-    MAX_FOLLOWS_PER_RUN = args.max_follows
+    max_likes = args.max_likes
+    max_replies = args.max_replies
+    max_follows = args.max_follows
 
     niche_id = args.niche
     dry_run = args.dry_run
     niche = get_niche(niche_id)
     set_xapi_niche(niche_id)
 
-    # Apply niche-specific engagement limits
-    _apply_niche_limits(niche_id)
+    # Load niche-specific engagement limits from config
+    limits = _get_limits(niche_id)
 
     # Resolve niche-specific file paths
     _niche_id = niche_id
@@ -479,11 +453,12 @@ async def main():
     # --- Auto-like posts scoring 6+ ---
     likes_done = 0
     daily_likes = count_today_actions(engagement_log, "like")
+    daily_max_likes = limits["daily_max_likes"]
     for post, eval_data in scored_posts:
-        if likes_done >= MAX_LIKES_PER_RUN:
+        if likes_done >= max_likes:
             break
-        if daily_likes + likes_done >= DAILY_MAX_LIKES:
-            log.info(f"Daily like cap reached ({DAILY_MAX_LIKES}), stopping likes")
+        if daily_likes + likes_done >= daily_max_likes:
+            log.info(f"Daily like cap reached ({daily_max_likes}), stopping likes")
             break
         if time_left() < 60:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping likes")
@@ -497,8 +472,7 @@ async def main():
             log.info(f"[DRY RUN] Would like post by @{post.author_handle} (score {eval_data['relevance_score']})")
             likes_done += 1
         else:
-            like_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("like_delay", (15, 45))
-            time.sleep(random.uniform(*like_delay))
+            time.sleep(random.uniform(*limits["like_delay"]))
             success = like_post(post.post_id)
             if success:
                 likes_done += 1
@@ -512,17 +486,20 @@ async def main():
                     "query": getattr(post, '_source_query', None),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
-                log.info(f"Liked post by @{post.author_handle} ({likes_done}/{MAX_LIKES_PER_RUN})")
+                log.info(f"Liked post by @{post.author_handle} ({likes_done}/{max_likes})")
 
     # --- Reply to top posts ---
     replies_done = 0
     daily_replies = count_today_actions(engagement_log, "reply")
+    daily_max_replies = limits["daily_max_replies"]
+    min_followers = limits["min_author_followers_for_reply"]
+    min_post_likes = limits["min_post_likes_for_reply"]
     replied_authors = set()  # avoid replying to same author twice
     for post, eval_data in scored_posts:
-        if replies_done >= MAX_REPLIES_PER_RUN:
+        if replies_done >= max_replies:
             break
-        if daily_replies + replies_done >= DAILY_MAX_REPLIES:
-            log.info(f"Daily reply cap reached ({DAILY_MAX_REPLIES}), stopping replies")
+        if daily_replies + replies_done >= daily_max_replies:
+            log.info(f"Daily reply cap reached ({daily_max_replies}), stopping replies")
             break
         if time_left() < 120:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping replies")
@@ -537,12 +514,12 @@ async def main():
         if replies_to_author_this_week(engagement_log, post.author_handle) >= 2:
             continue
         # Only reply to accounts with enough followers for visibility
-        if post.author_followers < MIN_AUTHOR_FOLLOWERS_FOR_REPLY:
-            log.info(f"  Skip @{post.author_handle} — {post.author_followers} followers (need {MIN_AUTHOR_FOLLOWERS_FOR_REPLY}+)")
+        if post.author_followers < min_followers:
+            log.info(f"  Skip @{post.author_handle} — {post.author_followers} followers (need {min_followers}+)")
             continue
         # Only reply to posts with enough likes (more eyeballs)
-        if post.likes < MIN_POST_LIKES_FOR_REPLY:
-            log.info(f"  Skip @{post.author_handle} — {post.likes} likes (need {MIN_POST_LIKES_FOR_REPLY}+)")
+        if post.likes < min_post_likes:
+            log.info(f"  Skip @{post.author_handle} — {post.likes} likes (need {min_post_likes}+)")
             continue
 
         log.info(f"Drafting reply to @{post.author_handle} ({post.author_followers} followers, {post.likes} likes)...")
@@ -558,8 +535,7 @@ async def main():
                 replies_done += 1
                 replied_authors.add(post.author_handle)
             else:
-                reply_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("reply_delay", (45, 180))
-                time.sleep(random.uniform(*reply_delay))
+                time.sleep(random.uniform(*limits["reply_delay"]))
                 reply_id = reply_to_post(post.post_id, reply_text)
                 if reply_id:
                     replies_done += 1
@@ -576,7 +552,7 @@ async def main():
                         "query": getattr(post, '_source_query', None),
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     })
-                    log.info(f"Replied to @{post.author_handle} ({replies_done}/{MAX_REPLIES_PER_RUN}): {reply_text[:60]}...")
+                    log.info(f"Replied to @{post.author_handle} ({replies_done}/{max_replies}): {reply_text[:60]}...")
 
     # --- Follow a few relevant accounts ---
     followed_handles = {
@@ -584,13 +560,14 @@ async def main():
     }
     follows_done = 0
     daily_follows = count_today_actions(engagement_log, "follow")
+    daily_max_follows = limits["daily_max_follows"]
     seen_follow_handles = set()  # dedup within this run
 
     for post, eval_data in scored_posts:
-        if follows_done >= MAX_FOLLOWS_PER_RUN:
+        if follows_done >= max_follows:
             break
-        if daily_follows + follows_done >= DAILY_MAX_FOLLOWS:
-            log.info(f"Daily follow cap reached ({DAILY_MAX_FOLLOWS}), stopping follows")
+        if daily_follows + follows_done >= daily_max_follows:
+            log.info(f"Daily follow cap reached ({daily_max_follows}), stopping follows")
             break
         if time_left() < 30:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping follows")
@@ -605,8 +582,7 @@ async def main():
             log.info(f"[DRY RUN] Would follow @{post.author_handle}")
             follows_done += 1
         else:
-            follow_delay = _NICHE_ENGAGE_LIMITS.get(niche_id, {}).get("follow_delay", (20, 60))
-            time.sleep(random.uniform(*follow_delay))
+            time.sleep(random.uniform(*limits["follow_delay"]))
             success = follow_user(post.author_id)
             if success:
                 follows_done += 1
@@ -621,7 +597,7 @@ async def main():
                     "query": getattr(post, '_source_query', None),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
-                log.info(f"Followed @{post.author_handle} ({follows_done}/{MAX_FOLLOWS_PER_RUN})")
+                log.info(f"Followed @{post.author_handle} ({follows_done}/{max_follows})")
 
     # --- Draft quote tweets for top posts (saved to posts file for review) ---
     quotes_drafted = 0
