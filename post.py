@@ -29,7 +29,7 @@ from tools.xapi import (
     create_tweet, upload_media, get_own_recent_tweets, set_niche as set_xapi_niche,
     post_thread, download_image,
 )
-from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config
+from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_model
 from tools.post_queue import resolve_posts_file, load_posts as pq_load_posts, save_posts as pq_save_posts
 from agents.writer import generate_thread_captions
 from config.niches import get_niche
@@ -39,9 +39,13 @@ log = setup_logging("post")
 BASE_DIR = Path(__file__).parent
 IMAGES_DIR = BASE_DIR / "data" / "images"
 
-# Posting limits — prevent rapid-fire after downtime
-MAX_POSTS_PER_DAY = 3
-MIN_GAP_HOURS = 2
+# Posting limits — loaded from config, with sensible defaults
+_posting_cfg = load_config().get("posting_window", {})
+MAX_POSTS_PER_DAY = _posting_cfg.get("max_per_day", 3)
+MIN_GAP_HOURS = _posting_cfg.get("min_gap_hours", 2)
+MIN_POST_SCORE = _posting_cfg.get("min_post_score", 7)
+LOW_QUEUE_THRESHOLD = _posting_cfg.get("low_queue_threshold", 5)
+MIN_IMAGE_DIMENSION = _posting_cfg.get("min_image_dimension", 800)
 
 
 def _strip_mentions(text: str) -> str:
@@ -156,8 +160,8 @@ def _auto_categorize(post: dict) -> str:
     return classify_tatami_post(text)
 
 
-MIN_POST_SCORE = 7  # Skip bookmarked posts below this score
-LOW_QUEUE_THRESHOLD = 5  # Warn when fewer than this many approved posts remain
+
+# MIN_POST_SCORE, LOW_QUEUE_THRESHOLD, MIN_IMAGE_DIMENSION loaded from config at top of file
 
 
 def _queue_stats(posts_data: dict) -> tuple[str, bool]:
@@ -499,7 +503,7 @@ async def main():
             # Check image quality — filter out small images
             if image_paths:
                 from PIL import Image
-                MIN_DIMENSION = 800
+                MIN_DIMENSION = MIN_IMAGE_DIMENSION
                 good_paths = []
                 bad_urls = []
                 for img_path in image_paths:
@@ -646,162 +650,140 @@ async def main():
     save_posts(posts_data)
 
     if is_museum:
-        # Museum format: pre-written tweets with per-tweet images, posted via X API v2
-        n_tweets = len(post['tweets'])
-        log.info(f"Posting museum {'thread' if n_tweets > 1 else 'single'} ({n_tweets} tweet{'s' if n_tweets > 1 else ''}) via X API v2...")
-
-        # Download per-tweet images
-        thread_data = []
-        for i, tw in enumerate(post["tweets"]):
-            # Resolve image URLs: direct image_url OR indices into allImages
-            image_urls = []
-            if tw.get("image_url"):
-                image_urls = [tw["image_url"]]
-            elif tw.get("images") and post.get("allImages"):
-                image_urls = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
-
-            local_paths = []
-            for img_url in image_urls:
-                save_dir = str(IMAGES_DIR / "museum")
-                local_path = download_image(img_url, save_dir=save_dir)
-                if local_path:
-                    local_paths.append(local_path)
-                else:
-                    log.error(f"  Tweet {i+1}: failed to download image {img_url[:80]}")
-                    post["status"] = "failed"
-                    post["fail_reason"] = f"Image download failed for tweet {i+1}"
-                    save_posts(posts_data)
-                    notify(f"{handle} post FAILED", f"Post #{post['id']} image download failed")
-                    return
-
-            thread_data.append({
-                "text": _strip_mentions(tw["text"]),
-                "image_paths": local_paths,
-            })
-
-        tweet_ids = post_thread(
-            tweets=thread_data,
-            delay_seconds=(3, 8),
-        )
-
-        if tweet_ids:
-            expected = len(thread_data)
-            is_partial = len(tweet_ids) < expected
-
-            if is_partial:
-                post["status"] = "partial_thread"
-                post["fail_reason"] = f"Only {len(tweet_ids)}/{expected} tweets posted"
-                log.error(f"PARTIAL THREAD: {len(tweet_ids)}/{expected} tweets posted for post #{post['id']}")
-            else:
-                post["status"] = "posted"
-
-            post["posted_at"] = datetime.now(timezone.utc).isoformat()
-            post["tweet_id"] = tweet_ids[0]
-            post["thread_tweet_ids"] = tweet_ids
-            save_posts(posts_data)
-
-            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
-            fmt_label = f"{len(tweet_ids)}-tweet thread" if len(tweet_ids) > 1 else "single tweet"
-            if is_partial:
-                fmt_label += f" (PARTIAL — {len(tweet_ids)}/{expected})"
-            log.info(f"Posted ({fmt_label}): {post_url}")
-            queue_info, queue_low = _queue_stats(posts_data)
-            notify(f"{handle} {'PARTIAL' if is_partial else 'posted'}", f"Post #{post['id']} — {fmt_label}\n{queue_info}", priority="high" if queue_low else "default")
-
-            if not is_partial:
-                first_images = thread_data[0].get("image_paths", []) if thread_data else []
-                cross_post_to_community(post, first_images, niche)
-                save_posts(posts_data)
-        else:
-            post["status"] = "failed"
-            post["fail_reason"] = "Thread posting returned no tweet IDs"
-            save_posts(posts_data)
-            log.error("Failed to post thread.")
-            notify(f"{handle} post FAILED", f"Post #{post['id']} thread failed")
-
+        await _publish_museum(post, posts_data, niche, handle)
     elif is_thread:
-        # Tatami format: auto-generate captions from images, post via X API v2
-        community_id = niche.get("community_id")
-        log.info(f"Posting as thread ({len(image_paths)} images)...")
-        captions = await generate_thread_captions(
-            main_caption=post["text"],
-            image_paths=image_paths,
-            niche_id=niche_id,
-        )
-
-        thread_data = [
-            {"text": _strip_mentions(cap), "image_paths": [img]}
-            for cap, img in zip(captions, image_paths)
-        ]
-
-        tweet_ids = post_thread(
-            tweets=thread_data,
-            delay_seconds=(3, 8),
-            community_id=community_id,
-        )
-
-        if tweet_ids:
-            post["status"] = "posted"
-            post["posted_at"] = datetime.now(timezone.utc).isoformat()
-            post["tweet_id"] = tweet_ids[0]
-            post["thread_tweet_ids"] = tweet_ids
-            post["thread_captions"] = captions
-            save_posts(posts_data)
-
-            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
-            log.info(f"Thread posted ({len(tweet_ids)} tweets): {post_url}")
-            queue_info, queue_low = _queue_stats(posts_data)
-            notify(f"{handle} thread posted", f"Post #{post['id']} — {len(tweet_ids)} tweet thread\n{queue_info}", priority="high" if queue_low else "default")
-
-            first_image = [image_paths[0]] if image_paths else []
-            cross_post_to_community(post, first_image, niche)
-            save_posts(posts_data)
-        else:
-            post["status"] = "failed"
-            post["fail_reason"] = "Thread posting returned no tweet IDs"
-            save_posts(posts_data)
-            log.error("Failed to post thread.")
-            notify(f"{handle} post FAILED", f"Post #{post['id']} thread failed")
-
+        await _publish_tatami_thread(post, posts_data, niche, handle, niche_id, image_paths)
     else:
-        # Single tweet via official API v2
-        media_ids = []
-        if image_paths:
-            for img_path in image_paths:
-                mid = upload_media(img_path)
-                if mid:
-                    media_ids.append(mid)
-                    log.info(f"  Uploaded media: {Path(img_path).name}")
-                else:
-                    log.warning(f"  Failed to upload: {img_path}")
+        await _publish_single(post, posts_data, niche, handle, image_paths)
 
-        quote_tweet_id = post.get("quote_tweet_id")
 
-        tweet_id = create_tweet(
-            text=_strip_mentions(post["text"]),
-            media_ids=media_ids if media_ids else None,
-            quote_tweet_id=quote_tweet_id,
-        )
+def _mark_failed(post, posts_data, handle, reason):
+    """Mark a post as failed and notify."""
+    post["status"] = "failed"
+    post["fail_reason"] = reason
+    save_posts(posts_data)
+    log.error(f"Failed: {reason}")
+    notify(f"{handle} post FAILED", f"Post #{post['id']} {reason}")
 
-        if tweet_id:
-            post["status"] = "posted"
-            post["posted_at"] = datetime.now(timezone.utc).isoformat()
-            post["tweet_id"] = tweet_id
-            save_posts(posts_data)
 
-            post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_id}"
-            log.info(f"Posted successfully: {post_url}")
-            queue_info, queue_low = _queue_stats(posts_data)
-            notify(f"{handle} posted", f"Post #{post['id']} is live\n{queue_info}", priority="high" if queue_low else "default")
+def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, community_images):
+    """Mark a post as posted, notify, and cross-post to communities."""
+    post["status"] = "posted"
+    post["posted_at"] = datetime.now(timezone.utc).isoformat()
+    post["tweet_id"] = tweet_ids[0]
+    if len(tweet_ids) > 1:
+        post["thread_tweet_ids"] = tweet_ids
+    save_posts(posts_data)
 
-            cross_post_to_community(post, image_paths, niche)
-            save_posts(posts_data)
+    post_url = f"https://x.com/{handle.lstrip('@')}/status/{tweet_ids[0]}"
+    log.info(f"Posted ({fmt_label}): {post_url}")
+    queue_info, queue_low = _queue_stats(posts_data)
+    notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}\n{queue_info}", priority="high" if queue_low else "default")
+
+    cross_post_to_community(post, community_images, niche)
+    save_posts(posts_data)
+
+
+async def _publish_museum(post: dict, posts_data: dict, niche: dict, handle: str):
+    """Publish a museum-format post (pre-written tweets with per-tweet images)."""
+    n_tweets = len(post['tweets'])
+    log.info(f"Posting museum {'thread' if n_tweets > 1 else 'single'} ({n_tweets} tweet{'s' if n_tweets > 1 else ''}) via X API v2...")
+
+    # Download per-tweet images
+    thread_data = []
+    for i, tw in enumerate(post["tweets"]):
+        image_urls = []
+        if tw.get("image_url"):
+            image_urls = [tw["image_url"]]
+        elif tw.get("images") and post.get("allImages"):
+            image_urls = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
+
+        local_paths = []
+        for img_url in image_urls:
+            local_path = download_image(img_url, save_dir=str(IMAGES_DIR / "museum"))
+            if local_path:
+                local_paths.append(local_path)
+            else:
+                log.error(f"  Tweet {i+1}: failed to download image {img_url[:80]}")
+                _mark_failed(post, posts_data, handle, f"Image download failed for tweet {i+1}")
+                return
+
+        thread_data.append({"text": _strip_mentions(tw["text"]), "image_paths": local_paths})
+
+    tweet_ids = post_thread(tweets=thread_data, delay_seconds=(3, 8))
+
+    if not tweet_ids:
+        _mark_failed(post, posts_data, handle, "Thread posting returned no tweet IDs")
+        return
+
+    expected = len(thread_data)
+    is_partial = len(tweet_ids) < expected
+
+    if is_partial:
+        post["status"] = "partial_thread"
+        post["fail_reason"] = f"Only {len(tweet_ids)}/{expected} tweets posted"
+        post["posted_at"] = datetime.now(timezone.utc).isoformat()
+        post["tweet_id"] = tweet_ids[0]
+        post["thread_tweet_ids"] = tweet_ids
+        save_posts(posts_data)
+        log.error(f"PARTIAL THREAD: {len(tweet_ids)}/{expected} tweets posted for post #{post['id']}")
+        queue_info, queue_low = _queue_stats(posts_data)
+        notify(f"{handle} PARTIAL", f"Post #{post['id']} — {len(tweet_ids)}/{expected} tweets\n{queue_info}", priority="high")
+    else:
+        first_images = thread_data[0].get("image_paths", []) if thread_data else []
+        fmt = f"{len(tweet_ids)}-tweet thread" if len(tweet_ids) > 1 else "single tweet"
+        _mark_posted(post, posts_data, handle, tweet_ids, fmt, niche, first_images)
+
+
+async def _publish_tatami_thread(post: dict, posts_data: dict, niche: dict, handle: str, niche_id: str, image_paths: list):
+    """Publish a tatami-format thread (auto-generate captions from images)."""
+    community_id = niche.get("community_id")
+    log.info(f"Posting as thread ({len(image_paths)} images)...")
+
+    captions = await generate_thread_captions(
+        main_caption=post["text"],
+        image_paths=image_paths,
+        niche_id=niche_id,
+    )
+
+    thread_data = [
+        {"text": _strip_mentions(cap), "image_paths": [img]}
+        for cap, img in zip(captions, image_paths)
+    ]
+
+    tweet_ids = post_thread(tweets=thread_data, delay_seconds=(3, 8), community_id=community_id)
+
+    if not tweet_ids:
+        _mark_failed(post, posts_data, handle, "Thread posting returned no tweet IDs")
+        return
+
+    post["thread_captions"] = captions
+    first_image = [image_paths[0]] if image_paths else []
+    _mark_posted(post, posts_data, handle, tweet_ids, f"{len(tweet_ids)}-tweet thread", niche, first_image)
+
+
+async def _publish_single(post: dict, posts_data: dict, niche: dict, handle: str, image_paths: list):
+    """Publish a single tweet."""
+    media_ids = []
+    for img_path in image_paths:
+        mid = upload_media(img_path)
+        if mid:
+            media_ids.append(mid)
+            log.info(f"  Uploaded media: {Path(img_path).name}")
         else:
-            post["status"] = "failed"
-            post["fail_reason"] = "create_tweet returned no tweet ID"
-            save_posts(posts_data)
-            log.error("Failed to post.")
-            notify(f"{handle} post FAILED", f"Post #{post['id']} failed to publish")
+            log.warning(f"  Failed to upload: {img_path}")
+
+    tweet_id = create_tweet(
+        text=_strip_mentions(post["text"]),
+        media_ids=media_ids if media_ids else None,
+        quote_tweet_id=post.get("quote_tweet_id"),
+    )
+
+    if not tweet_id:
+        _mark_failed(post, posts_data, handle, "create_tweet returned no tweet ID")
+        return
+
+    _mark_posted(post, posts_data, handle, [tweet_id], "single tweet", niche, image_paths)
 
 
 if __name__ == "__main__":

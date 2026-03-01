@@ -177,7 +177,10 @@
     "start_hour_et": 9,
     "end_hour_et": 22,
     "max_per_day": 2,
-    "min_gap_hours": 4
+    "min_gap_hours": 4,
+    "min_post_score": 7,
+    "low_queue_threshold": 5,
+    "min_image_dimension": 800
   },
   "ig_hashtags_per_run": 4
 }
