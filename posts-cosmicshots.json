@@ -1,0 +1,474 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "type": "original",
+      "title": "JWST Carina Nebula — Cosmic Cliffs, 2022",
+      "text": "The Cosmic Cliffs. July 12, 2022.\n\nJWST's first deep-field release. A wall of gas and dust 7,600 light-years away in the Carina Nebula. The tallest peaks in this image are 7 light-years high. For reference, the distance from the Sun to the nearest star is 4.2 light-years.\n\nYou're looking at a stellar nursery. Hundreds of new stars, many invisible to Hubble, resolved for the first time in near-infrared. The blue haze is ionized gas blasted by ultraviolet radiation from hot young stars above the frame.\n\nThe image took 12.5 hours of exposure across NIRCam's six filters. A $10 billion telescope staring at one patch of sky.\n\nNASA/ESA/CSA/STScI, 2022.",
+      "tweets": [
+        {
+          "text": "The Cosmic Cliffs. JWST's first deep-field release, July 2022.\n\nCarina Nebula, 7,600 light-years out. Those peaks are 7 light-years tall. The Sun-to-nearest-star gap is 4.2.\n\nA stellar nursery. Hundreds of new stars invisible to Hubble, resolved for the first time in near-infrared. 12.5 hours of exposure. $10 billion telescope. One patch of sky.\n\nNASA/ESA/CSA/STScI.",
+          "image_url": "https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~large.jpg"
+      ],
+      "status": "failed",
+      "source": "NASA/ESA/CSA/STScI",
+      "scheduled_for": "2026-03-01T20:23:58.062039+00:00",
+      "category": "other",
+      "posting_started": "2026-03-01T20:37:45.239353+00:00",
+      "fail_reason": "create_tweet returned no tweet ID"
+    },
+    {
+      "id": 2,
+      "type": "original",
+      "title": "Hubble Pillars of Creation, Revisited 2014",
+      "text": "Pillars of Creation. First shot: 1995. This version: 2014.\n\nEagle Nebula, Messier 16. 6,500 light-years from Earth. Three columns of cold hydrogen gas and dust, 4-5 light-years tall. Inside them, new stars are forming.\n\nThe 1995 Hubble image became the most famous astronomical photograph ever taken. This 2014 re-shoot used Hubble's upgraded Wide Field Camera 3 with sharper optics and wider field. You can see more detail in the wispy evaporating gas at the edges.\n\nThe pillars themselves may already be gone. A supernova shockwave may have destroyed them 6,000 years ago. We won't see it for another 1,000 years.\n\nNASA/ESA/Hubble Heritage Team, 2014.",
+      "tweets": [
+        {
+          "text": "Pillars of Creation. First shot: 1995. This version: 2014.\n\nEagle Nebula, 6,500 light-years out. Three columns of hydrogen gas, each 4-5 light-years tall. New stars forming inside.\n\nThe 1995 original became the most famous astronomical photo ever taken. This re-shoot used Hubble's upgraded WFC3.\n\nThe pillars may already be gone. A supernova shockwave may have destroyed them 6,000 years ago. We won't see it for another 1,000 years.\n\nNASA/ESA/Hubble Heritage Team.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~large.jpg"
+      ],
+      "status": "approved",
+      "source": "NASA/ESA/Hubble Heritage Team",
+      "scheduled_for": "2026-03-01T20:24:14.536694+00:00",
+      "category": "other"
+    },
+    {
+      "id": 3,
+      "type": "original",
+      "title": "Jupiter's Swirling South Pole — Juno, 2018",
+      "text": "Jupiter's south pole. December 2018.\n\nJuno spacecraft, orbiting 32,000 miles above the cloud tops. Those oval shapes are cyclones. Each one is roughly the size of the continental United States. They've been raging for years, possibly decades, and they don't merge.\n\nThe color is enhanced but based on real data from JunoCam. The blue tones are deeper atmosphere showing through gaps in the ammonia ice clouds. The warmer oranges and whites are higher-altitude cloud layers.\n\nBefore Juno, nobody knew Jupiter's poles looked like this. The Voyagers flew past in 1979 but only saw the equatorial bands.\n\nNASA/JPL-Caltech/SwRI/MSSS, 2018.",
+      "tweets": [
+        {
+          "text": "Jupiter's south pole. Juno spacecraft, 32,000 miles up.\n\nThose ovals are cyclones. Each one roughly the size of the continental US. They've been raging for years. They don't merge.\n\nBlue areas: deeper atmosphere through gaps in ammonia ice clouds. Orange/white: higher-altitude layers.\n\nBefore Juno, nobody knew Jupiter's poles looked like this. The Voyagers flew past in 1979 but only saw equatorial bands.\n\nNASA/JPL-Caltech/SwRI/MSSS.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA21641/PIA21641~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA21641/PIA21641~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA21641/PIA21641~orig.jpg"
+      ],
+      "status": "approved",
+      "source": "NASA/JPL-Caltech/SwRI/MSSS",
+      "scheduled_for": "2026-03-01T20:24:46.115942+00:00",
+      "category": "craft"
+    },
+    {
+      "id": 4,
+      "type": "original",
+      "title": "Jupiter's Little Red Spot — Juno, 2017",
+      "text": "Jupiter's Little Red Spot. February 2017.\n\nNot the Great Red Spot. This is NN-WS-6, a smaller anticyclonic storm in Jupiter's South South Temperate Belt. 'Smaller' meaning about the width of Earth.\n\nJuno captured this during its fourth perijove pass, swooping within 9,000 miles of the cloud tops. The swirling white oval sits in a river of eastward-flowing jet stream, surrounded by turbulent brown and orange eddies.\n\nThese smaller storms sometimes get absorbed by the Great Red Spot. NN-WS-6 has survived since at least the 1980s.\n\nNASA/JPL-Caltech/SwRI/MSSS, processed by Gerald Eichstadt.",
+      "tweets": [
+        {
+          "text": "Jupiter's Little Red Spot. Not the famous one.\n\nThis is NN-WS-6, an anticyclonic storm about the width of Earth. Juno shot this 9,000 miles above the cloud tops.\n\nThe swirling oval sits in an eastward-flowing jet stream. It's been there since at least the 1980s. Smaller storms sometimes get swallowed by the Great Red Spot. This one survived.\n\nNASA/JPL-Caltech/SwRI/MSSS.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA21387/PIA21387~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA21387/PIA21387~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA21387/PIA21387~orig.jpg"
+      ],
+      "status": "approved",
+      "source": "NASA/JPL-Caltech/SwRI/MSSS",
+      "scheduled_for": "2026-03-01T20:24:28.819920+00:00",
+      "category": "other"
+    },
+    {
+      "id": 5,
+      "type": "original",
+      "title": "Saturn at the Edge of Night — Cassini, 2012",
+      "text": "Saturn. The night side.\n\nCassini spacecraft, October 2012. You're looking at something impossible from Earth: Saturn lit from behind, its rings glowing in scattered sunlight. The dark band across the planet's face is its own shadow on the rings.\n\nCassini orbited Saturn for 13 years, 2004-2017. It sent back 453,048 images. On September 15, 2017, controllers deliberately plunged it into Saturn's atmosphere at 76,000 mph to protect the moon Enceladus from contamination.\n\nThe mission cost $3.26 billion. The last signal took 83 minutes to reach Earth.\n\nNASA/JPL-Caltech/Space Science Institute.",
+      "tweets": [
+        {
+          "text": "Saturn. The night side.\n\nCassini, October 2012. Saturn lit from behind, rings glowing in scattered sunlight. That dark band is the planet's own shadow on its rings. Impossible to see from Earth.\n\nCassini orbited Saturn 13 years. 453,048 images. On Sept 15, 2017, they flew it into Saturn's atmosphere at 76,000 mph to protect the moon Enceladus from contamination.\n\nLast signal took 83 minutes to reach Earth.\n\nNASA/JPL-Caltech/SSI.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA17199/PIA17199~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA17199/PIA17199~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA17199/PIA17199~orig.jpg"
+      ],
+      "status": "reject",
+      "source": "NASA/JPL-Caltech/Space Science Institute"
+    },
+    {
+      "id": 6,
+      "type": "original",
+      "title": "The Sun in Extreme Ultraviolet — SDO, 2024",
+      "text": "The Sun. Not in visible light.\n\nNASA's Solar Dynamics Observatory shoots the Sun every 12 seconds in 10 different wavelengths of extreme ultraviolet. This composite shows plasma at roughly 1 million degrees Kelvin — the corona, the Sun's outer atmosphere.\n\nThose loops are magnetic field lines loaded with superheated plasma. Some extend 10-20 Earth diameters above the surface. When they snap and reconnect, you get a solar flare. The biggest ones can knock out power grids.\n\nSDO has been watching the Sun from geosynchronous orbit since 2010. It downlinks 1.5 terabytes of data per day. Every day.\n\nNASA/SDO.",
+      "tweets": [
+        {
+          "text": "The Sun. Not visible light.\n\nSDO shoots the Sun every 12 seconds in 10 wavelengths of extreme ultraviolet. This shows plasma at ~1 million degrees Kelvin.\n\nThose loops are magnetic field lines. Some extend 10-20 Earth diameters above the surface. When they snap, solar flare. The biggest ones knock out power grids.\n\nSDO has watched the Sun since 2010. Downloads 1.5 terabytes per day. Every day.\n\nNASA/SDO.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA26681/PIA26681~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA26681/PIA26681~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA26681/PIA26681~large.jpg"
+      ],
+      "status": "approved",
+      "source": "NASA/SDO",
+      "scheduled_for": "2026-03-01T20:24:06.296575+00:00",
+      "category": "temple"
+    },
+    {
+      "id": 7,
+      "type": "original",
+      "title": "Hubble Ultra Deep Field — 10,000 Galaxies in One Frame",
+      "text": "Hubble Ultra Deep Field. 2003-2004.\n\nHubble stared at one tiny patch of sky in Fornax for 11.3 days of total exposure over 400 orbits. The patch is smaller than a 1mm x 1mm square held at arm's length.\n\nResult: roughly 10,000 galaxies in a single frame. The faintest ones are 13 billion years old — their light left when the universe was 800 million years old. Some are irregular blobs that haven't yet figured out how to be galaxies.\n\nThis image changed astronomy. Before HUDF, estimates of total galaxies in the observable universe were around 50 billion. After this, the number jumped to 200 billion.\n\nNASA/ESA/S. Beckwith (STScI) and the HUDF Team.",
+      "tweets": [
+        {
+          "text": "Hubble Ultra Deep Field. 2003-2004.\n\nHubble stared at one patch of sky for 11.3 days across 400 orbits. The patch is smaller than a 1mm square held at arm's length.\n\nResult: ~10,000 galaxies. The faintest are 13 billion years old. Some are irregular blobs that haven't figured out how to be galaxies yet.\n\nBefore this image, estimated galaxies in the universe: 50 billion. After: 200 billion.\n\nNASA/ESA/STScI/HUDF Team.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA12110/PIA12110~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA12110/PIA12110~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA12110/PIA12110~orig.jpg"
+      ],
+      "status": "approved",
+      "source": "NASA/ESA/STScI",
+      "scheduled_for": "2026-03-01T20:33:58.923950+00:00",
+      "category": "other"
+    },
+    {
+      "id": 8,
+      "type": "original",
+      "title": "First Color Photo from Mars Surface — Perseverance, 2021",
+      "text": "Mars. February 19, 2021.\n\nOne day after landing. Perseverance's Hazard Avoidance Camera, first color image from the surface. Jezero Crater, a 28-mile-wide impact basin that was once a lake.\n\nThe orange-brown terrain is basalt covered in fine iron-oxide dust. Those rocks in the foreground: volcanic. Scientists picked this landing site because a river delta once flowed into the lake from the northwest. If Mars ever had microbial life, the delta sediments are where you'd look.\n\nPerseverance traveled 293 million miles over 7 months to get this shot. Landing accuracy: within 1 mile of target.\n\nNASA/JPL-Caltech, 2021.",
+      "tweets": [
+        {
+          "text": "Mars. February 19, 2021. One day after landing.\n\nPerseverance's first color image. Jezero Crater, a 28-mile-wide basin that was once a lake. Those rocks: volcanic basalt under iron-oxide dust.\n\nScientists picked this spot because a river delta once flowed in from the northwest. If Mars had microbial life, the delta sediments are where you'd find it.\n\n293 million miles. 7 months. Landing accuracy: within 1 mile of target.\n\nNASA/JPL-Caltech.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA24430/PIA24430~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA24430/PIA24430~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA24430/PIA24430~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech"
+    },
+    {
+      "id": 9,
+      "type": "original",
+      "title": "Earth at Night from ISS — City Lights, 2013",
+      "text": "Earth at night. ISS, Expedition 35, 2013.\n\n250 miles up, traveling at 17,500 mph. The Nile Delta glowing at center. You can trace the river from Cairo to the Mediterranean by the string of lights along its banks. The dark void to the right: the Red Sea.\n\nEarth's city lights are now so bright they're visible to instruments on deep-space probes. The ISS orbits once every 92 minutes, crossing from daylight to darkness 16 times per day. Crew members have taken over 4.5 million photographs of Earth through the cupola windows.\n\nNASA/ISS Expedition 35.",
+      "tweets": [
+        {
+          "text": "Earth at night. ISS, 250 miles up, 17,500 mph.\n\nYou can trace the Nile from Cairo to the Mediterranean by the lights along its banks. Dark void to the right: the Red Sea.\n\nThe ISS crosses from day to night 16 times per day. One orbit every 92 minutes. Crew members have taken over 4.5 million photos through the cupola windows.\n\nNASA/ISS Expedition 35.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001998/GSFC_20171208_Archive_e001998~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001998/GSFC_20171208_Archive_e001998~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001998/GSFC_20171208_Archive_e001998~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/ISS Expedition 25"
+    },
+    {
+      "id": 10,
+      "type": "original",
+      "title": "Curiosity Self-Portrait at Mojave, Mount Sharp, 2015",
+      "text": "Curiosity rover, self-portrait. January 2015.\n\nMojave drilling site, Mount Sharp, Gale Crater. The rover used its MAHLI camera on the robotic arm to take dozens of frames stitched into this mosaic. The arm is edited out by software.\n\nCuriosity has been on Mars since August 2012. 1,982 pounds, size of a small car. Nuclear-powered by a plutonium-238 RTG good for 14+ years. Behind the rover: the layered foothills of Mount Sharp, a 3-mile-tall mountain of sedimentary rock.\n\nAs of 2026, Curiosity has driven over 20 miles. Still going.\n\nNASA/JPL-Caltech/MSSS.",
+      "tweets": [
+        {
+          "text": "Curiosity rover, self-portrait. Mojave site, Mount Sharp, Mars. January 2015.\n\nDozens of MAHLI frames stitched into a mosaic. The robotic arm is edited out by software.\n\n1,982 pounds. Size of a small car. Nuclear-powered. Plutonium-238 RTG good for 14+ years. Behind the rover: Mount Sharp, 3 miles of sedimentary rock.\n\nOn Mars since August 2012. Over 20 miles driven. Still going.\n\nNASA/JPL-Caltech/MSSS.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA19142/PIA19142~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA19142/PIA19142~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA19142/PIA19142~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech/MSSS"
+    },
+    {
+      "id": 11,
+      "type": "original",
+      "title": "Bubble Nebula — Hubble's 26th Anniversary, 2016",
+      "text": "NGC 7635, the Bubble Nebula. Hubble, 2016.\n\nReleased for Hubble's 26th anniversary. A massive star 45 times the Sun's mass blowing a 10-light-year-wide bubble in surrounding gas. The star, SAO 20575, produces stellar winds at 4 million mph.\n\nThe bubble isn't perfectly round because the surrounding gas isn't uniform. The denser regions resist the wind, creating the asymmetric shape. The star is off-center — it's plowing through denser material on one side.\n\n11,000 light-years away in Cassiopeia. First discovered by William Herschel in 1787.\n\nNASA/ESA/Hubble Heritage Team.",
+      "tweets": [
+        {
+          "text": "Bubble Nebula. NGC 7635. Hubble, 2016.\n\nA star 45x the Sun's mass blowing a 10-light-year-wide bubble in surrounding gas. Stellar winds at 4 million mph.\n\nNot perfectly round because the gas around it isn't uniform. Denser regions resist the wind. The star is off-center, plowing through thicker material on one side.\n\n11,000 light-years away in Cassiopeia. First spotted by William Herschel in 1787.\n\nNASA/ESA/Hubble Heritage Team.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000383/GSFC_20171208_Archive_e000383~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000383/GSFC_20171208_Archive_e000383~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000383/GSFC_20171208_Archive_e000383~large.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/ESA/Hubble Heritage Team"
+    },
+    {
+      "id": 12,
+      "type": "original",
+      "title": "Pluto in True Color — New Horizons, 2015",
+      "text": "Pluto. July 14, 2015.\n\nNew Horizons, closest approach: 7,800 miles from the surface. Traveling at 31,000 mph. Nine and a half years to get there.\n\nThe heart-shaped bright area: Sputnik Planitia, a basin of frozen nitrogen 600 miles across. The left lobe is smooth because it's an active glacier — the nitrogen ice convects like boiling water in slow motion. Cell turnover: roughly every 500,000 years.\n\nPluto has an atmosphere. Thin — 100,000 times less pressure than Earth's — but it has blue skies. The same Rayleigh scattering that makes Earth's sky blue.\n\nNASA/JHUAPL/SwRI.",
+      "tweets": [
+        {
+          "text": "Pluto. July 14, 2015. New Horizons, 7,800 miles out, 31,000 mph. Nine and a half years to get there.\n\nThe heart: Sputnik Planitia. 600 miles of frozen nitrogen. The left lobe is an active glacier. Nitrogen ice convects like slow-motion boiling water. Cell turnover: every 500,000 years.\n\nPluto has an atmosphere. 100,000x thinner than Earth's. But it has blue skies. Same Rayleigh scattering.\n\nNASA/JHUAPL/SwRI.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA19952/PIA19952~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA19952/PIA19952~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA19952/PIA19952~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JHUAPL/SwRI"
+    },
+    {
+      "id": 13,
+      "type": "original",
+      "title": "Jupiter's Great Red Spot — Juno Enhanced, 2019",
+      "text": "Jupiter's Great Red Spot. Juno, 2019.\n\nThe largest storm in the solar system. 10,000 miles wide — 1.3 Earths could fit inside it. Wind speeds at the edge: 400 mph.\n\nIt's been observed since at least 1831, possibly since 1665. But it's shrinking. In the late 1800s, the spot was about 25,000 miles across. It's lost more than half its width in 150 years.\n\nThe color comes from photodissociated ammonia and acetylene in the upper atmosphere, cooked by UV radiation. Nobody knows exactly which molecules make it red.\n\nThis image is color-enhanced from JunoCam raw data by citizen scientist Kevin Gill.\n\nNASA/JPL-Caltech/SwRI/MSSS/Kevin Gill.",
+      "tweets": [
+        {
+          "text": "Jupiter's Great Red Spot. Juno, 2019.\n\nLargest storm in the solar system. 10,000 miles wide. 1.3 Earths fit inside. Winds: 400 mph.\n\nObserved since at least 1831, possibly 1665. But it's shrinking. In the 1800s it was 25,000 miles wide. Lost more than half its size in 150 years.\n\nNobody knows exactly which molecules make it red. Best guess: ammonia and acetylene cooked by UV.\n\nNASA/JPL-Caltech/SwRI/MSSS/Kevin Gill.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA21773/PIA21773~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA21773/PIA21773~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA21773/PIA21773~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech/SwRI/MSSS"
+    },
+    {
+      "id": 14,
+      "type": "original",
+      "title": "Mercury Full Disc — MESSENGER, 2008",
+      "text": "Mercury. January 14, 2008.\n\nMESSENGER's first flyby. First spacecraft to visit since Mariner 10 in 1975. This image covers terrain never before photographed — the side Mariner 10 missed.\n\nMercury is the smallest planet. 3,032 miles in diameter, barely bigger than the Moon. No atmosphere to speak of. Surface temps swing from 800F on the day side to -290F at night.\n\nThe craters look like the Moon but the geology is different. Mercury has massive scarps — cliffs hundreds of miles long where the planet shrank as its iron core cooled. The whole planet contracted by about 4 miles in radius.\n\nNASA/JHUAPL/CIW.",
+      "tweets": [
+        {
+          "text": "Mercury. MESSENGER's first flyby, January 2008. First visit since Mariner 10 in 1975. This side had never been photographed.\n\n3,032 miles across, barely bigger than the Moon. No real atmosphere. 800°F day side, -290°F night side.\n\nLooks like the Moon but different geology. Massive cliffs hundreds of miles long where the planet shrank as its iron core cooled. Mercury contracted about 4 miles in radius.\n\nNASA/JHUAPL/CIW.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001870/GSFC_20171208_Archive_e001870~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001870/GSFC_20171208_Archive_e001870~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001870/GSFC_20171208_Archive_e001870~large.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JHUAPL/CIW"
+    },
+    {
+      "id": 15,
+      "type": "original",
+      "title": "Comet 67P Close-Up — Rosetta/NAVCAM, 2014",
+      "text": "Comet 67P/Churyumov-Gerasimenko. September 2014.\n\nRosetta spacecraft, 17 miles from the surface. ESA's 10-year mission to orbit and land on a comet. The rubber-duck shape: two lobes connected by a narrow neck. Total size: about 2.5 miles across.\n\nThe surface is covered in boulders, cliffs, and smooth dust plains. Those jets shooting off the surface: gas sublimating as the comet approaches the Sun. Water, CO2, and organic molecules — the building blocks.\n\nOn November 12, 2014, the Philae lander bounced twice and landed in a shadow where its solar panels couldn't charge. It returned 60 hours of data before going silent.\n\nESA/Rosetta/NAVCAM.",
+      "tweets": [
+        {
+          "text": "Comet 67P. Rosetta, 17 miles from the surface. September 2014.\n\nTwo lobes, narrow neck. 2.5 miles across. Surface: boulders, cliffs, smooth dust. Jets of gas sublimating off the surface. Water, CO2, organic molecules.\n\nThe Philae lander bounced twice on Nov 12, 2014. Landed in shadow. Solar panels couldn't charge. 60 hours of science data, then silence.\n\n10-year mission to orbit a comet.\n\nESA/Rosetta/NAVCAM.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA21068/PIA21068~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA21068/PIA21068~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA21068/PIA21068~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "ESA/Rosetta/NAVCAM"
+    },
+    {
+      "id": 16,
+      "type": "original",
+      "title": "Mars Valles Marineris — Viking Orbiter Mosaic",
+      "text": "Valles Marineris. Mars.\n\nViking Orbiter mosaic, colored from multiple passes. A canyon system 2,500 miles long, 125 miles wide, 4 miles deep. The Grand Canyon is 277 miles long and 1 mile deep.\n\nThis isn't erosion. It's a tectonic rift — Mars cracking open as the Tharsis volcanic bulge formed. The volcanoes on the left: Tharsis Montes. The dark spot top left: Olympus Mons, the largest volcano in the solar system. 72,000 feet tall. 374 miles across at the base.\n\nThe canyon floor shows evidence of ancient water flow: layered sediments, carved channels, mineral deposits that only form in liquid water.\n\nNASA/JPL-Caltech/USGS.",
+      "tweets": [
+        {
+          "text": "Valles Marineris. Mars.\n\n2,500 miles long. 125 miles wide. 4 miles deep. The Grand Canyon is 277 miles long and 1 mile deep.\n\nNot erosion. A tectonic rift where Mars cracked open. Dark spot top-left: Olympus Mons, largest volcano in the solar system. 72,000 feet tall. 374 miles across.\n\nThe canyon floor has layered sediments and mineral deposits that only form in liquid water.\n\nNASA/JPL-Caltech/USGS.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA02005/PIA02005~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA02005/PIA02005~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA02005/PIA02005~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech/USGS"
+    },
+    {
+      "id": 17,
+      "type": "original",
+      "title": "Andromeda Galaxy — Spitzer Infrared, 2005",
+      "text": "Andromeda. Our nearest large galaxy neighbor. 2.5 million light-years away.\n\nSpitzer Space Telescope, infrared, 2005. You're seeing dust — the raw material of star formation — glowing at 24 microns. The blue core is older, cooler stars. The red ring is where new stars are being born.\n\nAndromeda contains roughly 1 trillion stars. The Milky Way has about 200-400 billion. In about 4.5 billion years, the two will collide and merge into one elliptical galaxy. The collision won't destroy individual stars — the space between them is too vast. But the gravitational disruption will reshape both galaxies completely.\n\nNASA/JPL-Caltech.",
+      "tweets": [
+        {
+          "text": "Andromeda. Nearest large galaxy. 2.5 million light-years.\n\nSpitzer infrared, 2005. You're seeing dust glowing at 24 microns. Blue core: old stars. Red ring: where new ones are forming.\n\nAbout 1 trillion stars. Milky Way has 200-400 billion. In 4.5 billion years, they collide. Individual stars won't hit each other. Too much space between them. But both galaxies reshape completely.\n\nNASA/JPL-Caltech.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA04921/PIA04921~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA04921/PIA04921~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA04921/PIA04921~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech"
+    },
+    {
+      "id": 18,
+      "type": "original",
+      "title": "Aurora Australis from ISS — Expedition 30, 2012",
+      "text": "Aurora australis. ISS, Expedition 30, 2012.\n\n250 miles up, looking south. The green curtain: oxygen atoms at roughly 60-190 miles altitude, excited by solar wind particles funneled along Earth's magnetic field lines. The green wavelength: 557.7 nanometers. Precisely.\n\nBelow the aurora, city lights of southern Australia and New Zealand. The thin blue line at the horizon is Earth's atmosphere — only about 60 miles thick, the distance of a one-hour drive.\n\nSolar wind travels at 250-500 miles per second. It takes 2-4 days to reach Earth after a coronal mass ejection.\n\nNASA/ISS Expedition 30.",
+      "tweets": [
+        {
+          "text": "Aurora australis. ISS, 250 miles up, 2012.\n\nGreen curtain: oxygen atoms 60-190 miles high, hit by solar wind particles riding Earth's magnetic field. Wavelength: 557.7 nanometers exactly.\n\nCity lights below: southern Australia. The thin blue line at the horizon is Earth's atmosphere. 60 miles thick. One-hour drive.\n\nSolar wind speed: 250-500 miles per second. Takes 2-4 days to reach Earth after a CME.\n\nNASA/ISS Expedition 30.",
+          "image_url": "https://images-assets.nasa.gov/image/iss030e119777/iss030e119777~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/iss030e119777/iss030e119777~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/iss030e119777/iss030e119777~large.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/ISS Expedition 30"
+    },
+    {
+      "id": 19,
+      "type": "original",
+      "title": "Crab Nebula — Hubble/Chandra/Spitzer Composite",
+      "text": "Crab Nebula. M1. 6,500 light-years away in Taurus.\n\nThree telescopes in one frame. Blue: Chandra X-ray. Red: Spitzer infrared. White/yellow: Hubble visible light. Each wavelength shows different physics.\n\nThe Crab is a supernova remnant. A star exploded in 1054 AD. Chinese and Japanese astronomers recorded it. It was visible in daylight for 23 days.\n\nAt the center: a neutron star spinning 30 times per second, blasting out a wind of matter and antimatter at close to the speed of light. The nebula is still expanding at 930 miles per second.\n\nNASA/ESA/CXC/SAO/JPL-Caltech.",
+      "tweets": [
+        {
+          "text": "Crab Nebula. Three telescopes, one frame.\n\nBlue: Chandra X-ray. Red: Spitzer infrared. White: Hubble visible. Each wavelength shows different physics. 6,500 light-years away.\n\nA star exploded in 1054 AD. Chinese astronomers saw it in daylight for 23 days. At the center now: a neutron star spinning 30x per second.\n\nThe nebula is still expanding at 930 miles per second.\n\nNASA/ESA/CXC/JPL-Caltech.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000053/GSFC_20171208_Archive_e000053~large.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000053/GSFC_20171208_Archive_e000053~large.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000053/GSFC_20171208_Archive_e000053~large.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/ESA/CXC/SAO/JPL-Caltech"
+    },
+    {
+      "id": 20,
+      "type": "original",
+      "title": "Enceladus Water Plumes — Cassini, 2015",
+      "text": "Enceladus. Saturn's sixth-largest moon. 313 miles in diameter. Covered in ice.\n\nCassini, October 2015. Backlit by the Sun, you can see water vapor geysers erupting from the south pole. They shoot 125 miles into space. The source: an ocean of liquid salt water under the ice, kept warm by tidal heating from Saturn's gravity.\n\nCassini flew through those plumes. Found water, salt, silica nanoparticles, and organic molecules including hydrogen gas — a potential energy source for microbial life. The ocean is estimated to be 6 miles deep under 20 miles of ice.\n\nThis is why they crashed Cassini into Saturn instead of letting it drift. They couldn't risk contaminating Enceladus.\n\nNASA/JPL-Caltech/Space Science Institute.",
+      "tweets": [
+        {
+          "text": "Enceladus. Saturn's moon. 313 miles across, covered in ice.\n\nCassini, 2015. Backlit by the Sun. Water vapor geysers from the south pole, shooting 125 miles into space. Source: a salt-water ocean under the ice, warmed by Saturn's tidal gravity.\n\nCassini flew through the plumes. Found water, salt, organics, hydrogen gas. Potential fuel for microbial life. Ocean: 6 miles deep under 20 miles of ice.\n\nThis is why they destroyed Cassini. Couldn't risk contaminating this moon.\n\nNASA/JPL-Caltech/SSI.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA07758/PIA07758~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/PIA07758/PIA07758~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/PIA07758/PIA07758~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "NASA/JPL-Caltech/Space Science Institute"
+    },
+    {
+      "id": 21,
+      "type": "original",
+      "nasa_id": "GSFC_20171208_Archive_e000009",
+      "title": "SDO Sees Solar Eclipse",
+      "text": "The Moon sliding across the face of the Sun. But not in visible light. This was captured in extreme ultraviolet at 304 angstroms, a wavelength that reveals the Sun's chromosphere burning at around 90,000°F.\n\nThat's why the Sun looks like a molten orange ball instead of the white disk you'd see with eclipse glasses. At this wavelength you can see the plasma structures, the filaments, the active regions. The Moon is just a dead black circle punching through.",
+      "tweets": [
+        {
+          "text": "The Moon sliding across the face of the Sun. But not in visible light. This was captured in extreme ultraviolet at 304 angstroms, a wavelength that reveals the Sun's chromosphere burning at around 90,000°F.\n\nThat's why the Sun looks like a molten orange ball instead of the white disk you'd see with eclipse glasses. At this wavelength you can see the plasma structures, the filaments, the active regions. The Moon is just a dead black circle punching through.",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg"
+          ]
+        },
+        {
+          "text": "This is August 21, 2017. The Great American Eclipse. While millions watched from the ground, NASA's SDO was watching from geosynchronous orbit, about 22,000 miles up. SDO shoots a full-disk image of the Sun every 12 seconds across multiple wavelengths. Over a million images a day.\n\nFrom SDO's orbit, the lunar transit looked different than from Earth's surface. Different angle, different timing, partial instead of total. But SDO got something no one on the ground could see: the Moon's shadow edge razor-sharp against ultraviolet fire.\n\n📷 NASA/SDO",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg",
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000009/GSFC_20171208_Archive_e000009~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "GSFC",
+      "scheduled_for": "2026-03-01T21:04:00-05:00",
+      "generated_at": "2026-03-01T21:01:27.312360+00:00",
+      "score": null
+    },
+    {
+      "id": 22,
+      "type": "original",
+      "nasa_id": "GSFC_20171208_Archive_e000010",
+      "title": "SDO Sees Solar Eclipse",
+      "text": "The Moon crossing the face of the Sun. But not in visible light. This was shot in 171 angstrom extreme ultraviolet, a wavelength your eyes can't detect. What you're seeing is the Sun's corona at roughly 600,000°C. The dark disk of the Moon has no atmosphere, no corona, nothing to glow at this wavelength. So it cuts a perfect black circle through superheated plasma.\n\nThis is August 21, 2017. The Great American Eclipse. While millions on the ground watched through cardboard glasses, the Solar Dynamics Observatory was watching from orbit, 22,000 miles up in geosynchronous orbit, staring at the Sun 24/7. SDO images the full solar disk every 12 seconds across multiple UV wavelengths. It caught the lunar transit from a completely different vantage point than anyone on Earth.\n\nThe Moon is 2,159 miles across. The Sun is 864,000 miles across. From SDO's perspective the Moon only covered a portion of the disk, a partial eclipse. But in extreme ultraviolet, with those coronal loops and active regions blazing around the edges, the contrast is something visible-light photography can't touch.\n\n📷 NASA/SDO",
+      "tweets": [
+        {
+          "text": "The Moon crossing the face of the Sun. But not in visible light. This was shot in 171 angstrom extreme ultraviolet, a wavelength your eyes can't detect. What you're seeing is the Sun's corona at roughly 600,000°C. The dark disk of the Moon has no atmosphere, no corona, nothing to glow at this wavelength. So it cuts a perfect black circle through superheated plasma.\n\nThis is August 21, 2017. The Great American Eclipse. While millions on the ground watched through cardboard glasses, the Solar Dynamics Observatory was watching from orbit, 22,000 miles up in geosynchronous orbit, staring at the Sun 24/7. SDO images the full solar disk every 12 seconds across multiple UV wavelengths. It caught the lunar transit from a completely different vantage point than anyone on Earth.\n\nThe Moon is 2,159 miles across. The Sun is 864,000 miles across. From SDO's perspective the Moon only covered a portion of the disk, a partial eclipse. But in extreme ultraviolet, with those coronal loops and active regions blazing around the edges, the contrast is something visible-light photography can't touch.\n\n📷 NASA/SDO",
+          "image_url": "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000010/GSFC_20171208_Archive_e000010~orig.jpg",
+          "images": [
+            "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000010/GSFC_20171208_Archive_e000010~orig.jpg"
+          ]
+        }
+      ],
+      "image_urls": [
+        "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000010/GSFC_20171208_Archive_e000010~orig.jpg"
+      ],
+      "status": "draft",
+      "source": "GSFC",
+      "scheduled_for": "2026-03-01T20:38:00-05:00",
+      "generated_at": "2026-03-01T21:01:41.450681+00:00",
+      "score": null
+    }
+  ]
+}

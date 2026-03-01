@@ -34,7 +34,7 @@ def check_imports() -> tuple[bool, str]:
         ("tools.common", "tools.common"),
         ("tools.xapi", "tools.xapi"),
         ("tools.ig_api", "tools.ig_api"),
-        ("tools.ig_browser", "tools.ig_browser"),
+        ("tools.ig_api", "tools.ig_api"),
         ("config.niches", "config.niches"),
         ("agents.engager", "agents.engager"),
         ("agents.writer", "agents.writer"),
@@ -191,11 +191,15 @@ def check_posts_queue() -> tuple[bool, str]:
 
 
 def check_stale_lockfiles() -> tuple[bool, list[Path]]:
-    """Detect lockfiles older than 2 hours (likely from crashed processes)."""
+    """Detect lockfiles older than 30 minutes (likely from crashed processes).
+
+    Most scripts finish in under 20 minutes. A 30-minute-old lock with no
+    matching process is almost certainly stale.
+    """
     stale = []
     for lock in BASE_DIR.glob(".*.lock"):
-        age_hours = (datetime.now() - datetime.fromtimestamp(lock.stat().st_mtime)).total_seconds() / 3600
-        if age_hours > 2:
+        age_minutes = (datetime.now() - datetime.fromtimestamp(lock.stat().st_mtime)).total_seconds() / 60
+        if age_minutes > 30:
             stale.append(lock)
 
     if stale:

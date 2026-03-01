@@ -1,32 +1,16 @@
 {
-  "niche": "museumstories",
+  "niche": "cosmicshots",
   "python": "venv/bin/python",
   "notifications": {
     "on_failure": true,
     "consecutive_failures_alert": 3
   },
   "scripts": {
-    "museum_fetch": {
-      "type": "scheduled",
-      "file": "museum_fetch.py",
-      "times_et": [
-        "08:00"
-      ],
-      "jitter_minutes": 30,
-      "enabled": true,
-      "timeout_seconds": 600,
-      "extra_args": [
-        "--batch-size",
-        "6"
-      ],
-      "limits": {}
-    },
     "post": {
       "type": "scheduled",
       "file": "post.py",
       "times_et": [
-        "07:30",
-        "15:30",
+        "10:30",
         "20:00"
       ],
       "jitter_minutes": 45,
@@ -35,33 +19,20 @@
       "limits": {},
       "extra_args": []
     },
-    "ig_post": {
-      "type": "scheduled",
-      "file": "ig_post.py",
-      "times_et": [
-        "11:30",
-        "16:00",
-        "20:30"
-      ],
-      "jitter_minutes": 15,
-      "enabled": false,
-      "timeout_seconds": 300,
-      "extra_args": []
-    },
     "engage": {
       "type": "scheduled",
       "file": "engage.py",
       "times_et": [
-        "10:00",
-        "14:00",
-        "19:00"
+        "11:00",
+        "16:00",
+        "20:00"
       ],
       "jitter_minutes": 15,
       "enabled": false,
       "timeout_seconds": 1200,
       "limits": {
         "--max-likes": 5,
-        "--max-replies": 8,
+        "--max-replies": 5,
         "--max-follows": 2
       }
     },
@@ -69,9 +40,8 @@
       "type": "scheduled",
       "file": "respond.py",
       "times_et": [
-        "11:00",
-        "16:00",
-        "21:00"
+        "12:00",
+        "18:00"
       ],
       "jitter_minutes": 15,
       "enabled": false,
@@ -79,50 +49,6 @@
       "limits": {
         "--max-responses": 5
       }
-    },
-    "healthcheck": {
-      "type": "scheduled",
-      "file": "healthcheck.py",
-      "times_et": [
-        "06:00"
-      ],
-      "jitter_minutes": 5,
-      "enabled": true,
-      "timeout_seconds": 60,
-      "extra_args": [
-        "--fix"
-      ]
-    },
-    "ig_engage": {
-      "type": "scheduled",
-      "file": "ig_engage.py",
-      "times_et": [
-        "10:30",
-        "15:30",
-        "21:30"
-      ],
-      "jitter_minutes": 15,
-      "enabled": true,
-      "timeout_seconds": 1800,
-      "limits": {
-        "--max-likes": 10,
-        "--max-comments": 3,
-        "--max-follows": 5
-      }
-    },
-    "quote_drafts": {
-      "enabled": true,
-      "file": "quote_drafts.py",
-      "type": "scheduled",
-      "times_et": [
-        "12:00"
-      ],
-      "jitter_minutes": 30,
-      "timeout_seconds": 300,
-      "extra_args": [
-        "--max-drafts",
-        "3"
-      ]
     },
     "track_performance": {
       "enabled": true,
@@ -146,6 +72,33 @@
       "jitter_minutes": 30,
       "timeout_seconds": 300,
       "extra_args": []
+    },
+    "healthcheck": {
+      "type": "scheduled",
+      "file": "healthcheck.py",
+      "times_et": [
+        "06:00"
+      ],
+      "jitter_minutes": 5,
+      "enabled": true,
+      "timeout_seconds": 60,
+      "extra_args": [
+        "--fix"
+      ]
+    },
+    "nasa_fetch": {
+      "type": "scheduled",
+      "file": "nasa_fetch.py",
+      "times_et": [
+        "08:00"
+      ],
+      "jitter_minutes": 30,
+      "enabled": true,
+      "timeout_seconds": 900,
+      "extra_args": [
+        "--batch-size",
+        "4"
+      ]
     }
   },
   "models": {
@@ -170,21 +123,16 @@
     "respond": [
       30,
       90
-    ],
-    "ig_engage": [
-      20,
-      60
     ]
   },
   "max_queries_per_run": 3,
   "posting_window": {
     "start_hour_et": 9,
     "end_hour_et": 22,
-    "max_per_day": 3,
+    "max_per_day": 2,
     "min_gap_hours": 3,
     "min_post_score": 7,
     "low_queue_threshold": 5,
     "min_image_dimension": 800
-  },
-  "ig_hashtags_per_run": 4
+  }
 }

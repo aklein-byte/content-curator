@@ -673,6 +673,143 @@ NEVER: em-dashes, "not just X but Y", "nature's artistry", "Mother Nature",
         },
     },
 
+    "cosmicshots": {
+        "handle": "@CosmicShots_",
+        "name": "Cosmic Shots",
+        "description": "Space photography from NASA, ESA, and JWST — planets, nebulae, galaxies, and spacecraft in actual images",
+        "posts_file": "posts-cosmicshots.json",
+        "features": {
+            "bookmarks": False,
+            "threads": False,
+            "quote_drafts": False,
+            "real_estate_drafts": False,
+            "respond": True,
+        },
+        "curator_prompt": """You evaluate space and science photographs for the "Cosmic Shots" account on X/Twitter.
+
+Score each photograph 1-10 on "would someone stop scrolling for this?":
+- 9-10: JWST deep fields, close-up planet surfaces from orbiters, famous nebulae in new wavelengths, ISS Earth views at night
+- 7-8: Good resolution, clear subject, interesting science story, strong color
+- 5-6: Generic starfield, over-processed, no clear subject or story
+- 3-4: Low resolution, heavily compressed, artist illustration (not photo)
+- 1-2: Diagram, chart, text-only, or not actually from a spacecraft/telescope
+
+CRITICAL: Only real photographs or instrument data composites. No artist renderings, no illustrations, no CGI.
+Prefer: NASA/ESA/JAXA public domain images. Must have verifiable source.""",
+        "writer_prompt": """Write posts for @CosmicShots_ about space photography. Write like a human, not an AI.
+
+THE HOOK IS ALWAYS: what you're looking at and why it's hard to believe it's real.
+
+RULES:
+1. HOOK FIRST. The object, the distance, the instrument. Not "This image shows..."
+2. One wild physical fact. How big, how far, how hot, how fast, how old.
+3. The engineering story: what it took to capture this. Cost, time, distance, exposure.
+4. Numbers. Always numbers. Miles, degrees, years, pixels, dollars.
+5. Short sentences. Fragments ok.
+6. Last line: credit the mission and instrument.
+
+TONE: A space nerd explaining to a smart friend what they're looking at. Excited but precise. No poetry.
+
+NEVER: em-dashes, "not just X but Y", "the cosmos", "awe-inspiring", "breathtaking",
+"the vastness of space", "humbling", significance claims, philosophical wrap-ups,
+"reminds us how small we are".""",
+        "communities": {
+            "default": None,
+            "all": [],
+        },
+        "hashtags": [
+            "#SpacePhotography",
+            "#NASA",
+            "#JWST",
+        ],
+        "engage_limits": {
+            "daily_max_replies": 20,
+            "daily_max_likes": 25,
+            "daily_max_follows": 8,
+            "min_author_followers_for_reply": 500,
+            "min_post_likes_for_reply": 5,
+            "like_delay": [15, 45],
+            "reply_delay": [45, 180],
+            "follow_delay": [25, 75],
+        },
+        "engagement": {
+            "search_queries": [
+                "JWST image has:images -is:retweet",
+                "hubble telescope has:images -is:retweet",
+                "NASA image day has:images -is:retweet",
+                "nebula telescope has:images -is:retweet",
+                "mars rover photo has:images -is:retweet",
+                "jupiter juno has:images -is:retweet",
+                "saturn cassini has:images -is:retweet",
+                "#astrophotography has:images -is:retweet",
+                "#spacephotography has:images -is:retweet",
+                "ISS earth photo has:images -is:retweet",
+            ],
+            "min_likes": 10,
+            "tracked_accounts": [
+                "@NASA",
+                "@NASAHubble",
+                "@NASAWebb",
+                "@ABORHINUS",
+                "@NASASolarSystem",
+                "@Cmdr_Hadfield",
+                "@BadAstronomer",
+                "@APoDAstro",
+            ],
+            "reply_voice": (
+                "You're @CosmicShots_. Add ONE specific number or fact the poster didn't mention. "
+                "Distance, exposure time, instrument name, mission cost, image resolution. "
+                "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
+            ),
+            "engagement_targets": {
+                "replies_per_day": 5,
+                "likes_per_day": 10,
+                "reposts_per_day": 2,
+                "original_posts_per_day": 2,
+            },
+            "posting_times": [
+                "10:30",
+                "15:00",
+                "21:00",
+            ],
+        },
+        "x_api_env": {
+            "consumer_key": "X_API_CONSUMER_KEY",
+            "consumer_secret": "X_API_CONSUMER_SECRET",
+            "access_token": "COSMIC_X_ACCESS_TOKEN",
+            "access_token_secret": "COSMIC_X_ACCESS_TOKEN_SECRET",
+        },
+        "nasa_config": {
+            "search_queries": [
+                # JWST actual imagery (not hardware/events)
+                "JWST deep field galaxies", "james webb nebula infrared",
+                "JWST carina pillars", "webb galaxy cluster",
+                # Hubble
+                "hubble nebula", "hubble galaxy cluster", "hubble deep field",
+                "hubble supernova remnant", "hubble planetary nebula",
+                # Planets close-up
+                "juno jupiter close", "cassini saturn rings",
+                "cassini enceladus", "cassini titan",
+                "new horizons pluto surface", "messenger mercury color",
+                # Mars surface
+                "perseverance mars landscape", "curiosity mars panorama",
+                "mars reconnaissance orbiter",
+                # Sun
+                "SDO sun ultraviolet", "solar flare SDO",
+                # Earth from space
+                "ISS earth night city lights", "ISS aurora",
+                "earth blue marble", "earth observation ISS",
+                # Other
+                "rosetta comet 67P", "crab nebula composite",
+                "andromeda galaxy infrared", "orion nebula hubble",
+            ],
+            "posts_per_day": 2,
+            "min_queue_size": 15,
+            "max_queue_size": 30,
+            "generation_batch_size": 6,
+        },
+    },
+
 }
 
 

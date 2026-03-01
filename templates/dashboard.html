@@ -178,6 +178,7 @@
   }
   .fmt-thread { background: #1d3a5c; color: var(--blue); }
   .fmt-single { background: #2d3a1c; color: #8bc34a; }
+  .fmt-qt { background: #1a2634; color: #1d9bf0; }
   .post-summary .title { font-size: 14px; color: #fff; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .post-summary .source { font-size: 11px; color: var(--text3); white-space: nowrap; }
   .post-summary .img-count { font-size: 11px; color: var(--text3); white-space: nowrap; }
@@ -310,6 +311,7 @@
     <a href="?niche=artdeco" class="__ACTIVE_ARTDECO__">deco</a>
     <a href="?niche=vanishedplaces" class="__ACTIVE_VANISHEDPLACES__">vanished</a>
     <a href="?niche=natureart" class="__ACTIVE_NATUREART__">nature</a>
+    <a href="?niche=cosmicshots" class="__ACTIVE_COSMICSHOTS__">cosmic</a>
   </div>
   <div class="stats" id="stats">__STATS_HTML__</div>
   <div class="spacer"></div>
@@ -387,7 +389,7 @@ if (NICHE === 'tatamispaces') {
   document.getElementById('museum-topbar-buttons').style.display = '';
 }
 // Set page title
-const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',artdeco:'Deco',vanishedplaces:'Vanished',natureart:'Nature'};
+const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',artdeco:'Deco',vanishedplaces:'Vanished',natureart:'Nature',cosmicshots:'Cosmic'};
 document.title = (nicheNames[NICHE] || NICHE) + ' - Post Manager';
 
 function showToast(msg) {
@@ -541,14 +543,18 @@ function museumApplyFilters() {
     const post = museumPosts.find(p => p.id === parseInt(row.dataset.id));
     if (!post) return;
     const state = post.status || 'draft';
-    const fmt = post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single');
+    const fmt = post.type === 'quote-tweet' ? 'qt' : (post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single'));
     let show = true;
     if (museumFilters.state !== 'all' && state !== museumFilters.state) show = false;
-    if (museumFilters.format !== 'all' && fmt !== museumFilters.format) show = false;
+    if (museumFilters.format !== 'all') {
+      if (museumFilters.format === 'single' && fmt !== 'single' && fmt !== 'qt') show = false;
+      else if (museumFilters.format !== 'single' && fmt !== museumFilters.format) show = false;
+    }
     if (museumFilters.search) {
       const title = (post.title || '').toLowerCase();
       const artist = (post.artist || '').toLowerCase();
-      if (!title.includes(museumFilters.search) && !artist.includes(museumFilters.search)) show = false;
+      const qtAuthor = (post.quote_tweet_author || '').toLowerCase();
+      if (!title.includes(museumFilters.search) && !artist.includes(museumFilters.search) && !qtAuthor.includes(museumFilters.search)) show = false;
     }
     row.style.display = show ? '' : 'none';
   });
@@ -566,7 +572,7 @@ function museumRender() {
   list.innerHTML = '';
   museumPosts.forEach(post => {
     const state = post.status || 'draft';
-    const fmt = post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single');
+    const fmt = post.type === 'quote-tweet' ? 'qt' : (post.format || (post.tweets && post.tweets.length > 1 ? 'thread' : 'single'));
     const row = document.createElement('div');
     row.className = 'post-row';
     row.dataset.id = post.id;
@@ -655,7 +661,21 @@ function renderMuseumDetail(post) {
   });
 
   const info = '<div style="font-size:11px;color:var(--text3);padding:4px 0 8px;display:flex;gap:16px;flex-wrap:wrap;">' +
-    '<span>' + escHtml(post.artist) + '</span><span>' + escHtml(post.medium) + '</span><span>' + escHtml(post.dimensions || '') + '</span></div>';
+    '<span>' + escHtml(post.artist || '') + '</span><span>' + escHtml(post.medium || '') + '</span><span>' + escHtml(post.dimensions || '') + '</span></div>';
+
+  // Quote-tweet context block
+  let qtBlock = '';
+  if (post.type === 'quote-tweet' && post.quote_tweet_text) {
+    const qtAuthor = post.quote_tweet_author || '';
+    const qtLikes = post.quote_tweet_likes ? ' · ' + post.quote_tweet_likes.toLocaleString() + ' likes' : '';
+    const qtLink = post.source_url ? ' <a href="' + post.source_url + '" target="_blank" style="color:#1d9bf0;text-decoration:none;">view ↗</a>' : '';
+    const reason = post.draft_reason ? '<div style="color:var(--text3);font-size:11px;margin-top:6px;font-style:italic;">Why: ' + escHtml(post.draft_reason) + '</div>' : '';
+    qtBlock = '<div style="background:#1a2634;border-left:3px solid #1d9bf0;padding:10px 12px;margin-bottom:12px;border-radius:4px;">' +
+      '<div style="font-size:11px;color:#8899a6;margin-bottom:4px;">Quoting ' + escHtml(qtAuthor) + qtLikes + qtLink + '</div>' +
+      '<div style="font-size:13px;color:#d9d9d9;white-space:pre-wrap;">' + escHtml(post.quote_tweet_text) + '</div>' +
+      reason +
+    '</div>';
+  }
 
   const notes = post.notes || '';
   const vote = post.vote || '';
@@ -663,7 +683,7 @@ function renderMuseumDetail(post) {
 
   return '<div class="post-detail-inner">' +
     (allImages.length ? '<div class="img-panel"><div class="img-panel-header">All images (' + allImages.length + ')</div><div class="img-grid">' + imgGrid + '</div></div>' : '') +
-    '<div class="copy-panel">' + info + tweetEditors + '</div>' +
+    '<div class="copy-panel">' + qtBlock + info + tweetEditors + '</div>' +
   '</div>' +
   '<div class="post-actions">' +
     '<select class="state-select" onchange="setMuseumState(' + post.id + ',this.value)">' +
