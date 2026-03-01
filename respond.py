@@ -37,7 +37,6 @@ DELAY_MIN = _delays[0]
 DELAY_MAX = _delays[1]
 
 anthropic = get_anthropic()
-_models = load_config().get("models", {})
 
 
 def already_responded_to_tweet(log_entries: list, tweet_id: str) -> bool:

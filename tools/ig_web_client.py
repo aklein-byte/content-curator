@@ -14,6 +14,7 @@ Format: http://user:pass@host:port or socks5://user:pass@host:port
 import json
 import logging
 import os
+import re
 import random
 import time
 from pathlib import Path
@@ -56,19 +57,32 @@ class IGWebClient:
 
     def __init__(self, niche_id: str = "tatamispaces"):
         self.niche_id = niche_id
+        # Load expected IG username from niche config
+        try:
+            from config.niches import get_niche
+            niche = get_niche(niche_id)
+            self.expected_username = niche.get("ig_env", {}).get("username", "")
+        except Exception:
+            self.expected_username = ""
         self.session = requests.Session()
         self._setup_proxy()
         self._load_cookies()
 
     def _setup_proxy(self):
-        """Configure residential proxy if available."""
+        """Configure residential proxy with sticky session.
+
+        Sticky sessions ensure all requests in one IGWebClient lifetime
+        route through the same proxy IP. DataImpulse format:
+        http://login__sessid.XXXXXXXX:pass@host:port
+        """
         proxy_url = os.environ.get("RESIDENTIAL_PROXY", "").strip()
         if proxy_url:
+            # Add sticky session so all requests use same IP
+            proxy_url = self._make_sticky(proxy_url)
             self.session.proxies = {
                 "http": proxy_url,
                 "https": proxy_url,
             }
-            # Mask credentials in log
             masked = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
             log.info(f"Using residential proxy: {masked}")
         else:
@@ -76,6 +90,28 @@ class IGWebClient:
                 "No RESIDENTIAL_PROXY set — IG may block datacenter IPs. "
                 "Set RESIDENTIAL_PROXY=http://user:pass@host:port in .env"
             )
+
+    @staticmethod
+    def _make_sticky(proxy_url: str) -> str:
+        """Inject a sticky session ID into the proxy URL.
+
+        Turns http://user:pass@host:port into
+        http://user__sessid.XXXXXXXX:pass@host:port so all requests
+        in this client instance route through the same IP.
+        """
+        import string as _string
+        sess_id = "".join(random.choices(_string.ascii_lowercase + _string.digits, k=8))
+        # Only add if not already sticky
+        if "__sessid." in proxy_url:
+            return proxy_url
+        # Parse: http://login:pass@host:port
+        match = re.match(r"(https?://)([^:]+):([^@]+)@(.+)", proxy_url)
+        if match:
+            scheme, login, password, host = match.groups()
+            sticky = f"{scheme}{login}__sessid.{sess_id}:{password}@{host}"
+            log.info(f"Sticky session: {sess_id}")
+            return sticky
+        return proxy_url
 
     def _cookie_path(self) -> Path:
         return BASE_DIR / "data" / "cookies" / f"ig_cookies_{self.niche_id}.json"
@@ -272,6 +308,13 @@ class IGWebClient:
             if resp.status_code == 200:
                 data = resp.json()
                 username = data.get("user", {}).get("username", "unknown")
+                # Validate account matches expected niche
+                if self.expected_username and username != self.expected_username:
+                    log.error(
+                        f"WRONG ACCOUNT: logged in as @{username} but expected "
+                        f"@{self.expected_username} for niche {self.niche_id}. Aborting."
+                    )
+                    return False
                 log.info(f"Session valid — logged in as @{username}")
                 return True
             log.error(f"Session check failed: {resp.status_code}")

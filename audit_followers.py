@@ -87,6 +87,7 @@ def save_audit(data: dict):
 
 def main():
     parser = argparse.ArgumentParser(description="Audit followed accounts")
+    parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
     parser.add_argument("--unfollow", action="store_true", help="Actually unfollow low-score accounts")
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen")
     parser.add_argument("--min-score", type=int, default=6, help="Minimum score to keep (default 6)")

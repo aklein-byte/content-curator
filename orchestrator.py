@@ -34,6 +34,8 @@ LOG_DIR = BASE_DIR / "logs"
 # Set by main() from --config flag
 CONFIG_FILE = DEFAULT_CONFIG_FILE
 
+from tools.common import notify as _common_notify
+
 ET = ZoneInfo("America/New_York")
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
@@ -397,37 +399,8 @@ def _build_success_summary(name: str, metrics: dict, summary_parts: list) -> str
 
 
 def notify(title: str, message: str, priority: str = "high"):
-    """Send push notification via ntfy.sh (works on VPS + phone) with macOS fallback."""
-    import platform
-    config = load_config()
-    ntfy_topic = config.get("ntfy_topic") or os.getenv("NTFY_TOPIC", "wp-tatami-orchestrator")
-    tags = "warning" if priority == "high" else "white_check_mark"
-
-    # Try ntfy.sh first (works everywhere)
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"https://ntfy.sh/{ntfy_topic}",
-            data=message.encode(),
-            headers={"Title": title, "Priority": priority, "Tags": tags},
-        )
-        urllib.request.urlopen(req, timeout=5)
-        return
-    except Exception as e:
-        log.warning(f"ntfy.sh failed: {e}")
-
-    # Fallback to terminal-notifier on macOS
-    if platform.system() == "Darwin":
-        try:
-            subprocess.run(
-                ["terminal-notifier", "-title", title, "-message", message,
-                 "-group", "orchestrator", "-sound", "Basso"],
-                timeout=5, capture_output=True,
-            )
-        except FileNotFoundError:
-            log.warning("terminal-notifier not found, skipping notification")
-        except Exception as e:
-            log.warning(f"macOS notification failed: {e}")
+    """Delegate to tools/common.notify()."""
+    _common_notify(title, message, priority=priority)
 
 
 def notify_if_needed(name: str, result: dict, status: dict, config: dict):

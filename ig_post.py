@@ -22,7 +22,7 @@ load_dotenv()
 
 from config.niches import get_niche
 from tools.ig_api import publish_single, publish_carousel
-from tools.ig_browser import adapt_caption_for_ig
+from tools.ig_api import adapt_caption_for_ig
 from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
 from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts
 

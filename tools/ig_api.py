@@ -8,11 +8,10 @@ API docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-
 """
 
 import os
+import re
 import time
 import logging
 import requests
-from pathlib import Path
-from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -39,65 +38,13 @@ def get_ig_credentials(
     return token, user_id
 
 
-def check_token_info(token: str) -> dict:
-    """Check token validity and expiry info."""
-    resp = requests.get(
-        "https://graph.instagram.com/me",
-        params={"fields": "user_id,username", "access_token": token},
-        timeout=15,
-    )
-    if resp.status_code != 200:
-        raise RuntimeError(f"Token check failed: {resp.status_code} {resp.text}")
-    return resp.json()
-
-
-def refresh_token_if_needed(token: str, env_path: Path | None = None, token_env: str = "IG_GRAPH_TOKEN") -> str:
-    """Refresh a long-lived token if it's within 10 days of expiry.
-
-    Long-lived IG tokens last 60 days and can be refreshed when they're
-    at least 24 hours old. We refresh proactively when within 10 days.
-
-    Args:
-        token_env: Name of the env var to update in .env file.
-    Returns the (possibly new) token.
-    """
-    resp = requests.get(
-        "https://graph.instagram.com/refresh_access_token",
-        params={
-            "grant_type": "ig_refresh_token",
-            "access_token": token,
-        },
-        timeout=15,
-    )
-    if resp.status_code == 200:
-        data = resp.json()
-        new_token = data.get("access_token", token)
-        expires_in = data.get("expires_in", 0)
-        days_left = expires_in // 86400
-        log.info(f"Token refreshed. Expires in {days_left} days.")
-
-        if new_token != token and env_path:
-            _update_env_token(env_path, new_token, token_env)
-
-        return new_token
-    else:
-        log.warning(f"Token refresh failed: {resp.status_code} {resp.text}")
-        return token
-
-
-def _update_env_token(env_path: Path, new_token: str, token_env: str = "IG_GRAPH_TOKEN"):
-    """Update an IG token env var in .env file."""
-    content = env_path.read_text()
-    lines = content.split("\n")
-    updated = False
-    for i, line in enumerate(lines):
-        if line.startswith(f"{token_env}="):
-            lines[i] = f"{token_env}={new_token}"
-            updated = True
-            break
-    if updated:
-        env_path.write_text("\n".join(lines))
-        log.info(f"Updated {token_env} in .env")
+def adapt_caption_for_ig(text: str, niche: dict) -> str:
+    """Adapt X caption for Instagram (convert Twitter credits, add hashtags)."""
+    ig_text = re.sub(r'📷\s*@(\w+)', r'📷 \1 on X', text)
+    hashtags = niche.get("hashtags", [])
+    if hashtags:
+        ig_text += "\n\n" + " ".join(hashtags[:10])
+    return ig_text
 
 
 def _check_container_status(container_id: str, token: str, max_wait: int = 60) -> str:

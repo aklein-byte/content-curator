@@ -106,7 +106,7 @@
       "timeout_seconds": 1800,
       "limits": {
         "--max-likes": 10,
-        "--max-comments": 3,
+        "--max-comments": 6,
         "--max-follows": 5
       }
     },

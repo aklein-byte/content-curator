@@ -4,10 +4,7 @@ Uses Claude to generate contextual, on-brand replies.
 Reads voice.md for style guidance.
 """
 
-import os
-import json
 import logging
-from pathlib import Path
 from typing import Optional
 
 from config.niches import get_niche
@@ -43,6 +40,23 @@ Rewrite it fixing ALL the issues above. Keep the same meaning and tone. Just out
     except Exception as e:
         logger.error(f"Humanizer rewrite failed: {e}")
         return ""
+
+
+def _humanize(text: str, system_prompt: str, label: str = "", max_tokens: int = 280) -> str:
+    """Validate text against humanizer, rewrite once if needed. Returns empty string on failure."""
+    from tools.humanizer import validate_text
+    hv = validate_text(text)
+    if hv.passed:
+        return text
+    logger.info(f"Humanizer flagged {label}: {', '.join(hv.violations[:3])} — rewriting")
+    rewritten = _humanizer_rewrite(text, hv.violations, system_prompt, max_tokens)
+    if not rewritten:
+        return ""
+    hv2 = validate_text(rewritten)
+    if not hv2.passed:
+        logger.warning(f"Humanizer still flagged {label} after rewrite: {', '.join(hv2.violations[:3])}")
+        return ""
+    return rewritten
 
 
 def _build_evaluator_prompt(niche_id: str) -> str:
@@ -333,34 +347,16 @@ async def generate_thread(
             messages=[{"role": "user", "content": prompt}],
         )
 
-        text = response.content[0].text
+        result = parse_json_response(response.content[0].text)
+        if not result:
+            logger.error("Failed to parse thread JSON from model response")
+            return {"topic": topic, "tweets": []}
 
-        # Parse JSON
-        json_start = text.find("{")
-        if json_start >= 0:
-            depth = 0
-            for i in range(json_start, len(text)):
-                if text[i] == "{":
-                    depth += 1
-                elif text[i] == "}":
-                    depth -= 1
-                    if depth == 0:
-                        try:
-                            result = json.loads(text[json_start:i + 1])
-                            tweets = result.get("tweets", [])
-                            # Validate lengths
-                            valid = [t for t in tweets if len(t) <= 280]
-                            if len(valid) < len(tweets):
-                                logger.warning(f"Dropped {len(tweets) - len(valid)} tweets over 280 chars")
-                            return {
-                                "topic": result.get("topic", topic),
-                                "tweets": valid,
-                            }
-                        except json.JSONDecodeError:
-                            break
-
-        logger.error("Failed to parse thread JSON from model response")
-        return {"topic": topic, "tweets": []}
+        tweets = result.get("tweets", [])
+        valid = [t for t in tweets if len(t) <= 280]
+        if len(valid) < len(tweets):
+            logger.warning(f"Dropped {len(tweets) - len(valid)} tweets over 280 chars")
+        return {"topic": result.get("topic", topic), "tweets": valid}
     except Exception as e:
         logger.error(f"Failed to generate thread about '{topic}': {e}")
         return {"topic": topic, "tweets": []}
@@ -451,22 +447,9 @@ async def draft_reply(
             messages=[{"role": "user", "content": prompt}],
         )
         reply = response.content[0].text.strip()
-        # Remove any wrapping quotes the model might add
         if reply.startswith('"') and reply.endswith('"'):
             reply = reply[1:-1]
-        # Humanizer check — rewrite if violations found
-        from tools.humanizer import validate_text
-        hv = validate_text(reply)
-        if not hv.passed:
-            logger.info(f"Humanizer flagged reply to @{author}: {', '.join(hv.violations[:3])} — rewriting")
-            reply = _humanizer_rewrite(reply, hv.violations, _build_reply_prompt(niche_id))
-            if not reply:
-                return ""
-            hv2 = validate_text(reply)
-            if not hv2.passed:
-                logger.warning(f"Humanizer still flagged reply to @{author} after rewrite: {', '.join(hv2.violations[:3])}")
-                return ""
-        return reply
+        return _humanize(reply, _build_reply_prompt(niche_id), f"reply to @{author}")
     except Exception as e:
         logger.error(f"Failed to draft reply to @{author}: {e}")
         return ""
@@ -515,19 +498,7 @@ Write the quote tweet:"""
         text = response.content[0].text.strip()
         if text.startswith('"') and text.endswith('"'):
             text = text[1:-1]
-        # Humanizer check — rewrite if violations found
-        from tools.humanizer import validate_text
-        hv = validate_text(text)
-        if not hv.passed:
-            logger.info(f"Humanizer flagged quote tweet for @{author}: {', '.join(hv.violations[:3])} — rewriting")
-            text = _humanizer_rewrite(text, hv.violations, system)
-            if not text:
-                return ""
-            hv2 = validate_text(text)
-            if not hv2.passed:
-                logger.warning(f"Humanizer still flagged quote tweet for @{author} after rewrite: {', '.join(hv2.violations[:3])}")
-                return ""
-        return text
+        return _humanize(text, system, f"quote tweet for @{author}")
     except Exception as e:
         logger.error(f"Failed to draft quote tweet for @{author}: {e}")
         return ""
@@ -562,58 +533,15 @@ async def draft_original_post(
         )
 
         text = response.content[0].text
+        parsed = parse_json_response(text)
 
-        # Try to parse first JSON object from response
-        json_start = text.find("{")
-        if json_start >= 0:
-            # Find matching closing brace by counting nesting
-            depth = 0
-            for i in range(json_start, len(text)):
-                if text[i] == "{":
-                    depth += 1
-                elif text[i] == "}":
-                    depth -= 1
-                    if depth == 0:
-                        try:
-                            result = json.loads(text[json_start:i + 1])
-                            parsed = {
-                                "text": result.get("text", ""),
-                                "credit_handle": result.get("credit_handle", author),
-                            }
-                            from tools.humanizer import validate_text as _hv2
-                            hv = _hv2(parsed["text"])
-                            if not hv.passed:
-                                logger.info(f"Humanizer flagged original post from @{author}: {', '.join(hv.violations[:3])} — rewriting")
-                                rewritten = _humanizer_rewrite(parsed["text"], hv.violations, _build_original_post_prompt(niche_id), max_tokens=512)
-                                if rewritten:
-                                    hv2 = _hv2(rewritten)
-                                    if hv2.passed:
-                                        parsed["text"] = rewritten
-                                        return parsed
-                                logger.warning(f"Humanizer still flagged original post from @{author} after rewrite")
-                                return {"text": "", "credit_handle": author}
-                            return parsed
-                        except json.JSONDecodeError:
-                            break
-
-        # Fallback: use the whole response as text
         result = {
-            "text": text.strip(),
-            "credit_handle": author,
+            "text": parsed.get("text", "") if parsed else text.strip(),
+            "credit_handle": parsed.get("credit_handle", author) if parsed else author,
         }
-        # Humanizer check on final text — rewrite if violations found
-        from tools.humanizer import validate_text as _hv
-        hv = _hv(result["text"])
-        if not hv.passed:
-            logger.info(f"Humanizer flagged original post from @{author}: {', '.join(hv.violations[:3])} — rewriting")
-            rewritten = _humanizer_rewrite(result["text"], hv.violations, _build_original_post_prompt(niche_id), max_tokens=512)
-            if rewritten:
-                hv2 = _hv(rewritten)
-                if hv2.passed:
-                    result["text"] = rewritten
-                    return result
-            logger.warning(f"Humanizer still flagged original post from @{author} after rewrite")
-            return {"text": "", "credit_handle": author}
+
+        system_prompt = _build_original_post_prompt(niche_id)
+        result["text"] = _humanize(result["text"], system_prompt, f"original post from @{author}", max_tokens=512)
         return result
     except Exception as e:
         logger.error(f"Failed to draft original post from @{author}: {e}")

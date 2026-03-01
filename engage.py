@@ -231,9 +231,9 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
             log.info(f"  [DRY] Would like @{handle}'s tweet: {tweet_to_like.get('text', '')[:50]}...")
             engaged += 1
         else:
-            delay = _rand.randint(15, 45)
+            delay = random.randint(15, 45)
             log.info(f"  Waiting {delay}s before engaging back with @{handle}...")
-            _time.sleep(delay)
+            time.sleep(delay)
             if like_post(tweet_to_like["id"]):
                 engaged += 1
                 eng_log.append({

@@ -36,6 +36,7 @@ IMPORTABLE_MODULES = [
     "tools.post_queue",
     "tools.museum_apis",
     "agents.fact_checker",
+    "tools.ig_api",
 ]
 
 

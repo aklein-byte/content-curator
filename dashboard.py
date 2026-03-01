@@ -291,6 +291,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    # === Shared post-modification helper ===
+
+    def _modify_post(self, niche_id: str, post_id, modifier):
+        """Lock, find post by ID, call modifier(post) -> error_str or None, save, unlock."""
+        lock = _lock_posts(niche_id)
+        try:
+            data = load_posts(niche_id)
+            for p in data["posts"]:
+                if p["id"] == post_id:
+                    err = modifier(p)
+                    if err:
+                        self.send_json({"ok": False, "error": err})
+                    else:
+                        save_posts(data, niche_id)
+                        self.send_json({"ok": True})
+                    return
+            self.send_json({"ok": False, "error": "post not found"})
+        finally:
+            _unlock_posts(lock)
+
     # === Museum API handlers ===
 
     def handle_museum_status(self, body):
@@ -300,20 +320,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not post_id or not new_status:
             self.send_json({"ok": False, "error": "missing id or status"})
             return
-        lock = _lock_posts(niche_id)
-        try:
-            data = load_posts(niche_id)
-            for p in data["posts"]:
-                if p["id"] == post_id:
-                    p["status"] = new_status
-                    if new_status == "approved" and not p.get("scheduled_for"):
-                        p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
-                    save_posts(data, niche_id)
-                    self.send_json({"ok": True})
-                    return
-            self.send_json({"ok": False, "error": "post not found"})
-        finally:
-            _unlock_posts(lock)
+        def _apply(p):
+            p["status"] = new_status
+            if new_status == "approved" and not p.get("scheduled_for"):
+                p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
+        self._modify_post(niche_id, post_id, _apply)
 
     def handle_museum_tweet_edit(self, body):
         post_id = body.get("id")
@@ -323,21 +334,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or text is None:
             self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
             return
-        lock = _lock_posts(niche_id)
-        try:
-            data = load_posts(niche_id)
-            for p in data["posts"]:
-                if p["id"] == post_id:
-                    if 0 <= tweet_index < len(p.get("tweets", [])):
-                        p["tweets"][tweet_index]["text"] = text
-                        save_posts(data, niche_id)
-                        self.send_json({"ok": True})
-                        return
-                    self.send_json({"ok": False, "error": "invalid tweet_index"})
-                    return
-            self.send_json({"ok": False, "error": "post not found"})
-        finally:
-            _unlock_posts(lock)
+        def _apply(p):
+            if not (0 <= tweet_index < len(p.get("tweets", []))):
+                return "invalid tweet_index"
+            p["tweets"][tweet_index]["text"] = text
+        self._modify_post(niche_id, post_id, _apply)
 
     def handle_museum_image_assign(self, body):
         post_id = body.get("post_id")
@@ -348,28 +349,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
             self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
             return
-        lock = _lock_posts(niche_id)
-        try:
-            data = load_posts(niche_id)
-            for p in data["posts"]:
-                if p["id"] == post_id:
-                    if 0 <= tweet_index < len(p.get("tweets", [])):
-                        tweet = p["tweets"][tweet_index]
-                        if "images" not in tweet:
-                            tweet["images"] = []
-                        if action == "add":
-                            if image_index not in tweet["images"]:
-                                tweet["images"].append(image_index)
-                        elif action == "remove":
-                            tweet["images"] = [i for i in tweet["images"] if i != image_index]
-                        save_posts(data, niche_id)
-                        self.send_json({"ok": True})
-                        return
-                    self.send_json({"ok": False, "error": "invalid tweet_index"})
-                    return
-            self.send_json({"ok": False, "error": "post not found"})
-        finally:
-            _unlock_posts(lock)
+        def _apply(p):
+            if not (0 <= tweet_index < len(p.get("tweets", []))):
+                return "invalid tweet_index"
+            tweet = p["tweets"][tweet_index]
+            if "images" not in tweet:
+                tweet["images"] = []
+            if action == "add":
+                if image_index not in tweet["images"]:
+                    tweet["images"].append(image_index)
+            elif action == "remove":
+                tweet["images"] = [i for i in tweet["images"] if i != image_index]
+        self._modify_post(niche_id, post_id, _apply)
 
     def handle_museum_notes(self, body):
         post_id = body.get("id")
@@ -377,21 +368,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        lock = _lock_posts(niche_id)
-        try:
-            data = load_posts(niche_id)
-            for p in data["posts"]:
-                if p["id"] == post_id:
-                    if "vote" in body:
-                        p["vote"] = body["vote"]
-                    if "notes" in body:
-                        p["notes"] = body["notes"]
-                    save_posts(data, niche_id)
-                    self.send_json({"ok": True})
-                    return
-            self.send_json({"ok": False, "error": "post not found"})
-        finally:
-            _unlock_posts(lock)
+        def _apply(p):
+            if "vote" in body:
+                p["vote"] = body["vote"]
+            if "notes" in body:
+                p["notes"] = body["notes"]
+        self._modify_post(niche_id, post_id, _apply)
 
     # === Regenerate handlers ===
 

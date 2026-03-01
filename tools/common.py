@@ -51,7 +51,6 @@ def save_json(path: Path, data, lock: bool = False) -> None:
     If lock=True, acquires an exclusive flock on path.lock during the write
     to prevent concurrent read-modify-write races (e.g. dashboard vs post.py).
     """
-    import fcntl
     path.parent.mkdir(parents=True, exist_ok=True)
 
     lockfile = path.parent / f".{path.name}.lock"
