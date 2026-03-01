@@ -461,11 +461,11 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
         },
     },
 
-    "deepocean": {
-        "handle": "@TheDeepReport",
-        "name": "Deep Ocean",
-        "description": "Creatures, expeditions, and landscapes from the deep ocean",
-        "posts_file": "posts-deepocean.json",
+    "americanwest": {
+        "handle": "@WestInFrames",
+        "name": "American West",
+        "description": "Frontier photography, cowboys, ghost towns, and the real American West from the Library of Congress",
+        "posts_file": "posts-americanwest.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -473,41 +473,40 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate deep ocean imagery for "holy shit" factor on X/Twitter.
+        "curator_prompt": """You evaluate historical photographs of the American West for story potential on X/Twitter.
 
-Score each image 1-10 on "would someone stop scrolling for this?":
-- 9-10: Never-before-seen creature, bioluminescence in the dark, hydrothermal vent ecosystems, giant scale
-- 7-8: Interesting deep sea organism, good image quality, surprising biology
-- 5-6: Standard underwater photo, surface-level content
-- 3-4: Low resolution ROV footage, barely visible subject
-- 1-2: Diagram, illustration, or no actual ocean imagery
+Score each photograph 1-10 on "would someone stop scrolling for this?":
+- 9-10: Iconic frontier moment, haunting portrait, dramatic landscape, famous photographer (Curtis, Jackson, O'Sullivan)
+- 7-8: Strong composition, clear human story, interesting historical context
+- 5-6: Generic western scene, nothing surprising
+- 3-4: Blurry, badly composed, or no clear story
+- 1-2: No image, fragment, or purely technical documentation
 
-Prefer images with: bizarre morphology, extreme depth, bioluminescence, scale reference,
-known expeditions (Okeanos Explorer, Nautilus, Alvin), rare species, first discoveries.""",
-        "writer_prompt": """Write posts for @TheDeepReport about the deep ocean. Write like a human, not an AI.
+Prefer photos with: named subjects, specific locations, surprising details, human stories,
+contrasts between myth and reality, Native American perspectives, women on the frontier.""",
+        "writer_prompt": """Write posts for @WestInFrames about historical American West photography. Write like a human, not an AI.
 
-LET THE WEIRD SPEAK FOR ITSELF. The deep ocean is already alien. Don't oversell it.
+THE WEST WAS REAL PEOPLE. Not mythology. Lead with the specific human detail, not the grand narrative.
 
 RULES:
-1. HOOK FIRST. Lead with the most alien detail. Not "Scientists discovered..."
-2. Numbers are your friend: depth in meters, pressure in atmospheres, temperature, how many ever found.
-3. Name the species (common AND scientific). Name the expedition or submersible.
-4. Short sentences. Fragments ok. Let the biology be the punchline.
-5. End with the detail that makes someone text a friend about it.
-6. Credit: "Image: NOAA/[vessel]" or "Photo: [institution/photographer]"
+1. HOOK FIRST. Lead with the detail that surprises. Not "This photograph shows..."
+2. Names, dates, places. If the person in the photo has a name, use it.
+3. Short sentences. Fragments ok.
+4. Complicate the myth. Cowboys had day jobs. Outlaws were boring. Settlers were terrified.
+5. Last line: "Photographer, Title, Year. Library of Congress."
 
-TONE: A marine biologist showing you ROV footage at 2am, three coffees deep. Excited. Precise. Slightly unhinged about how weird this all is.
+TONE: A history professor at a saloon, two whiskeys in. Knows the real stories behind the legends.
 
-NEVER: em-dashes, "not just X but Y", "the depths of the ocean", "mysterious depths",
-"alien world", "the abyss", "deep blue", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny", "the Wild West",
+"a bygone era", "the spirit of", "pioneers who dared", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#DeepSea",
-            "#OceanExploration",
-            "#MarineBiology",
+            "#AmericanWest",
+            "#FrontierHistory",
+            "#VintagePhotography",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -521,24 +520,129 @@ NEVER: em-dashes, "not just X but Y", "the depths of the ocean", "mysterious dep
         },
         "engagement": {
             "search_queries": [
-                "deep sea creature has:images -is:retweet",
-                "(NOAA OR ocean exploration) has:images -is:retweet",
-                "deep ocean has:images -is:retweet",
-                "(bioluminescence OR hydrothermal vent) has:images -is:retweet",
-                "#deepsea has:images -is:retweet",
-                "(marine biology OR deep sea fish) has:images -is:retweet",
+                "old west photograph has:images -is:retweet",
+                "frontier history has:images -is:retweet",
+                "cowboy vintage has:images -is:retweet",
+                "(ghost town OR mining town) has:images -is:retweet",
+                "Native American historical has:images -is:retweet",
+                "#americanwest has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@NOAAOceanExpo",
-                "@EVNautilus",
-                "@SchmidtOcean",
-                "@ABORHINUS",
-                "@MBABORHINUS",
+                "@PulpLibrarian",
+                "@historydefined",
+                "@LOCphotography",
+                "@USNatArchives",
             ],
             "reply_voice": (
-                "You're @TheDeepReport. Add ONE specific fact the poster didn't mention. "
-                "The depth it lives at, how many have been found, what it eats, how it survives the pressure. "
+                "You're @WestInFrames. Add ONE specific fact the poster didn't mention. "
+                "A name, a date, what happened next, where the photo was taken. "
+                "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
+            ),
+            "engagement_targets": {
+                "replies_per_day": 5,
+                "likes_per_day": 10,
+                "reposts_per_day": 2,
+                "original_posts_per_day": 2,
+            },
+            "posting_times": [
+                "10:00",
+                "15:00",
+                "20:00",
+            ],
+        },
+        "loc_config": {
+            "search_queries": [
+                "cowboys", "frontier", "gold rush", "ghost town",
+                "homestead", "western landscape", "cattle", "saloon",
+                "Native American portrait", "stagecoach", "ranch",
+            ],
+            "collections": ["det", "pga", "pan", "cph"],
+            "posts_per_day": 2,
+            "min_queue_size": 15,
+            "max_queue_size": 30,
+            "generation_batch_size": 6,
+        },
+    },
+
+    "dustbowl": {
+        "handle": "@DustBowlPics",
+        "name": "Dust Bowl",
+        "description": "Depression-era America through the lens of FSA photographers — Lange, Evans, Parks, Lee",
+        "posts_file": "posts-dustbowl.json",
+        "features": {
+            "bookmarks": False,
+            "threads": False,
+            "quote_drafts": False,
+            "real_estate_drafts": False,
+            "respond": True,
+        },
+        "curator_prompt": """You evaluate FSA/Depression-era photographs for story potential on X/Twitter.
+
+Score each photograph 1-10 on "would someone stop scrolling for this?":
+- 9-10: Dorothea Lange, Walker Evans, Gordon Parks caliber. Haunting face, impossible dust cloud, family on the road.
+- 7-8: Strong FSA photo with clear narrative, good composition, identifiable location or subject
+- 5-6: Generic Depression-era photo, nothing that pulls you in
+- 3-4: Poor quality, no clear subject, or overly staged
+- 1-2: No image, fragment, or purely administrative document
+
+Prefer photos with: named subjects, specific locations, Dorothea Lange, Walker Evans, Gordon Parks,
+Russell Lee, Arthur Rothstein, Jack Delano, Marion Post Wolcott. Human dignity in hardship.
+Photos that show resilience, not just suffering.""",
+        "writer_prompt": """Write posts for @DustBowlPics about Depression-era American photography. Write like a human, not an AI.
+
+THESE WERE REAL PEOPLE. Not symbols of hardship. Lead with their names when you have them.
+
+RULES:
+1. HOOK FIRST. The specific detail that makes this photo different from every other Depression photo.
+2. Names, dates, places. If the FSA caption has them, use them.
+3. Short sentences. Fragments ok. Let the photo do the emotional work.
+4. Context: what happened to this person, this town, this crop. What came next.
+5. Name the photographer. Always. These photographers are half the story.
+6. Last line: "Photographer Name, Title/Description, Year. Library of Congress, FSA/OWI Collection."
+
+TONE: A documentary filmmaker who's spent a year in the FSA archive and keeps finding photos that wreck them.
+
+NEVER: em-dashes, "not just X but Y", "the human spirit", "resilience in the face of",
+"a testament to", "these forgotten Americans", poverty porn, significance claims, philosophical wrap-ups.""",
+        "communities": {
+            "default": None,
+            "all": [],
+        },
+        "hashtags": [
+            "#DustBowl",
+            "#GreatDepression",
+            "#FSAPhotography",
+        ],
+        "engage_limits": {
+            "daily_max_replies": 20,
+            "daily_max_likes": 25,
+            "daily_max_follows": 8,
+            "min_author_followers_for_reply": 500,
+            "min_post_likes_for_reply": 5,
+            "like_delay": [15, 45],
+            "reply_delay": [45, 180],
+            "follow_delay": [25, 75],
+        },
+        "engagement": {
+            "search_queries": [
+                "dust bowl photograph has:images -is:retweet",
+                "great depression photo has:images -is:retweet",
+                "dorothea lange has:images -is:retweet",
+                "walker evans has:images -is:retweet",
+                "FSA photography has:images -is:retweet",
+                "(depression era OR 1930s America) has:images -is:retweet",
+            ],
+            "min_likes": 10,
+            "tracked_accounts": [
+                "@LOCphotography",
+                "@USNatArchives",
+                "@historydefined",
+                "@PulpLibrarian",
+            ],
+            "reply_voice": (
+                "You're @DustBowlPics. Add ONE specific fact the poster didn't mention. "
+                "The photographer's name, where it was taken, what happened to the subject, the FSA backstory. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -553,8 +657,13 @@ NEVER: em-dashes, "not just X but Y", "the depths of the ocean", "mysterious dep
                 "20:30",
             ],
         },
-        "generation": {
-            "sources": ["noaa_api", "smithsonian_api", "nasa_api"],
+        "loc_config": {
+            "search_queries": [
+                "dust bowl", "migrant workers", "sharecropper",
+                "depression era family", "drought", "farm worker",
+                "tenant farmer", "WPA", "CCC camp", "breadline",
+            ],
+            "collections": ["fsa", "fsaall"],
             "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,
