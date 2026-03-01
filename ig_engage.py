@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config.niches import get_niche
-from tools.common import load_json, save_json, notify, random_delay, acquire_lock, release_lock, setup_logging, load_config, niche_log_path, get_anthropic, get_model
+from tools.common import load_json, save_json, notify, random_delay, acquire_lock, release_lock, setup_logging, load_config, niche_log_path, get_anthropic, get_model, parse_json_response
 
 log = setup_logging("ig_engage")
 
@@ -122,10 +122,9 @@ Possible actions: like, comment, follow
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text
-        json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            return json.loads(text[json_start:json_end])
+        result = parse_json_response(text)
+        if result:
+            return result
     except Exception as e:
         log.error(f"  Eval failed for @{post.author}: {e}")
 

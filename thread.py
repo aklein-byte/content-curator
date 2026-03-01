@@ -7,7 +7,6 @@ Usage: python thread.py [--niche tatamispaces] [--topic "topic"] [--dry-run]
 
 import sys
 import os
-import json
 import asyncio
 import random
 import argparse

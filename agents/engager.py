@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from config.niches import get_niche
-from tools.common import load_config, get_anthropic, load_voice_guide, get_model
+from tools.common import load_config, get_anthropic, load_voice_guide, get_model, parse_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -403,12 +403,8 @@ Is this worth engaging with?"""
         )
 
         text = response.content[0].text
-
-        # Parse JSON from response
-        json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            result = json.loads(text[json_start:json_end])
+        result = parse_json_response(text)
+        if result:
             return {
                 "relevance_score": result.get("relevance_score", 5),
                 "should_engage": result.get("should_engage", False),

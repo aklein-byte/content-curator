@@ -12,7 +12,6 @@ Usage: python quote_drafts.py [--niche tatamispaces] [--dry-run] [--max-drafts 4
 import sys
 import os
 import json
-import logging
 import argparse
 import random
 from pathlib import Path
@@ -24,39 +23,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import search_posts, _get_user_id
-from tools.common import get_model, load_json, save_json, setup_logging, load_config
+from tools.common import get_model, load_json, save_json, setup_logging, get_anthropic, load_voice_guide
+from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts, next_post_id
 from config.niches import get_niche
 
 log = setup_logging("quote_drafts")
 
 BASE_DIR = Path(__file__).parent
-POSTS_FILE = Path(os.environ.get("POSTS_FILE", str(BASE_DIR / "posts.json")))
 
-
-def _resolve_posts_file(niche_id):
-    """Get the posts file path for a niche."""
-    niche = get_niche(niche_id)
-    return BASE_DIR / niche.get("posts_file", "posts.json")
-
-# Queries tuned for finding quotable content (high engagement, image-based)
-QT_SEARCH_QUERIES = [
-    # English architecture/design accounts with strong engagement
-    "japanese architecture has:images -is:retweet min_faves:50",
-    "japanese interior design has:images -is:retweet min_faves:30",
-    "japanese house has:images -is:retweet min_faves:40",
-    "tatami has:images -is:retweet min_faves:20",
-    "ryokan has:images -is:retweet min_faves:30",
-    "wabi sabi has:images -is:retweet min_faves:30",
-    # Architecture firms & publications (broader, will filter by engagement)
-    "kengo kuma has:images -is:retweet min_faves:100",
-    "tadao ando has:images -is:retweet min_faves:100",
-    "shigeru ban has:images -is:retweet min_faves:50",
-    # Japanese-language high engagement
-    "(建築 OR 設計) has:images -is:retweet min_faves:50 lang:ja",
-    "(古民家 OR 町家 OR 旅館) has:images -is:retweet min_faves:30 lang:ja",
-]
-
-# Fallback queries without min_faves (API v2 may not support it)
+# Fallback queries without min_faves (API v2 doesn't support it)
 QT_SEARCH_QUERIES_FALLBACK = [
     "japanese architecture has:images -is:retweet",
     "japanese interior design has:images -is:retweet",
@@ -72,13 +47,11 @@ MIN_VIEWS_FOR_QT = 500
 
 
 def load_posts(niche_id=None) -> dict:
-    path = _resolve_posts_file(niche_id) if niche_id else POSTS_FILE
-    return load_json(path, default={"posts": []})
+    return pq_load_posts(niche_id)
 
 
 def save_posts(data: dict, niche_id=None):
-    path = _resolve_posts_file(niche_id) if niche_id else POSTS_FILE
-    save_json(path, data)
+    pq_save_posts(data, niche_id)
 
 
 def _get_existing_qt_ids(posts_data: dict) -> set:
@@ -113,31 +86,14 @@ def _get_queued_qt_summaries(posts_data: dict) -> str:
     return "\n".join(summaries) if summaries else "None"
 
 
-def _get_next_id(posts_data: dict) -> int:
-    """Get the next available post ID."""
-    max_id = 0
-    for p in posts_data.get("posts", []):
-        pid = p.get("id", 0)
-        if isinstance(pid, int) and pid > max_id:
-            max_id = pid
-    return max_id + 1
-
-
 def _evaluate_and_draft(tweet, niche_id: str, posts_data: dict = None) -> dict | None:
     """Use Claude to evaluate if a tweet is worth quoting and draft commentary.
 
     Returns dict with 'text' and 'category' if worth quoting, None otherwise.
     """
-    from anthropic import Anthropic
-
-    voice_path = BASE_DIR / "config" / "voice.md"
-    voice_guide = voice_path.read_text() if voice_path.exists() else ""
-
     niche = get_niche(niche_id)
-    _cfg = load_config().get("models", {})
     model = get_model("quote_writer")
-
-    client = Anthropic()
+    client = get_anthropic()
 
     queue_summaries = _get_queued_qt_summaries(posts_data) if posts_data else "None"
 
@@ -296,7 +252,7 @@ def find_quotable_tweets(niche_id: str, max_drafts: int = 4, dry_run: bool = Fal
     log.info(f"Evaluating top {len(candidates)} candidates with Claude...")
 
     drafts_created = 0
-    next_id = _get_next_id(posts_data)
+    next_id = next_post_id(posts_data)
 
     for tweet in candidates:
         if drafts_created >= max_drafts:

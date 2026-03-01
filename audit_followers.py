@@ -22,16 +22,16 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from anthropic import Anthropic
-from tools.xapi import get_following, unfollow_user, get_user_recent_tweets
-from tools.common import setup_logging, load_json, save_json, notify, get_model
+from tools.xapi import get_following, unfollow_user, get_user_recent_tweets, set_niche as set_xapi_niche
+from tools.common import setup_logging, load_json, save_json, notify, get_model, get_anthropic, parse_json_response
+from config.niches import get_niche
 
 log = setup_logging("audit")
 
 BASE_DIR = Path(__file__).parent
 AUDIT_FILE = BASE_DIR / "data" / "follower-audit.json"
 
-anthropic = Anthropic()
+anthropic = get_anthropic()
 EVAL_MODEL = get_model("evaluator")
 
 
@@ -68,10 +68,9 @@ Set keep=false if score < 6 OR if account appears inactive (no recent tweets).""
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text
-        json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            return json.loads(text[json_start:json_end])
+        result = parse_json_response(text)
+        if result:
+            return result
     except Exception as e:
         log.error(f"Failed to evaluate @{username}: {e}")
 

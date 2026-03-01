@@ -227,6 +227,24 @@ def load_voice_guide(niche_id: str) -> str:
     return text
 
 
+# --- JSON extraction from Claude responses ---
+
+def parse_json_response(text: str) -> dict | None:
+    """Extract JSON object from Claude response text.
+
+    Handles cases where Claude wraps JSON in explanation text.
+    Returns parsed dict or None if no valid JSON found.
+    """
+    json_start = text.find("{")
+    json_end = text.rfind("}") + 1
+    if json_start >= 0 and json_end > json_start:
+        try:
+            return json.loads(text[json_start:json_end])
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 # --- Async delay ---
 
 async def random_delay(label: str = "", min_sec: float = 30, max_sec: float = 120) -> None:

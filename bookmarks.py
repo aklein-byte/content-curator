@@ -328,7 +328,8 @@ async def main():
                 print(f"  #{p['id']} — {p['text'][:70]}...")
                 print(f"          from {p.get('source_handle', '?')}")
         print()
-        print(f"Review in {POSTS_FILE}")
+        from tools.post_queue import resolve_posts_file
+        print(f"Review in {resolve_posts_file(niche_id)}")
         print("Change status to 'approved' and add 'scheduled_for' to publish.")
 
     if drafts_created > 0:

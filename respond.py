@@ -21,8 +21,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
-from tools.xapi import get_mentions, reply_to_post, _get_user_id, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide, get_model
+from tools.xapi import get_mentions, reply_to_post, set_niche as set_xapi_niche
+from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide, get_model, parse_json_response
 from config.niches import get_niche
 
 log = setup_logging("respond")
@@ -135,10 +135,8 @@ Should we respond?"""
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text
-        json_start = text.find("{")
-        json_end = text.rfind("}") + 1
-        if json_start >= 0 and json_end > json_start:
-            result = json.loads(text[json_start:json_end])
+        result = parse_json_response(text)
+        if result:
             return {
                 "score": result.get("score", 5),
                 "should_respond": result.get("should_respond", False),
@@ -227,7 +225,6 @@ async def main():
     highest_id = max(m.tweet_id for m in mentions)
 
     # Filter: only replies to OUR tweets (not random @mentions)
-    our_user_id = _get_user_id()
     candidates = []
     for m in mentions:
         # Skip if no parent tweet (not a reply)

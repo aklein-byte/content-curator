@@ -218,8 +218,6 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
 
     # Like 1-2 of their recent tweets
     engaged = 0
-    import random as _rand
-    import time as _time
     for handle, user_info in list(likers.items())[:5]:
         user_id = user_info.get("id")
         if not user_id:
