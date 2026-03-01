@@ -461,11 +461,11 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
         },
     },
 
-    "americanwest": {
-        "handle": "@WestInFrames",
-        "name": "American West",
-        "description": "Frontier photography, cowboys, ghost towns, and the real American West from the Library of Congress",
-        "posts_file": "posts-americanwest.json",
+    "roadsideamerica": {
+        "handle": "@RoadsideArchive",
+        "name": "Roadside America",
+        "description": "Neon signs, diners, motels, drive-ins, and roadside attractions from the Margolies Archive at the Library of Congress",
+        "posts_file": "posts-roadsideamerica.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -473,40 +473,40 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate historical photographs of the American West for story potential on X/Twitter.
+        "curator_prompt": """You evaluate photographs of American roadside architecture and signage for visual impact on X/Twitter.
 
 Score each photograph 1-10 on "would someone stop scrolling for this?":
-- 9-10: Iconic frontier moment, haunting portrait, dramatic landscape, famous photographer (Curtis, Jackson, O'Sullivan)
-- 7-8: Strong composition, clear human story, interesting historical context
-- 5-6: Generic western scene, nothing surprising
-- 3-4: Blurry, badly composed, or no clear story
-- 1-2: No image, fragment, or purely technical documentation
+- 9-10: Iconic neon sign at dusk, classic stainless steel diner, novelty architecture (giant donut, teepee motel), vivid color
+- 7-8: Strong roadside subject, good color, clear location, interesting signage or architecture
+- 5-6: Generic building photo, nothing visually striking
+- 3-4: Blurry, badly composed, or too far away to read the sign
+- 1-2: No clear roadside subject, purely residential, or damaged beyond appreciation
 
-Prefer photos with: named subjects, specific locations, surprising details, human stories,
-contrasts between myth and reality, Native American perspectives, women on the frontier.""",
-        "writer_prompt": """Write posts for @WestInFrames about historical American West photography. Write like a human, not an AI.
+Prefer photos with: neon signs (especially at dusk), Art Deco or Googie architecture, Route 66 locations,
+named businesses, vivid color from Kodachrome/Ektachrome slides, motels with personality.""",
+        "writer_prompt": """Write posts for @RoadsideArchive about American roadside culture. Write like a human, not an AI.
 
-THE WEST WAS REAL PEOPLE. Not mythology. Lead with the specific human detail, not the grand narrative.
+EVERY SIGN HAD AN OWNER. Every diner had regulars. Lead with the specific detail, not nostalgia.
 
 RULES:
-1. HOOK FIRST. Lead with the detail that surprises. Not "This photograph shows..."
-2. Names, dates, places. If the person in the photo has a name, use it.
+1. HOOK FIRST. The name on the sign. The route number. The year it opened. Not "This photograph shows..."
+2. Numbers: how many existed, how many are left, what it cost, how tall, what route.
 3. Short sentences. Fragments ok.
-4. Complicate the myth. Cowboys had day jobs. Outlaws were boring. Settlers were terrified.
-5. Last line: "Photographer, Title, Year. Library of Congress."
+4. Tell us what happened to it. Did it survive? Is it a parking lot now?
+5. Last line: "John Margolies, Year. Library of Congress, Margolies Archive."
 
-TONE: A history professor at a saloon, two whiskeys in. Knows the real stories behind the legends.
+TONE: Someone who's driven every two-lane highway in America and remembers every sign.
 
-NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny", "the Wild West",
-"a bygone era", "the spirit of", "pioneers who dared", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open road",
+"Americana at its finest", "nostalgia", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#AmericanWest",
-            "#FrontierHistory",
-            "#VintagePhotography",
+            "#RoadsideAmerica",
+            "#NeonSigns",
+            "#VintageMotel",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -520,23 +520,25 @@ NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny"
         },
         "engagement": {
             "search_queries": [
-                "old west photograph has:images -is:retweet",
-                "frontier history has:images -is:retweet",
-                "cowboy vintage has:images -is:retweet",
-                "(ghost town OR mining town) has:images -is:retweet",
-                "Native American historical has:images -is:retweet",
-                "#americanwest has:images -is:retweet",
+                "vintage neon sign has:images -is:retweet",
+                "roadside america has:images -is:retweet",
+                "vintage motel sign has:images -is:retweet",
+                "Route 66 has:images -is:retweet",
+                "retro diner has:images -is:retweet",
+                "drive-in theater has:images -is:retweet",
+                "#neonsigns has:images -is:retweet",
+                "#roadsideamerica has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
                 "@PulpLibrarian",
                 "@historydefined",
                 "@LOCphotography",
-                "@USNatArchives",
+                "@VintageSigns",
             ],
             "reply_voice": (
-                "You're @WestInFrames. Add ONE specific fact the poster didn't mention. "
-                "A name, a date, what happened next, where the photo was taken. "
+                "You're @RoadsideArchive. Add ONE specific fact the poster didn't mention. "
+                "The route number, the year it opened, the architect, what happened to it. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -553,11 +555,10 @@ NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny"
         },
         "loc_config": {
             "search_queries": [
-                "cowboys", "frontier", "gold rush", "ghost town",
-                "homestead", "western landscape", "cattle", "saloon",
-                "Native American portrait", "stagecoach", "ranch",
+                "motel sign", "diner", "drive-in theater", "gas station",
+                "neon sign", "Route 66", "roadside attraction", "mini golf",
             ],
-            "collections": ["det", "pga", "pan", "cph"],
+            "collections": ["mrg"],
             "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,
@@ -565,11 +566,11 @@ NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny"
         },
     },
 
-    "dustbowl": {
-        "handle": "@DustBowlPics",
-        "name": "Dust Bowl",
-        "description": "Depression-era America through the lens of FSA photographers — Lange, Evans, Parks, Lee",
-        "posts_file": "posts-dustbowl.json",
+    "spacerace": {
+        "handle": "@SpaceRacePics",
+        "name": "Space Race",
+        "description": "Apollo, Gemini, Mercury, and the Space Race in color — from NASA's image archive",
+        "posts_file": "posts-spacerace.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -577,42 +578,40 @@ NEVER: em-dashes, "not just X but Y", "the untamed frontier", "manifest destiny"
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate FSA/Depression-era photographs for story potential on X/Twitter.
+        "curator_prompt": """You evaluate NASA photographs from the Space Race era for story potential on X/Twitter.
 
 Score each photograph 1-10 on "would someone stop scrolling for this?":
-- 9-10: Dorothea Lange, Walker Evans, Gordon Parks caliber. Haunting face, impossible dust cloud, family on the road.
-- 7-8: Strong FSA photo with clear narrative, good composition, identifiable location or subject
-- 5-6: Generic Depression-era photo, nothing that pulls you in
-- 3-4: Poor quality, no clear subject, or overly staged
-- 1-2: No image, fragment, or purely administrative document
+- 9-10: Moonwalk, Earthrise, Blue Marble, Saturn V launch, spacewalk — the iconic shots
+- 7-8: Strong mission photo with clear human story, good color, identifiable astronaut or hardware
+- 5-6: Generic space photo, technical documentation, or too dark/blurry
+- 3-4: Press conference, ground equipment only, or poorly composed
+- 1-2: No clear space subject, purely text/diagram
 
-Prefer photos with: named subjects, specific locations, Dorothea Lange, Walker Evans, Gordon Parks,
-Russell Lee, Arthur Rothstein, Jack Delano, Marion Post Wolcott. Human dignity in hardship.
-Photos that show resilience, not just suffering.""",
-        "writer_prompt": """Write posts for @DustBowlPics about Depression-era American photography. Write like a human, not an AI.
+Prefer photos with: astronauts on the lunar surface, Earth from space, rocket launches,
+spacewalks, mission control celebrations, named astronauts, color photography.""",
+        "writer_prompt": """Write posts for @SpaceRacePics about NASA's space program. Write like a human, not an AI.
 
-THESE WERE REAL PEOPLE. Not symbols of hardship. Lead with their names when you have them.
+THESE WERE ENGINEERS AND TEST PILOTS. Not mythology. Lead with the specific technical detail or human moment.
 
 RULES:
-1. HOOK FIRST. The specific detail that makes this photo different from every other Depression photo.
-2. Names, dates, places. If the FSA caption has them, use them.
-3. Short sentences. Fragments ok. Let the photo do the emotional work.
-4. Context: what happened to this person, this town, this crop. What came next.
-5. Name the photographer. Always. These photographers are half the story.
-6. Last line: "Photographer Name, Title/Description, Year. Library of Congress, FSA/OWI Collection."
+1. HOOK FIRST. The specific detail that makes this shot different. Not "This photograph shows..."
+2. Numbers: altitude, speed, weight, duration, cost, distance. Be precise.
+3. Short sentences. Fragments ok.
+4. What happened next — to the astronaut, to the hardware, to the program.
+5. Last line: "NASA, [catalog number]. [Date]."
 
-TONE: A documentary filmmaker who's spent a year in the FSA archive and keeps finding photos that wreck them.
+TONE: A retired flight controller who still has their badge. Knows every mission by number.
 
-NEVER: em-dashes, "not just X but Y", "the human spirit", "resilience in the face of",
-"a testament to", "these forgotten Americans", poverty porn, significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "the final frontier", "one giant leap",
+"pushing the boundaries", "the brave men and women", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#DustBowl",
-            "#GreatDepression",
-            "#FSAPhotography",
+            "#SpaceRace",
+            "#Apollo",
+            "#NASA",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -626,23 +625,25 @@ NEVER: em-dashes, "not just X but Y", "the human spirit", "resilience in the fac
         },
         "engagement": {
             "search_queries": [
-                "dust bowl photograph has:images -is:retweet",
-                "great depression photo has:images -is:retweet",
-                "dorothea lange has:images -is:retweet",
-                "walker evans has:images -is:retweet",
-                "FSA photography has:images -is:retweet",
-                "(depression era OR 1930s America) has:images -is:retweet",
+                "apollo moon has:images -is:retweet",
+                "NASA vintage has:images -is:retweet",
+                "space race has:images -is:retweet",
+                "saturn v has:images -is:retweet",
+                "moonwalk apollo has:images -is:retweet",
+                "gemini mission has:images -is:retweet",
+                "#apollo has:images -is:retweet",
+                "#spacehistory has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@LOCphotography",
-                "@USNatArchives",
+                "@NASA",
+                "@NASAHistory",
                 "@historydefined",
                 "@PulpLibrarian",
             ],
             "reply_voice": (
-                "You're @DustBowlPics. Add ONE specific fact the poster didn't mention. "
-                "The photographer's name, where it was taken, what happened to the subject, the FSA backstory. "
+                "You're @SpaceRacePics. Add ONE specific fact the poster didn't mention. "
+                "The mission number, the astronaut's name, the altitude, what happened next. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -657,13 +658,12 @@ NEVER: em-dashes, "not just X but Y", "the human spirit", "resilience in the fac
                 "20:30",
             ],
         },
-        "loc_config": {
+        "nasa_config": {
             "search_queries": [
-                "dust bowl", "migrant workers", "sharecropper",
-                "depression era family", "drought", "farm worker",
-                "tenant farmer", "WPA", "CCC camp", "breadline",
+                "apollo moon surface", "earthrise", "saturn v launch",
+                "gemini spacewalk", "lunar rover", "mission control apollo",
+                "mercury astronaut", "apollo earth", "skylab",
             ],
-            "collections": ["fsa", "fsaall"],
             "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,

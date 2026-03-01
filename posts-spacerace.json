@@ -1,0 +1,123 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "type": "original",
+      "title": "Buzz Aldrin Salutes the Flag, Apollo 11, 1969",
+      "text": "Buzz Aldrin saluting the American flag on the Moon. July 20, 1969. Neil Armstrong took this photo. You can see Armstrong reflected in Aldrin's visor.\n\nAldrin's spacesuit weighed 180 pounds on Earth and 30 pounds on the Moon. The flag has a horizontal rod along the top because there's no wind to make it fly. They almost couldn't get the pole to stay in the ground — the lunar soil was harder than expected beneath the first few inches.\n\nAldrin and Armstrong spent 2 hours and 31 minutes outside the lunar module. They collected 47.5 pounds of moon rocks.\n\nNASA, AS11-40-5874. July 20, 1969.",
+      "tweets": [
+        {
+          "text": "Buzz Aldrin saluting the flag on the Moon. July 20, 1969. Neil Armstrong took the photo. You can see Armstrong reflected in Aldrin's visor.\n\nThe suit weighed 180 lbs on Earth, 30 on the Moon. The flag has a rod along the top — no wind to fly it. They almost couldn't get the pole in the ground. Lunar soil was harder than expected.\n\n2 hours 31 minutes outside. 47.5 pounds of moon rocks.\n\nNASA, AS11-40-5874.",
+          "image_url": "https://images-assets.nasa.gov/image/as11-40-5874/as11-40-5874~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/as11-40-5874/as11-40-5874~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/as11-40-5874/as11-40-5874~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/as11-40-5874",
+      "source": "NASA"
+    },
+    {
+      "id": 2,
+      "type": "original",
+      "title": "Earthrise, Apollo 8, 1968",
+      "text": "Earthrise. December 24, 1968. Apollo 8. William Anders took this photograph while orbiting the Moon on Christmas Eve.\n\nAnders, Frank Borman, and Jim Lovell were the first humans to leave Earth orbit. They went around the Moon ten times. On the fourth orbit, the spacecraft rotated and Anders saw the Earth coming up over the lunar horizon.\n\nHe grabbed a roll of color film — the flight plan only called for black and white. The whole sequence took about 30 seconds. He shot four frames.\n\nWilderness photographer Galen Rowell called it the most influential environmental photograph ever taken.\n\nNASA, AS08-14-2383. December 24, 1968.",
+      "tweets": [
+        {
+          "text": "Earthrise. December 24, 1968. William Anders took this on Apollo 8 while orbiting the Moon on Christmas Eve.\n\nAnders, Borman, and Lovell were the first humans to leave Earth orbit. On the fourth pass, the spacecraft rotated and Anders saw Earth rising over the lunar horizon.\n\nHe grabbed color film — the flight plan only called for B&W. The whole sequence took 30 seconds. Four frames.\n\nGalen Rowell called it the most influential environmental photograph ever taken.\n\nNASA, AS08-14-2383.",
+          "image_url": "https://images-assets.nasa.gov/image/as08-14-2383/as08-14-2383~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/as08-14-2383/as08-14-2383~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/as08-14-2383/as08-14-2383~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/as08-14-2383",
+      "source": "NASA"
+    },
+    {
+      "id": 3,
+      "type": "original",
+      "title": "The Blue Marble, Apollo 17, 1972",
+      "text": "The Blue Marble. December 7, 1972. Taken by the crew of Apollo 17 at about 18,000 miles from Earth — five hours into the flight.\n\nThis is the first photograph of the fully illuminated Earth taken by a human being. You can see Africa, the Arabian Peninsula, Madagascar, and Antarctica. The Indian Ocean is cloud-free.\n\nApollo 17 was the last crewed mission to the Moon. Eugene Cernan, Ron Evans, and Harrison Schmitt. Nobody has been back since December 1972.\n\nNASA, AS17-148-22727. December 7, 1972.",
+      "tweets": [
+        {
+          "text": "The Blue Marble. December 7, 1972. Apollo 17 crew, about 18,000 miles from Earth.\n\nFirst photograph of the fully illuminated Earth taken by a human. Africa, Arabian Peninsula, Madagascar, Antarctica. Indian Ocean cloud-free.\n\nApollo 17 was the last crewed mission to the Moon. Nobody has been back since December 1972.\n\nNASA, AS17-148-22727.",
+          "image_url": "https://images-assets.nasa.gov/image/as17-148-22727/as17-148-22727~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/as17-148-22727/as17-148-22727~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/as17-148-22727/as17-148-22727~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/as17-148-22727",
+      "source": "NASA"
+    },
+    {
+      "id": 4,
+      "type": "original",
+      "title": "Saturn V Launch, Apollo 11, 1969",
+      "text": "Saturn V lifting off from Kennedy Space Center, July 16, 1969. Apollo 11. The rocket is 363 feet tall — taller than the Statue of Liberty. It weighed 6.2 million pounds fully fueled.\n\nThe five F-1 engines on the first stage produced 7.5 million pounds of thrust. Each engine burned 6,000 pounds of fuel per second. The entire first stage burned for 2 minutes and 41 seconds, then dropped into the Atlantic.\n\nThirteen Saturn Vs were launched. None failed. The program cost $6.4 billion in 1960s dollars — about $50 billion today.\n\nNASA, 6900540. July 16, 1969.",
+      "tweets": [
+        {
+          "text": "Saturn V lifting off. July 16, 1969. Apollo 11. The rocket is 363 feet tall. Weighed 6.2 million pounds.\n\nFive F-1 engines produced 7.5 million pounds of thrust. Each burned 6,000 lbs of fuel per second. First stage: 2 minutes 41 seconds, then dropped into the Atlantic.\n\n13 Saturn Vs launched. None failed.\n\nNASA, 6900540.",
+          "image_url": "https://images-assets.nasa.gov/image/6900540/6900540~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/6900540/6900540~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/6900540/6900540~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/6900540",
+      "source": "NASA"
+    },
+    {
+      "id": 5,
+      "type": "original",
+      "title": "Mission Control Celebrates, Apollo 11, 1969",
+      "text": "Mission Control Center, Houston. July 24, 1969. Apollo 11 has just splashed down. The flight controllers are on their feet. Cigars are lit. American flags are waving.\n\nThe man in the center with the cigar is Deke Slayton, one of the original Mercury 7 astronauts. He was grounded in 1962 for an irregular heartbeat and spent the rest of the decade picking crews for everyone else. He finally flew on Apollo-Soyuz in 1975.\n\nThe average age of the flight controllers during Apollo 11 was 26.\n\nNASA, S69-40025. July 24, 1969.",
+      "tweets": [
+        {
+          "text": "Mission Control, Houston. July 24, 1969. Apollo 11 just splashed down. Flags waving. Cigars lit.\n\nThe man with the cigar in the center is Deke Slayton — one of the original Mercury 7. Grounded in 1962 for an irregular heartbeat. Spent the decade picking crews for everyone else. Finally flew in 1975.\n\nAverage age of the flight controllers during Apollo 11: 26.\n\nNASA, S69-40025.",
+          "image_url": "https://images-assets.nasa.gov/image/S69-40025/S69-40025~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/S69-40025/S69-40025~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/S69-40025/S69-40025~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/S69-40025",
+      "source": "NASA"
+    },
+    {
+      "id": 6,
+      "type": "original",
+      "title": "David Scott on Hadley Delta, Apollo 15, 1971",
+      "text": "David Scott on the slope of Hadley Delta, Apollo 15. August 1, 1971. Behind him is the Lunar Roving Vehicle — the first car driven on the Moon.\n\nThe rover was built by Boeing and General Motors. It weighed 460 pounds, ran on two 36-volt batteries, and had a top speed of 8 mph. Each wheel had its own electric motor.\n\nScott and Jim Irwin drove 17.5 miles across the lunar surface over three days. They found the Genesis Rock — a 4-billion-year-old sample of the Moon's original crust.\n\nThe rover is still parked at Hadley-Apennine. It will be there for a very long time.\n\nNASA, AS15-85-11437. August 1, 1971.",
+      "tweets": [
+        {
+          "text": "David Scott on Hadley Delta, Apollo 15. August 1971. Behind him: the Lunar Roving Vehicle. First car on the Moon.\n\nBuilt by Boeing and GM. 460 pounds, two 36-volt batteries, top speed 8 mph. Each wheel had its own electric motor.\n\nScott and Irwin drove 17.5 miles in three days. Found the Genesis Rock — 4 billion years old.\n\nThe rover is still parked there.\n\nNASA, AS15-85-11437.",
+          "image_url": "https://images-assets.nasa.gov/image/as15-85-11437/as15-85-11437~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/as15-85-11437/as15-85-11437~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/as15-85-11437/as15-85-11437~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/as15-85-11437",
+      "source": "NASA"
+    },
+    {
+      "id": 7,
+      "type": "original",
+      "title": "Bootprint on the Moon, Apollo 11, 1969",
+      "text": "Buzz Aldrin's bootprint on the lunar surface. July 20, 1969. This was a planned photograph — part of an experiment to study the properties of lunar soil.\n\nThe soil is called regolith. It's a fine powder made from billions of years of micrometeorite impacts grinding the surface rock. It behaves like wet sand but there's no moisture. The grains are jagged, not rounded by wind or water, so they lock together.\n\nThe print is about half an inch deep. There's no wind, no rain, no erosion on the Moon. This bootprint will last for millions of years.\n\nNASA, AS11-40-5878. July 20, 1969.",
+      "tweets": [
+        {
+          "text": "Aldrin's bootprint on the Moon. July 20, 1969. A planned photo — part of an experiment to study lunar soil.\n\nThe soil is called regolith. Billions of years of micrometeorite impacts ground the rock to powder. Grains are jagged, not rounded by wind. They lock together like wet sand.\n\nNo wind. No rain. No erosion. This print will last millions of years.\n\nNASA, AS11-40-5878.",
+          "image_url": "https://images-assets.nasa.gov/image/PIA24439/PIA24439~large.jpg",
+          "images": ["https://images-assets.nasa.gov/image/PIA24439/PIA24439~large.jpg"]
+        }
+      ],
+      "image_urls": ["https://images-assets.nasa.gov/image/PIA24439/PIA24439~large.jpg"],
+      "status": "draft",
+      "object_url": "https://images.nasa.gov/details/PIA24439",
+      "source": "NASA"
+    }
+  ]
+}
