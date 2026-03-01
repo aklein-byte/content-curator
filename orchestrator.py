@@ -286,6 +286,15 @@ OUTPUT_PATTERNS = {
         (r"Done\. Responses: (\d+)", "responses"),
         (r"Found (\d+) new replies", "replies_found"),
     ],
+    "bluesky_engage": [
+        (r"Done in \d+s\. Likes: (\d+), Replies: (\d+), Follows: (\d+)", "summary"),
+    ],
+    "bluesky_respond": [
+        (r"Done\. Responses: (\d+)", "responses"),
+    ],
+    "bluesky_track": [
+        (r"Updated (\d+) posts with Bluesky metrics", "updated"),
+    ],
     "audit": [
         (r"Unfollowed (\d+)/(\d+) this run \((\d+) remaining\)", "unfollowed"),
         (r"Keep:\s+(\d+)", "keep_count"),
@@ -389,6 +398,14 @@ def _build_success_summary(name: str, metrics: dict, summary_parts: list) -> str
         if tp and isinstance(tp, list) and len(tp) == 2:
             return f"Thread: {tp[0]} ({tp[1]} tweets)"
         return ""
+    if name == "bluesky_engage":
+        s = metrics.get("summary")
+        if s and isinstance(s, list) and len(s) == 3:
+            return f"Bsky: {s[0]} likes, {s[1]} replies, {s[2]} follows"
+        return "\n".join(summary_parts) if summary_parts else ""
+    if name == "bluesky_respond":
+        r = metrics.get("responses", "0")
+        return f"Bsky: {r} responses" if r != "0" else ""
     if name == "audit":
         u = metrics.get("unfollowed")
         if u and isinstance(u, list) and len(u) == 3:
@@ -431,6 +448,8 @@ def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
     today_str = str(now_et.date())
     stats = {"x_likes": 0, "x_replies": 0, "x_follows": 0,
              "ig_likes": 0, "ig_comments": 0, "ig_follows": 0,
+             "bsky_likes": 0, "bsky_replies": 0, "bsky_follows": 0,
+             "bsky_responses": 0,
              "x_posts": 0, "ig_posts": 0, "drafts_created": 0,
              "x_responses": 0}
 
@@ -474,6 +493,37 @@ def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
                     stats["ig_comments"] += 1
                 elif action == "follow":
                     stats["ig_follows"] += 1
+        except Exception:
+            pass
+
+    # Bluesky engagement log
+    bsky_eng_file = BASE_DIR / "data" / f"bluesky-engagement-log-{niche_id}.json"
+    if bsky_eng_file.exists():
+        try:
+            entries = json.loads(bsky_eng_file.read_text())
+            for e in entries:
+                ts = e.get("timestamp", "")
+                if not ts.startswith(today_str):
+                    continue
+                action = e.get("action", "")
+                if action == "like":
+                    stats["bsky_likes"] += 1
+                elif action == "reply":
+                    stats["bsky_replies"] += 1
+                elif action == "follow":
+                    stats["bsky_follows"] += 1
+        except Exception:
+            pass
+
+    # Bluesky responses
+    bsky_resp_file = BASE_DIR / "data" / f"bluesky-response-log-{niche_id}.json"
+    if bsky_resp_file.exists():
+        try:
+            entries = json.loads(bsky_resp_file.read_text())
+            for e in entries:
+                ts = e.get("timestamp", "")
+                if ts.startswith(today_str):
+                    stats["bsky_responses"] += 1
         except Exception:
             pass
 
@@ -522,8 +572,9 @@ def print_status(status: dict, now_et: datetime):
     # Aggregate stats
     stats = aggregate_today_stats(now_et, niche_id=niche_id)
     print(f"\n  Today's activity:")
-    print(f"    X:  {stats['x_posts']} posts | {stats['x_likes']} likes | {stats['x_replies']} replies | {stats['x_follows']} follows | {stats['x_responses']} responses")
-    print(f"    IG: {stats['ig_posts']} posts | {stats['ig_likes']} likes | {stats['ig_comments']} comments | {stats['ig_follows']} follows")
+    print(f"    X:    {stats['x_posts']} posts | {stats['x_likes']} likes | {stats['x_replies']} replies | {stats['x_follows']} follows | {stats['x_responses']} responses")
+    print(f"    Bsky: {stats['bsky_likes']} likes | {stats['bsky_replies']} replies | {stats['bsky_follows']} follows | {stats['bsky_responses']} responses")
+    print(f"    IG:   {stats['ig_posts']} posts | {stats['ig_likes']} likes | {stats['ig_comments']} comments | {stats['ig_follows']} follows")
 
     # Per-script status
     print(f"\n  Script status:")
@@ -565,6 +616,16 @@ def print_status(status: dict, now_et: datetime):
                 print(f"        -> {s[0]} likes, {s[1]} comments, {s[2]} follows")
             else:
                 print(f"        -> {s}")
+        elif name == "bluesky_engage" and metrics.get("summary"):
+            s = metrics["summary"]
+            if isinstance(s, list) and len(s) == 3:
+                print(f"        -> {s[0]} likes, {s[1]} replies, {s[2]} follows")
+            else:
+                print(f"        -> {s}")
+        elif name == "bluesky_respond" and metrics.get("responses") is not None:
+            print(f"        -> {metrics['responses']} responses sent")
+        elif name == "bluesky_track" and metrics.get("updated") is not None:
+            print(f"        -> {metrics['updated']} posts tracked")
         elif metrics.get("posted_url"):
             print(f"        -> {metrics['posted_url']}")
         elif metrics.get("no_posts_ready") is not None:

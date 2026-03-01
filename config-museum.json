@@ -146,6 +146,50 @@
       "jitter_minutes": 30,
       "timeout_seconds": 300,
       "extra_args": []
+    },
+    "bluesky_engage": {
+      "enabled": true,
+      "file": "bluesky_engage.py",
+      "type": "scheduled",
+      "times_et": [
+        "11:00",
+        "15:00",
+        "20:00"
+      ],
+      "jitter_minutes": 15,
+      "timeout_seconds": 900,
+      "limits": {
+        "--max-likes": 8,
+        "--max-replies": 6,
+        "--max-follows": 2
+      }
+    },
+    "bluesky_respond": {
+      "enabled": true,
+      "file": "bluesky_respond.py",
+      "type": "scheduled",
+      "times_et": [
+        "11:30",
+        "16:30",
+        "21:30"
+      ],
+      "jitter_minutes": 15,
+      "timeout_seconds": 600,
+      "limits": {
+        "--max-responses": 5
+      }
+    },
+    "bluesky_track": {
+      "enabled": true,
+      "file": "bluesky_track.py",
+      "type": "scheduled",
+      "times_et": [
+        "07:00",
+        "19:00"
+      ],
+      "jitter_minutes": 15,
+      "timeout_seconds": 120,
+      "extra_args": []
     }
   },
   "models": {
