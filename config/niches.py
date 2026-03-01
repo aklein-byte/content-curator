@@ -84,6 +84,8 @@ Example captions:
         "bluesky_profile": {
             "display_name": "Tatami Spaces",
             "description": "Japanese architecture and interior design. Tatami rooms, shoji screens, engawa verandas, tea houses. The details that make Japanese spaces feel different.",
+            "avatar_path": "data/images/profiles/tatamispaces-avatar.jpg",
+            "banner_path": "data/images/profiles/tatamispaces-banner.jpg",
         },
         "communities": {
             # Map content categories to community IDs for cross-posting
@@ -366,6 +368,8 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         "bluesky_profile": {
             "display_name": "Museum Stories",
             "description": "Stories behind museum objects. Art, weapons, jewelry, sculpture, textiles from open collections worldwide. The facts the label doesn't tell you.",
+            "avatar_path": "data/images/profiles/museumstories-avatar.jpg",
+            "banner_path": "data/images/profiles/museumstories-banner.jpg",
         },
         # Museum-specific config
         "museum_config": {
@@ -802,6 +806,8 @@ NEVER: em-dashes, "not just X but Y", "the cosmos", "awe-inspiring", "breathtaki
         "bluesky_profile": {
             "display_name": "Cosmic Shots",
             "description": "Space photography from NASA, ESA, and JWST. Planets, nebulae, galaxies, and spacecraft in actual images. No artist renderings.",
+            "avatar_path": "data/images/profiles/cosmicshots-avatar.jpg",
+            "banner_path": "data/images/profiles/cosmicshots-banner.jpg",
         },
         "nasa_config": {
             "search_queries": [
