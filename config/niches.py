@@ -461,11 +461,11 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
         },
     },
 
-    "roadsideamerica": {
-        "handle": "@RoadsideArchive",
-        "name": "Roadside America",
-        "description": "Neon signs, diners, motels, drive-ins, and roadside attractions from the Margolies Archive at the Library of Congress",
-        "posts_file": "posts-roadsideamerica.json",
+    "vanishedplaces": {
+        "handle": "@VanishedPlaces",
+        "name": "Vanished Places",
+        "description": "Original color photographs of places that no longer exist or are unrecognizable — from LOC Photochrom, Prokudin-Gorsky, and FSA/OWI collections",
+        "posts_file": "posts-vanishedplaces.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -473,40 +473,41 @@ NEVER: em-dashes, "not just X but Y", "timeless elegance", "a testament to", "th
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate photographs of American roadside architecture and signage for visual impact on X/Twitter.
+        "curator_prompt": """You evaluate early color photographs for the "Vanished Places" account on X/Twitter.
 
 Score each photograph 1-10 on "would someone stop scrolling for this?":
-- 9-10: Iconic neon sign at dusk, classic stainless steel diner, novelty architecture (giant donut, teepee motel), vivid color
-- 7-8: Strong roadside subject, good color, clear location, interesting signage or architecture
-- 5-6: Generic building photo, nothing visually striking
-- 3-4: Blurry, badly composed, or too far away to read the sign
-- 1-2: No clear roadside subject, purely residential, or damaged beyond appreciation
+- 9-10: Stunning color from pre-1915, iconic location now destroyed/changed, vivid detail, strong human presence
+- 7-8: Good color quality, interesting location with clear before/after story, recognizable place
+- 5-6: Decent image but generic landscape, no strong vanished angle
+- 3-4: Poor color compositing, artifacts, or bland subject
+- 1-2: Black and white only, too damaged, or no vanished element
 
-Prefer photos with: neon signs (especially at dusk), Art Deco or Googie architecture, Route 66 locations,
-named businesses, vivid color from Kodachrome/Ektachrome slides, motels with personality.""",
-        "writer_prompt": """Write posts for @RoadsideArchive about American roadside culture. Write like a human, not an AI.
+Prefer: Prokudin-Gorsky composites (Russian Empire), photochrom prints (pre-WWI Europe/Middle East),
+FSA/OWI Kodachrome (1940s America). Must have a clear "this is gone now" story.""",
+        "writer_prompt": """Write posts for @VanishedPlaces about original color photographs of places that no longer exist. Write like a human, not an AI.
 
-EVERY SIGN HAD AN OWNER. Every diner had regulars. Lead with the specific detail, not nostalgia.
+THE HOOK IS ALWAYS: this place is gone, and here it is in color.
 
 RULES:
-1. HOOK FIRST. The name on the sign. The route number. The year it opened. Not "This photograph shows..."
-2. Numbers: how many existed, how many are left, what it cost, how tall, what route.
-3. Short sentences. Fragments ok.
-4. Tell us what happened to it. Did it survive? Is it a parking lot now?
-5. Last line: "John Margolies, Year. Library of Congress, Margolies Archive."
+1. HOOK FIRST. The place, the year, and what makes the color surprising. Not "This photograph shows..."
+2. Explain the color tech briefly: photochrom lithography, triple-exposure glass plates, or Kodachrome.
+3. What happened to this place. Revolution, war, fire, development, neglect. Be specific.
+4. Numbers: population, years, distances, prices, dates of destruction.
+5. Short sentences. Fragments ok.
+6. Last line: credit the photographer and source.
 
-TONE: Someone who's driven every two-lane highway in America and remembers every sign.
+TONE: Someone who knows exactly what was lost. Not sentimental — factual. The facts are sad enough.
 
-NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open road",
-"Americana at its finest", "nostalgia", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "a testament to", "lost to time", "frozen in time",
+"a glimpse into", "bygone era", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#RoadsideAmerica",
-            "#NeonSigns",
-            "#VintageMotel",
+            "#VanishedPlaces",
+            "#HistoryInColor",
+            "#LostPlaces",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -520,25 +521,25 @@ NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open
         },
         "engagement": {
             "search_queries": [
-                "vintage neon sign has:images -is:retweet",
-                "roadside america has:images -is:retweet",
-                "vintage motel sign has:images -is:retweet",
-                "Route 66 has:images -is:retweet",
-                "retro diner has:images -is:retweet",
-                "drive-in theater has:images -is:retweet",
-                "#neonsigns has:images -is:retweet",
-                "#roadsideamerica has:images -is:retweet",
+                "historical color photo has:images -is:retweet",
+                "old color photograph has:images -is:retweet",
+                "prokudin-gorsky has:images -is:retweet",
+                "photochrom has:images -is:retweet",
+                "colorized history has:images -is:retweet",
+                "vanished places has:images -is:retweet",
+                "#historyincolor has:images -is:retweet",
+                "#vintagephotography has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@PulpLibrarian",
                 "@historydefined",
                 "@LOCphotography",
-                "@VintageSigns",
+                "@PulpLibrarian",
+                "@ColorizedHist",
             ],
             "reply_voice": (
-                "You're @RoadsideArchive. Add ONE specific fact the poster didn't mention. "
-                "The route number, the year it opened, the architect, what happened to it. "
+                "You're @VanishedPlaces. Add ONE specific fact about what happened to this place. "
+                "When it was destroyed, what replaced it, what the population was. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -555,10 +556,10 @@ NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open
         },
         "loc_config": {
             "search_queries": [
-                "motel sign", "diner", "drive-in theater", "gas station",
-                "neon sign", "Route 66", "roadside attraction", "mini golf",
+                "constantinople", "jerusalem", "venice", "samarkand",
+                "bukhara", "cairo", "pompeii", "yellowstone",
             ],
-            "collections": ["mrg"],
+            "collections": ["ppmsc", "prokc", "fsa"],
             "posts_per_day": 2,
             "min_queue_size": 15,
             "max_queue_size": 30,
@@ -566,11 +567,11 @@ NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open
         },
     },
 
-    "spacerace": {
-        "handle": "@SpaceRacePics",
-        "name": "Space Race",
-        "description": "Apollo, Gemini, Mercury, and the Space Race in color — from NASA's image archive",
-        "posts_file": "posts-spacerace.json",
+    "natureart": {
+        "handle": "@NatureArtArchive",
+        "name": "Nature's Art",
+        "description": "Vintage scientific illustrations of the natural world — Haeckel, Audubon, and the golden age of natural history art",
+        "posts_file": "posts-natureart.json",
         "features": {
             "bookmarks": False,
             "threads": False,
@@ -578,40 +579,41 @@ NEVER: em-dashes, "not just X but Y", "a bygone era", "simpler times", "the open
             "real_estate_drafts": False,
             "respond": True,
         },
-        "curator_prompt": """You evaluate NASA photographs from the Space Race era for story potential on X/Twitter.
+        "curator_prompt": """You evaluate vintage scientific illustrations for the "Nature's Art" account on X/Twitter.
 
-Score each photograph 1-10 on "would someone stop scrolling for this?":
-- 9-10: Moonwalk, Earthrise, Blue Marble, Saturn V launch, spacewalk — the iconic shots
-- 7-8: Strong mission photo with clear human story, good color, identifiable astronaut or hardware
-- 5-6: Generic space photo, technical documentation, or too dark/blurry
-- 3-4: Press conference, ground equipment only, or poorly composed
-- 1-2: No clear space subject, purely text/diagram
+Score each illustration 1-10 on "would someone stop scrolling for this?":
+- 9-10: Haeckel's most iconic plates (jellyfish, sea anemones, hummingbirds), Audubon's best birds, stunning color and detail
+- 7-8: Beautiful illustration with interesting species, strong composition, good color
+- 5-6: Decent illustration but common subject, nothing visually special
+- 3-4: Black and white only, too technical/diagrammatic, or poorly scanned
+- 1-2: Just text, damaged beyond appreciation, or not a natural history subject
 
-Prefer photos with: astronauts on the lunar surface, Earth from space, rocket launches,
-spacewalks, mission control celebrations, named astronauts, color photography.""",
-        "writer_prompt": """Write posts for @SpaceRacePics about NASA's space program. Write like a human, not an AI.
+Prefer: full-color plates, unusual species, compositions that look like art not diagrams,
+high-resolution scans. Haeckel's Art Forms in Nature is the gold standard.""",
+        "writer_prompt": """Write posts for @NatureArtArchive about vintage scientific illustrations. Write like a human, not an AI.
 
-THESE WERE ENGINEERS AND TEST PILOTS. Not mythology. Lead with the specific technical detail or human moment.
+SCIENCE IS THE STORY. Every illustration is data drawn by hand. Lead with the biology, not the aesthetics.
 
 RULES:
-1. HOOK FIRST. The specific detail that makes this shot different. Not "This photograph shows..."
-2. Numbers: altitude, speed, weight, duration, cost, distance. Be precise.
-3. Short sentences. Fragments ok.
-4. What happened next — to the astronaut, to the hardware, to the program.
-5. Last line: "NASA, [catalog number]. [Date]."
+1. HOOK FIRST. The species name (common and Latin). What it is. Not "This illustration shows..."
+2. One wild biological fact about the organism. The weirder, the better.
+3. Something about the artist or the illustration technique.
+4. Numbers: how many species, how old, how big, how fast, how deep.
+5. Short sentences. Fragments ok.
+6. Last line: credit artist, year, source.
 
-TONE: A retired flight controller who still has their badge. Knows every mission by number.
+TONE: A marine biologist who also collects rare books. Knows the species AND the printing technique.
 
-NEVER: em-dashes, "not just X but Y", "the final frontier", "one giant leap",
-"pushing the boundaries", "the brave men and women", significance claims, philosophical wrap-ups.""",
+NEVER: em-dashes, "not just X but Y", "nature's artistry", "Mother Nature",
+"the beauty of nature", "breathtaking", significance claims, philosophical wrap-ups.""",
         "communities": {
             "default": None,
             "all": [],
         },
         "hashtags": [
-            "#SpaceRace",
-            "#Apollo",
-            "#NASA",
+            "#NaturalHistory",
+            "#ScienceArt",
+            "#Haeckel",
         ],
         "engage_limits": {
             "daily_max_replies": 20,
@@ -625,25 +627,25 @@ NEVER: em-dashes, "not just X but Y", "the final frontier", "one giant leap",
         },
         "engagement": {
             "search_queries": [
-                "apollo moon has:images -is:retweet",
-                "NASA vintage has:images -is:retweet",
-                "space race has:images -is:retweet",
-                "saturn v has:images -is:retweet",
-                "moonwalk apollo has:images -is:retweet",
-                "gemini mission has:images -is:retweet",
-                "#apollo has:images -is:retweet",
-                "#spacehistory has:images -is:retweet",
+                "haeckel illustration has:images -is:retweet",
+                "natural history illustration has:images -is:retweet",
+                "scientific illustration has:images -is:retweet",
+                "vintage botanical has:images -is:retweet",
+                "audubon bird has:images -is:retweet",
+                "art forms in nature has:images -is:retweet",
+                "#sciart has:images -is:retweet",
+                "#naturalhistory has:images -is:retweet",
             ],
             "min_likes": 10,
             "tracked_accounts": [
-                "@NASA",
-                "@NASAHistory",
-                "@historydefined",
+                "@BioDivLibrary",
+                "@NHM_London",
+                "@SmithsonianMag",
                 "@PulpLibrarian",
             ],
             "reply_voice": (
-                "You're @SpaceRacePics. Add ONE specific fact the poster didn't mention. "
-                "The mission number, the astronaut's name, the altitude, what happened next. "
+                "You're @NatureArtArchive. Add ONE specific biological fact about the species shown. "
+                "How it reproduces, what it eats, how old the lineage is, how many species exist. "
                 "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
             ),
             "engagement_targets": {
@@ -658,11 +660,11 @@ NEVER: em-dashes, "not just X but Y", "the final frontier", "one giant leap",
                 "20:30",
             ],
         },
-        "nasa_config": {
+        "ia_config": {
             "search_queries": [
-                "apollo moon surface", "earthrise", "saturn v launch",
-                "gemini spacewalk", "lunar rover", "mission control apollo",
-                "mercury astronaut", "apollo earth", "skylab",
+                "haeckel kunstformen", "audubon birds america",
+                "natural history illustration", "botanical illustration vintage",
+                "ernst haeckel", "scientific illustration plates",
             ],
             "posts_per_day": 2,
             "min_queue_size": 15,

@@ -308,8 +308,8 @@
     <a href="?niche=tatamispaces" class="__ACTIVE_TATAMISPACES__">tatami</a>
     <a href="?niche=museumstories" class="__ACTIVE_MUSEUMSTORIES__">museum</a>
     <a href="?niche=artdeco" class="__ACTIVE_ARTDECO__">deco</a>
-    <a href="?niche=roadsideamerica" class="__ACTIVE_ROADSIDEAMERICA__">roadside</a>
-    <a href="?niche=spacerace" class="__ACTIVE_SPACERACE__">space</a>
+    <a href="?niche=vanishedplaces" class="__ACTIVE_VANISHEDPLACES__">vanished</a>
+    <a href="?niche=natureart" class="__ACTIVE_NATUREART__">nature</a>
   </div>
   <div class="stats" id="stats">__STATS_HTML__</div>
   <div class="spacer"></div>
@@ -387,7 +387,7 @@ if (NICHE === 'tatamispaces') {
   document.getElementById('museum-topbar-buttons').style.display = '';
 }
 // Set page title
-const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',artdeco:'Deco',roadsideamerica:'Roadside',spacerace:'Space Race'};
+const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',artdeco:'Deco',vanishedplaces:'Vanished',natureart:'Nature'};
 document.title = (nicheNames[NICHE] || NICHE) + ' - Post Manager';
 
 function showToast(msg) {
