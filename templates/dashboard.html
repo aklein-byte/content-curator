@@ -297,8 +297,10 @@
 <!-- TOP BAR -->
 <div class="topbar">
   <div class="niche-toggle">
-    <a href="?niche=tatamispaces" class="__ACTIVE_TATAMI__">tatami</a>
-    <a href="?niche=museumstories" class="__ACTIVE_MUSEUM__">museum</a>
+    <a href="?niche=tatamispaces" class="__ACTIVE_TATAMISPACES__">tatami</a>
+    <a href="?niche=museumstories" class="__ACTIVE_MUSEUMSTORIES__">museum</a>
+    <a href="?niche=historicalphotos" class="__ACTIVE_HISTORICALPHOTOS__">history</a>
+    <a href="?niche=spacestories" class="__ACTIVE_SPACESTORIES__">space</a>
   </div>
   <div class="stats" id="stats">__STATS_HTML__</div>
   <div class="spacer"></div>
@@ -375,6 +377,9 @@ if (NICHE === 'tatamispaces') {
   document.getElementById('museum-view').style.display = '';
   document.getElementById('museum-topbar-buttons').style.display = '';
 }
+// Set page title
+const nicheNames = {tatamispaces:'Tatami',museumstories:'Museum',historicalphotos:'History',spacestories:'Space'};
+document.title = (nicheNames[NICHE] || NICHE) + ' - Post Manager';
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -505,6 +510,7 @@ let pickMode = null;
 let museumFilters = { state: 'draft', format: 'all', search: '' };
 
 async function museumApi(endpoint, body) {
+  body.niche = NICHE;
   const r = await fetch('api/museum/' + endpoint, {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body)

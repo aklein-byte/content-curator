@@ -361,6 +361,202 @@ NEVER: em-dashes, "not just X but Y", "more than just", "the real X isn't Y", "w
         },
     },
 
+    "historicalphotos": {
+        "handle": "@AmericaInFrames",
+        "name": "Historical Photos",
+        "description": "Stories behind historical photographs from the Library of Congress",
+        "posts_file": "posts-historicalphotos.json",
+        "features": {
+            "bookmarks": False,
+            "threads": False,
+            "quote_drafts": False,
+            "real_estate_drafts": False,
+            "respond": True,
+        },
+        "curator_prompt": """You evaluate historical photographs for story potential on X/Twitter.
+
+Score each photograph 1-10 on "would someone stop scrolling for this?":
+- 9-10: Famous moment captured, unknown angle on a well-known event, haunting portrait, dramatic scene
+- 7-8: Interesting historical context, good composition, reveals something about the era
+- 5-6: Generic historical photo, nothing surprising about the story
+- 3-4: Blurry, badly composed, or no clear story to tell
+- 1-2: No image, fragment, or purely technical documentation
+
+Prefer photos with: known photographers, specific dates, human subjects with identifiable stories,
+surprising contrasts between then and now, social commentary, unusual perspectives.""",
+        "writer_prompt": """Write posts for @AmericaInFrames about historical photographs. Write like a human, not an AI.
+
+SHOW, DON'T TELL SIGNIFICANCE. Never tell the reader something is remarkable or important. Give them the facts.
+
+RULES:
+1. HOOK FIRST. Lead with what makes this photo interesting, not "This photograph shows..."
+2. Specific facts: who, when, where, what happened next.
+3. Short sentences. Fragments ok.
+4. End with the fact that sticks, not a philosophical observation.
+5. Last line: "Photographer, Title/Description, Year. Library of Congress."
+
+TONE: A friend who works at a photo archive showing you something they found in the stacks.
+
+NEVER: em-dashes, "not just X but Y", "more than just", "captures the essence", "a window into",
+"frozen in time", "a testament to", significance claims, philosophical wrap-ups.""",
+        "communities": {
+            "default": None,
+            "all": [],
+        },
+        "hashtags": [
+            "#HistoricalPhotos",
+            "#AmericanHistory",
+            "#VintagePhotography",
+        ],
+        "engage_limits": {
+            "daily_max_replies": 20,
+            "daily_max_likes": 25,
+            "daily_max_follows": 8,
+            "min_author_followers_for_reply": 500,
+            "min_post_likes_for_reply": 5,
+            "like_delay": [15, 45],
+            "reply_delay": [45, 180],
+            "follow_delay": [25, 75],
+        },
+        "engagement": {
+            "search_queries": [
+                "historical photography has:images -is:retweet",
+                "vintage photograph has:images -is:retweet",
+                "#historicalphotos has:images -is:retweet",
+                "Library of Congress photograph has:images -is:retweet",
+                "(great depression OR dust bowl) photograph has:images -is:retweet",
+                "(world war OR civil war) photograph has:images -is:retweet",
+            ],
+            "min_likes": 10,
+            "tracked_accounts": [
+                "@liaborhinus",
+                "@PulpLibrarian",
+                "@historydefined",
+                "@LOCphotography",
+            ],
+            "reply_voice": (
+                "You're @AmericaInFrames. Add ONE specific fact the poster didn't mention. "
+                "A name, a date, what happened next, the photographer's backstory. "
+                "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
+            ),
+            "engagement_targets": {
+                "replies_per_day": 5,
+                "likes_per_day": 10,
+                "reposts_per_day": 2,
+                "original_posts_per_day": 2,
+            },
+            "posting_times": [
+                "10:00",
+                "15:00",
+                "20:00",
+            ],
+        },
+        "loc_config": {
+            "collections": ["fsa", "detroit", "gotfryd", "civil-war", "highsmith"],
+            "posts_per_day": 3,
+            "min_queue_size": 15,
+            "max_queue_size": 30,
+        },
+    },
+
+    "spacestories": {
+        "handle": "@CosmicStrange",
+        "name": "Space Stories",
+        "description": "The strange, beautiful, and terrifying universe explained through NASA images",
+        "posts_file": "posts-spacestories.json",
+        "features": {
+            "bookmarks": False,
+            "threads": False,
+            "quote_drafts": False,
+            "real_estate_drafts": False,
+            "respond": True,
+        },
+        "curator_prompt": """You evaluate space/astronomy images for story potential on X/Twitter.
+
+Score each image 1-10 on "would someone stop scrolling for this?":
+- 9-10: Visually stunning (Hubble/JWST deep field, detailed nebula), mind-bending scale, surprising fact
+- 7-8: Good image with interesting science backstory
+- 5-6: Standard space photo without a compelling hook
+- 3-4: Technical/diagram, low resolution, or no story
+- 1-2: Artist rendering with no real data, or purely technical
+
+Prefer images with: extreme scales, surprising facts, recent discoveries,
+counter-intuitive physics, beautiful color, death/birth of stars, exotic objects.""",
+        "writer_prompt": """Write posts for @CosmicStrange about space and astronomy. Write like a human, not an AI.
+
+SHOW, DON'T TELL AWE. Never tell the reader something is "breathtaking" or "awe-inspiring". Give them the numbers and let their jaw drop on its own.
+
+RULES:
+1. HOOK FIRST. Lead with the mind-bending fact, not "This image shows..."
+2. Scale is your weapon: light-years, temperatures, masses, ages.
+3. Short sentences. Fragments ok. Let numbers land.
+4. End with the fact that recontextualizes everything.
+5. Last line: "Image: NASA/[instrument], [year]."
+
+TONE: Neil deGrasse Tyson at a bar after two drinks. Excited but precise.
+
+NEVER: em-dashes, "not just X but Y", "the vastness of space", "our place in the universe",
+"humbling reminder", "cosmic dance", significance claims, philosophical wrap-ups.""",
+        "communities": {
+            "default": None,
+            "all": [],
+        },
+        "hashtags": [
+            "#Space",
+            "#Astronomy",
+            "#NASA",
+        ],
+        "engage_limits": {
+            "daily_max_replies": 20,
+            "daily_max_likes": 25,
+            "daily_max_follows": 8,
+            "min_author_followers_for_reply": 500,
+            "min_post_likes_for_reply": 5,
+            "like_delay": [15, 45],
+            "reply_delay": [45, 180],
+            "follow_delay": [25, 75],
+        },
+        "engagement": {
+            "search_queries": [
+                "NASA image has:images -is:retweet",
+                "(nebula OR galaxy OR supernova) has:images -is:retweet",
+                "Hubble OR JWST has:images -is:retweet",
+                "astronomy photograph has:images -is:retweet",
+                "(mars rover OR perseverance OR curiosity) has:images -is:retweet",
+                "#astrophotography has:images -is:retweet",
+            ],
+            "min_likes": 10,
+            "tracked_accounts": [
+                "@NASA",
+                "@NASAHubble",
+                "@NASAWebb",
+                "@apaborhinus",
+            ],
+            "reply_voice": (
+                "You're @CosmicStrange. Add ONE specific number or fact the poster didn't mention. "
+                "A distance, a temperature, a mass, how long light took to reach us. "
+                "Short sentences. No em-dashes. If you don't know a real fact, don't reply."
+            ),
+            "engagement_targets": {
+                "replies_per_day": 5,
+                "likes_per_day": 10,
+                "reposts_per_day": 2,
+                "original_posts_per_day": 3,
+            },
+            "posting_times": [
+                "09:30",
+                "15:00",
+                "20:30",
+            ],
+        },
+        "nasa_config": {
+            "apis": ["images", "apod"],
+            "posts_per_day": 3,
+            "min_queue_size": 15,
+            "max_queue_size": 30,
+        },
+    },
+
 }
 
 

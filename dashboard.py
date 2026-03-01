@@ -296,18 +296,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def handle_museum_status(self, body):
         post_id = body.get("id")
         new_status = body.get("status")
+        niche_id = body.get("niche", "museumstories")
         if not post_id or not new_status:
             self.send_json({"ok": False, "error": "missing id or status"})
             return
-        lock = _lock_posts("museumstories")
+        lock = _lock_posts(niche_id)
         try:
-            data = load_posts("museumstories")
+            data = load_posts(niche_id)
             for p in data["posts"]:
                 if p["id"] == post_id:
                     p["status"] = new_status
                     if new_status == "approved" and not p.get("scheduled_for"):
                         p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
-                    save_posts(data, "museumstories")
+                    save_posts(data, niche_id)
                     self.send_json({"ok": True})
                     return
             self.send_json({"ok": False, "error": "post not found"})
@@ -318,17 +319,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         post_id = body.get("id")
         tweet_index = body.get("tweet_index")
         text = body.get("text")
+        niche_id = body.get("niche", "museumstories")
         if post_id is None or tweet_index is None or text is None:
             self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
             return
-        lock = _lock_posts("museumstories")
+        lock = _lock_posts(niche_id)
         try:
-            data = load_posts("museumstories")
+            data = load_posts(niche_id)
             for p in data["posts"]:
                 if p["id"] == post_id:
                     if 0 <= tweet_index < len(p.get("tweets", [])):
                         p["tweets"][tweet_index]["text"] = text
-                        save_posts(data, "museumstories")
+                        save_posts(data, niche_id)
                         self.send_json({"ok": True})
                         return
                     self.send_json({"ok": False, "error": "invalid tweet_index"})
@@ -342,12 +344,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         tweet_index = body.get("tweet_index")
         image_index = body.get("image_index")
         action = body.get("action")
+        niche_id = body.get("niche", "museumstories")
         if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
             self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
             return
-        lock = _lock_posts("museumstories")
+        lock = _lock_posts(niche_id)
         try:
-            data = load_posts("museumstories")
+            data = load_posts(niche_id)
             for p in data["posts"]:
                 if p["id"] == post_id:
                     if 0 <= tweet_index < len(p.get("tweets", [])):
@@ -359,7 +362,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 tweet["images"].append(image_index)
                         elif action == "remove":
                             tweet["images"] = [i for i in tweet["images"] if i != image_index]
-                        save_posts(data, "museumstories")
+                        save_posts(data, niche_id)
                         self.send_json({"ok": True})
                         return
                     self.send_json({"ok": False, "error": "invalid tweet_index"})
@@ -370,19 +373,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def handle_museum_notes(self, body):
         post_id = body.get("id")
+        niche_id = body.get("niche", "museumstories")
         if post_id is None:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        lock = _lock_posts("museumstories")
+        lock = _lock_posts(niche_id)
         try:
-            data = load_posts("museumstories")
+            data = load_posts(niche_id)
             for p in data["posts"]:
                 if p["id"] == post_id:
                     if "vote" in body:
                         p["vote"] = body["vote"]
                     if "notes" in body:
                         p["notes"] = body["notes"]
-                    save_posts(data, "museumstories")
+                    save_posts(data, niche_id)
                     self.send_json({"ok": True})
                     return
             self.send_json({"ok": False, "error": "post not found"})
@@ -419,24 +423,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": False, "error": "post not found"})
 
     def handle_museum_regenerate(self, body):
-        """Regenerate a museum tweet caption via writer agent."""
+        """Regenerate a tweet caption via writer agent."""
         post_id = body.get("id")
         tweet_index = body.get("tweet_index")
+        niche_id = body.get("niche", "museumstories")
         feedback = body.get("feedback", "Try a different angle. Keep the same facts but find a fresher way to say it.")
         if post_id is None or tweet_index is None:
             self.send_json({"ok": False, "error": "missing id or tweet_index"})
             return
-        data = load_posts("museumstories")
+        data = load_posts(niche_id)
         for p in data["posts"]:
             if p["id"] == post_id:
                 if 0 <= tweet_index < len(p.get("tweets", [])):
                     original = p["tweets"][tweet_index]["text"]
                     try:
                         from agents.writer import rewrite_caption
-                        result = asyncio.run(rewrite_caption("museumstories", original, feedback))
+                        result = asyncio.run(rewrite_caption(niche_id, original, feedback))
                         p["tweets"][tweet_index]["text"] = result["caption"]
                         p["tweets"][tweet_index]["_previous_text"] = original
-                        save_posts(data, "museumstories")
+                        save_posts(data, niche_id)
                         self.send_json({"ok": True, "caption": result["caption"]})
                     except Exception as e:
                         self.send_json({"ok": False, "error": str(e)})
