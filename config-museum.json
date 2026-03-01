@@ -145,10 +145,18 @@
     }
   },
   "models": {
-    "evaluator": "claude-haiku-4-5-20251001",
     "writer": "claude-opus-4-6",
+    "rewrite": "claude-opus-4-6",
+    "vision": "claude-opus-4-6",
     "reply_drafter": "claude-opus-4-6",
-    "vision": "claude-opus-4-6"
+    "evaluator": "claude-haiku-4-5-20251001",
+    "scorer": "claude-haiku-4-5-20251001",
+    "fact_extract": "claude-haiku-4-5-20251001",
+    "fact_research": "claude-haiku-4-5-20251001",
+    "fact_qa": "claude-haiku-4-5-20251001",
+    "chat": "claude-sonnet-4-6",
+    "quote_writer": "claude-sonnet-4-6",
+    "enrich_vision": "claude-sonnet-4-6"
   },
   "delays": {
     "engage": [

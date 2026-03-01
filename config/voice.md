@@ -93,9 +93,10 @@ Our audience is primarily English-speaking and may not be familiar with Japanese
 
 ### Japanese Terms
 - **Room layouts**: Explain once — "1LDK (one-bedroom)", "2LDK (two-bedroom)". LDK = Living/Dining/Kitchen.
-- **Common terms** that DON'T need explanation (our audience has learned these): kominka, tatami, shoji, ryokan, machiya, engawa, tokonoma, fusuma
-- **Less common terms** that DO need brief inline context: "nagaya (row house)", "kura (storehouse)", "irori (sunken hearth)", "genkan (entryway)"
-- Don't define terms like a textbook — weave context into the sentence naturally: "the irori (sunken hearth) is original" not "An irori is a traditional Japanese sunken hearth used for cooking"
+- **Common terms** that DON'T need explanation: tatami, shoji
+- **Terms that need inline context on first use**: "ryokan (traditional inn)", "machiya (Kyoto townhouse)", "engawa (open-air wooden veranda)", "fusuma (sliding paper doors)", "kominka (old farmhouse)", "tokonoma (decorative alcove)", "nagaya (row house)", "kura (storehouse)", "irori (sunken hearth)", "genkan (entryway)", "onsen (hot spring)", "kaiseki (multi-course dinner)"
+- Don't define terms like a textbook — weave context into the sentence naturally: "the irori, a sunken hearth, is original" not "An irori is a traditional Japanese sunken hearth used for cooking"
+- When possible, lead with the English description and drop the Japanese term in after: "a traditional inn (ryokan)" or "the sliding paper doors"
 
 ### Measurements
 - Include both metric and imperial when it helps: "3mm" is fine alone, but "34㎡ (~366 sq ft)" helps people picture the space

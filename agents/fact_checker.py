@@ -12,14 +12,14 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from tools.common import get_anthropic
+from tools.common import get_anthropic, get_model
 
 log = logging.getLogger(__name__)
 
-# --- Models ---
-EXTRACT_MODEL = "claude-haiku-4-5-20251001"
-RESEARCH_MODEL = "claude-haiku-4-5-20251001"
-REWRITE_MODEL = "claude-opus-4-6"
+# --- Models (from config via get_model) ---
+EXTRACT_MODEL = get_model("fact_extract")
+RESEARCH_MODEL = get_model("fact_research")
+REWRITE_MODEL = get_model("rewrite")
 
 # --- Trusted domains for web research ---
 TRUSTED_DOMAINS = {
@@ -604,7 +604,7 @@ def quick_validate(draft_text: str, source: SourceContext) -> tuple[bool, str]:
 
     try:
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=get_model("fact_qa"),
             max_tokens=256,
             messages=[{"role": "user", "content": f"""You are a QA reviewer for a social media post.
 
@@ -617,12 +617,12 @@ Draft post:
 Check:
 1. Does the draft have real body text (not just attribution/credit)?
 2. Does the draft make sense as a standalone post?
-3. CRITICAL: Does the draft contain specific facts (names, dates, locations, materials, dimensions) NOT in the source data above? If yes, it's hallucinated and must FAIL.
+3. Does the draft fabricate specific NAMES, DATES, or NUMBERS that are not in the source data? Only FAIL for clearly invented proper nouns or completely fabricated numbers with no basis. ALLOW: approximate ages derived from known birth/death years, well-known facts about the artist/period/location (e.g. city names, cause of death, historical context), and reasonable inferences from the source data. The draft has already been fact-checked and rewritten — your job is only to catch outright fabrications that slipped through.
 4. Does the draft add value beyond restating the source?
 
 Respond with EXACTLY one line:
 PASS — if the draft is good
-FAIL: <brief reason> — if the draft should be rejected"""}],
+FAIL: <brief reason> — ONLY if the draft contains clearly fabricated specifics"""}],
         )
         result = response.content[0].text.strip().split("\n")[0]
         if result.startswith("PASS"):

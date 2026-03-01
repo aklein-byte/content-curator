@@ -11,13 +11,11 @@ from pathlib import Path
 from typing import Optional
 
 from config.niches import get_niche
-from tools.common import load_config, get_anthropic, load_voice_guide
+from tools.common import load_config, get_anthropic, load_voice_guide, get_model
 
 logger = logging.getLogger(__name__)
 
-_cfg = load_config().get("models", {})
-
-WRITER_MODEL = _cfg.get("writer", "claude-opus-4-6")
+WRITER_MODEL = get_model("writer")
 
 client = get_anthropic()
 
@@ -214,7 +212,7 @@ HASHTAGS: [2-3 hashtags, space-separated]
 
 
 # Use Opus for vision-based thread captions — better at following voice rules
-VISION_MODEL = _cfg.get("vision", "claude-opus-4-6")
+VISION_MODEL = get_model("vision")
 
 THREAD_CAPTION_SYSTEM = """You're @tatamispaces. You post Japanese architecture and design.
 

@@ -657,11 +657,16 @@ async def main():
         )
 
         if qt_text:
+            # Extract image URLs from the original post if available
+            qt_image_urls = post.image_urls or []
             new_post = {
                 "id": next_post_id(posts_data),
                 "status": "draft",
                 "type": "quote",
+                "title": f"QT @{post.author_handle}",
                 "text": qt_text,
+                "tweets": [{"text": qt_text, "images": []}],
+                "image_urls": qt_image_urls,
                 "quote_tweet_id": str(post.post_id),
                 "quote_author": post.author_handle,
                 "quote_text": post.text[:200],

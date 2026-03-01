@@ -162,6 +162,31 @@ def get_anthropic():
     return _anthropic_client
 
 
+# --- Model selection ---
+
+# Defaults for every model role. Override via config.json "models" key.
+_MODEL_DEFAULTS = {
+    "writer":         "claude-opus-4-6",
+    "rewrite":        "claude-opus-4-6",
+    "vision":         "claude-opus-4-6",
+    "reply_drafter":  "claude-opus-4-6",
+    "evaluator":      "claude-haiku-4-5-20251001",
+    "scorer":         "claude-haiku-4-5-20251001",
+    "fact_extract":   "claude-haiku-4-5-20251001",
+    "fact_research":  "claude-haiku-4-5-20251001",
+    "fact_qa":        "claude-haiku-4-5-20251001",
+    "chat":           "claude-sonnet-4-6",
+    "quote_writer":   "claude-sonnet-4-6",
+    "enrich_vision":  "claude-sonnet-4-6",
+}
+
+
+def get_model(role: str) -> str:
+    """Get Claude model ID for a given role. Reads from config, falls back to defaults."""
+    cfg_models = load_config().get("models", {})
+    return cfg_models.get(role, _MODEL_DEFAULTS.get(role, "claude-sonnet-4-6"))
+
+
 # --- Niche-aware paths ---
 
 def niche_log_path(base_name: str, niche_id: str) -> Path:

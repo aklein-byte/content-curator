@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_bookmarks, get_tweet_by_id, XPost, set_niche as set_xapi_niche, check_image_urls_quality
-from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic
+from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, get_model
 from tools.post_queue import (
     load_posts as pq_load_posts, save_posts as pq_save_posts,
     next_post_id, already_in_queue, next_schedule_slot,
@@ -92,7 +92,7 @@ async def enrich_context(post: XPost) -> str:
                     "text": "Describe what these images show. Be specific about architecture, materials, spaces, objects, and any visible text or signage.",
                 })
                 client = get_anthropic()
-                _vision_model = load_config().get("models", {}).get("enrich_vision", "claude-sonnet-4-20250514")
+                _vision_model = get_model("enrich_vision")
                 vision_resp = client.messages.create(
                     model=_vision_model,
                     max_tokens=300,

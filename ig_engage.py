@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config.niches import get_niche
-from tools.common import load_json, save_json, notify, random_delay, acquire_lock, release_lock, setup_logging, load_config, niche_log_path, get_anthropic
+from tools.common import load_json, save_json, notify, random_delay, acquire_lock, release_lock, setup_logging, load_config, niche_log_path, get_anthropic, get_model
 
 log = setup_logging("ig_engage")
 
@@ -117,7 +117,7 @@ Possible actions: like, comment, follow
 
     try:
         response = client.messages.create(
-            model=_cfg.get("models", {}).get("evaluator", "claude-haiku-4-5-20251001"),
+            model=get_model("evaluator"),
             max_tokens=256,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -154,7 +154,7 @@ Return ONLY the comment text. Nothing else."""
 
     try:
         response = client.messages.create(
-            model=_cfg.get("models", {}).get("reply_drafter", "claude-opus-4-6"),
+            model=get_model("reply_drafter"),
             max_tokens=150,
             messages=[{"role": "user", "content": prompt}],
         )

@@ -32,8 +32,9 @@ load_dotenv()
 
 from tools.museum_apis import (
     MuseumObject, met_search, aic_search, cleveland_search, smk_search, search_all,
+    met_random_browse, aic_random_browse, cleveland_random_browse,
 )
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide
+from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide, get_model
 from tools.post_queue import (
     resolve_posts_file as pq_resolve_posts_file,
     load_posts as pq_load_posts, save_posts as pq_save_posts,
@@ -191,36 +192,57 @@ PERIOD_SEARCHES = [
 
 
 def fetch_candidates() -> list[MuseumObject]:
-    """Run all discovery strategies. Returns 20-40 raw candidates."""
+    """Run all discovery strategies. Returns 20-40 raw candidates.
+
+    Strategy mix (~70% random browse, ~30% keyword/period):
+    1. Random department browse — Met, AIC, Cleveland (bulk of candidates)
+    2. Cleveland fun_facts — pre-written story hooks
+    3. Keyword search — 2 random keywords for targeted finds
+    """
     candidates = []
 
-    # Strategy 1: Narrative keywords (4 random keywords, all APIs)
-    keywords = random.sample(NARRATIVE_KEYWORDS, k=4)
-    for kw in keywords:
-        # Pick 2 random APIs per keyword to avoid hammering all 4
-        apis = random.sample(["met", "aic", "cleveland", "smk"], k=2)
-        results = search_all(kw, limit_per_api=3, apis=apis)
-        candidates.extend(results)
-        log.info(f"Keyword '{kw}': {len(results)} candidates")
+    # Strategy 1: Random department browsing (~70% of candidates)
+    # Weighted toward Cleveland (62% approval) and Met (50%) over AIC (7%) and SMK (0%)
+    try:
+        met_browse = met_random_browse(limit=10)
+        candidates.extend(met_browse)
+        log.info(f"Met random browse: {len(met_browse)} candidates")
+    except Exception as e:
+        log.warning(f"Met random browse failed: {e}")
+
+    # AIC: reduced — only 7% of AIC objects get approved (mostly prints/drawings)
+    try:
+        aic_browse = aic_random_browse(limit=3)
+        candidates.extend(aic_browse)
+        log.info(f"AIC random browse: {len(aic_browse)} candidates")
+    except Exception as e:
+        log.warning(f"AIC random browse failed: {e}")
+
+    # Cleveland: increased — 62% approval rate, best museum for stories
+    try:
+        clev_browse = cleveland_random_browse(limit=8)
+        candidates.extend(clev_browse)
+        log.info(f"Cleveland random browse: {len(clev_browse)} candidates")
+    except Exception as e:
+        log.warning(f"Cleveland random browse failed: {e}")
 
     # Strategy 2: Cleveland fun_facts (goldmine)
     try:
         cleveland_curated = cleveland_search("", limit=50, require_fun_fact=True)
         if cleveland_curated:
-            # Take random sample
             sample = random.sample(cleveland_curated, k=min(8, len(cleveland_curated)))
             candidates.extend(sample)
             log.info(f"Cleveland fun_facts: {len(sample)} candidates")
     except Exception as e:
         log.warning(f"Cleveland fun_facts failed: {e}")
 
-    # Strategy 3: Period rotation (2 random periods)
-    periods = random.sample(PERIOD_SEARCHES, k=2)
-    for p in periods:
+    # Strategy 3: Keyword search (2 random keywords, targeted finds)
+    keywords = random.sample(NARRATIVE_KEYWORDS, k=2)
+    for kw in keywords:
         apis = random.sample(["met", "aic", "cleveland", "smk"], k=2)
-        results = search_all(p["query"], limit_per_api=3, apis=apis)
+        results = search_all(kw, limit_per_api=3, apis=apis)
         candidates.extend(results)
-        log.info(f"Period '{p['query']}': {len(results)} candidates")
+        log.info(f"Keyword '{kw}': {len(results)} candidates")
 
     # Deduplicate by object ID
     seen = set()
@@ -260,16 +282,19 @@ def score_story_potential(obj: MuseumObject) -> int | None:
         if obj.tags:
             meta_parts.append(f"Tags: {', '.join(obj.tags[:8])}")
 
-        prompt = f"""Score this museum object 1-10 on story potential for a social media post.
+        prompt = f"""Score this museum object 1-10 for a visual social media post (Twitter/X with images).
 
 {chr(10).join(meta_parts)}
 
-Does this object have a surprising fact, dramatic history, unusual material, or famous connection?
-A 7+ means there's a clear hook for a compelling post. A 6 or below means it's generic or academic.
+Consider BOTH story AND visual appeal:
+- Story: surprising fact, dramatic history, unusual material, famous connection, human drama
+- Visual: would the image stop someone scrolling? 3D objects (sculptures, armor, ceramics, instruments) photograph better than flat works (prints, drawings, textiles). Bold colors, unusual forms, large scale, and dramatic subject matter score higher.
+- Automatic penalty: prints, drawings, works on paper, and flat textiles rarely have compelling images. Score these 5 or below unless truly exceptional.
+A 7+ means clear hook AND likely visually striking. 6 or below means generic, academic, or visually dull.
 Return just the number, nothing else."""
 
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=get_model("scorer"),
             max_tokens=10,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -336,25 +361,26 @@ def score_image_quality(obj: MuseumObject) -> float:
         nima_norm = min(100, max(0, (nima - 3.0) * 25))
         topiq_norm = min(100, max(0, (topiq - 3.0) * 25))
         score = nima_norm * 0.5 + topiq_norm * 0.5
-        # Bonus for extra images (multi-image posts perform much better)
+        # Bonus for extra images (multi-image posts get approved more often
+        # and perform better — 2+ images is a strong signal)
         n_additional = len(obj.additional_images)
         if n_additional >= 1:
-            score = min(100, score + 8)
+            score = min(100, score + 12)
         if n_additional >= 2:
-            score = min(100, score + 7)
+            score = min(100, score + 10)
         if n_additional >= 3:
-            score = min(100, score + 5)
+            score = min(100, score + 8)
         return score
 
     # Fallback: simple count-based heuristic (local dev)
     score = 50.0
     n_additional = len(obj.additional_images)
     if n_additional >= 1:
-        score += 15
+        score += 20
     if n_additional >= 2:
         score += 15
     if n_additional >= 3:
-        score += 20
+        score += 15
     return score
 
 
@@ -362,14 +388,17 @@ def score_novelty(obj: MuseumObject, post_history: list[dict]) -> float:
     """0-100 score. Penalize objects similar to recent posts."""
     score = 100.0
 
-    recent = post_history[-30:] if post_history else []
-    if not recent:
+    if not post_history:
         return score
 
-    # Exact object? Disqualify
-    recent_ids = {p.get("object_id") for p in recent}
-    if obj.id in recent_ids:
+    # Exact object anywhere in history? Disqualify completely.
+    # Check ALL posts (not just recent) — never re-draft something we've
+    # already posted, approved, drafted, or rejected.
+    all_ids = {p.get("object_id") for p in post_history}
+    if obj.id in all_ids:
         return 0.0
+
+    recent = post_history[-30:]
 
     # Same artist in last 10? Big penalty
     last_10_artists = [p.get("artist") for p in recent[-10:] if p.get("artist")]
@@ -444,7 +473,25 @@ def filter_and_rank(candidates: list[MuseumObject], post_history: list[dict], mi
         obj._meta_score = meta
         obj._img_score = img
         obj._novelty_score = novelty
-        obj._total_score = meta * 0.5 + img * 0.3 + novelty * 0.2
+        # Category penalty: prints, jewelry, textiles, photography rarely have
+        # compelling images and almost always get rejected by curator
+        cat = (obj.classification or obj.department or "").lower()
+        cat_penalty = 1.0
+        if any(t in cat for t in ("print", "drawing", "graphic", "works on paper")):
+            cat_penalty = 0.3
+        elif any(t in cat for t in ("jewelry", "jewel", "textile", "fabric", "costume", "fashion")):
+            cat_penalty = 0.3
+        elif any(t in cat for t in ("photograph",)):
+            cat_penalty = 0.5
+
+        # Museum preference: Cleveland and Met have much higher approval rates
+        museum_bonus = 0.0
+        if obj.museum == "cleveland":
+            museum_bonus = 5.0
+        elif obj.museum == "met":
+            museum_bonus = 3.0
+
+        obj._total_score = (meta * 0.35 + img * 0.45 + novelty * 0.2 + museum_bonus) * cat_penalty
 
     # Apply diversity boost
     candidates = apply_diversity_boost(candidates, post_history)
@@ -481,15 +528,7 @@ def decide_format(obj: MuseumObject) -> str:
     if image_count >= 2 and has_rich_story:
         return "thread"
 
-    # Also thread if story material is very rich, even with 1 image
-    # (the prompt will still assign different crops/angles if available)
-    very_rich = (
-        (obj.description and len(obj.description) > 500) and
-        (obj.fun_fact or obj.did_you_know or (obj.wall_description and len(obj.wall_description) > 100))
-    )
-    if very_rich:
-        return "thread"
-
+    # Require 2+ images for threads — single-image threads look awkward
     return "single"
 
 
@@ -559,6 +598,7 @@ Do NOT use em-dashes (—). Use periods or commas instead."""
         format_instructions = """Write a THREAD of 2-3 tweets. Premium account, no 280 char limit.
 Keep each tweet under 500 chars for readability. Threads should be punchy.
 CRITICAL: Each tweet MUST use a DIFFERENT image. NEVER repeat the same image URL across tweets.
+Each tweet's text should reference or describe what its attached image shows. The reader sees the image alongside the text, so connect them. Image 1 should typically be the full object. Later images can be details, alternate views, or the reverse side.
 If you only have crops of the same photo, write a single tweet instead.
 If you reference another artwork or comparison, you MUST include it as an image. Don't mention things you can't show.
 The LAST tweet must end with: "Artist, Title, Year. Museum."
@@ -650,7 +690,7 @@ No markdown, no explanation, just the JSON."""
 
     try:
         response = client.messages.create(
-            model="claude-opus-4-6",
+            model=get_model("writer"),
             max_tokens=1500,
             system=system,
             messages=[{"role": "user", "content": prompt}],
@@ -688,12 +728,54 @@ No markdown, no explanation, just the JSON."""
             log.warning(f"Fact-check rejected post for {obj.title}")
             return None
 
-        # Validate: humanizer check (banned words, phrases, AI patterns, em-dashes)
+        # Enrichment: humanizer fixes banned words, phrases, AI patterns, em-dashes
         from tools.humanizer import validate_tweets
         hv = validate_tweets(story["tweets"])
         if not hv.passed:
-            log.warning(f"Humanizer rejected post for {obj.title}: {', '.join(hv.violations[:3])}")
-            return None
+            log.info(f"Humanizer found issues for {obj.title}: {', '.join(hv.violations[:3])}. Rewriting...")
+            violation_list = "\n".join(f"- {v}" for v in hv.violations)
+            try:
+                fix_response = client.messages.create(
+                    model=get_model("writer"),
+                    max_tokens=1500,
+                    system="You fix AI-sounding writing. Return ONLY valid JSON with the same structure.",
+                    messages=[{"role": "user", "content": f"""This draft has AI writing violations. Fix ONLY the flagged issues. Keep everything else identical.
+
+Violations found:
+{violation_list}
+
+Current draft (JSON):
+{json.dumps(story, indent=2)}
+
+Rules:
+- Replace banned words with natural alternatives (e.g. "landscape" -> describe what you see)
+- Replace em-dashes (\u2014) with periods or commas
+- Rewrite sentences that match AI patterns (negative parallelism, significance claims, etc.)
+- Do NOT change facts, dates, names, or the overall story
+- Do NOT add new content or restructure the post
+- Return the same JSON structure with "tweets" array"""}],
+                )
+                fixed_text = fix_response.content[0].text.strip()
+                json_start = fixed_text.find("{")
+                if json_start >= 0:
+                    fixed_story = json.JSONDecoder().raw_decode(fixed_text, json_start)[0]
+                    if "tweets" in fixed_story and fixed_story["tweets"]:
+                        # Verify fix actually resolved violations
+                        hv2 = validate_tweets(fixed_story["tweets"])
+                        if hv2.passed:
+                            story = fixed_story
+                            log.info(f"Humanizer fix succeeded for {obj.title}")
+                        else:
+                            # Partial fix is still better than rejection
+                            remaining = len(hv2.violations)
+                            original = len(hv.violations)
+                            if remaining < original:
+                                story = fixed_story
+                                log.info(f"Humanizer partial fix for {obj.title}: {original} -> {remaining} violations remaining")
+                            else:
+                                log.warning(f"Humanizer fix didn't improve {obj.title}, keeping original")
+            except Exception as e:
+                log.warning(f"Humanizer rewrite failed for {obj.title}: {e}. Keeping original.")
 
         # Validate tweet length. Account is Premium (25k limit) so no hard 280 cap.
         # Thread tweets: keep under 600 for readability (threads should be punchy)
@@ -857,7 +939,7 @@ def main():
             if nima is not None and topiq is not None:
                 obj._nima_score = nima
                 obj._topiq_score = topiq
-                if nima < 4.5 or topiq < 4.8:
+                if nima < 5.0 or topiq < 5.2:
                     log.info(f"  Rejected (aesthetic): {obj.title[:50]} — NIMA={nima:.2f} TOPIQ={topiq:.2f}")
                     continue
                 log.info(f"  Passed (aesthetic): {obj.title[:50]} — NIMA={nima:.2f} TOPIQ={topiq:.2f}")
@@ -933,7 +1015,7 @@ def main():
     batch_size = args.batch_size
     generated = 0
     failures = 0
-    max_failures = 5
+    max_failures = 10
 
     for obj in ranked:
         if generated >= batch_size:

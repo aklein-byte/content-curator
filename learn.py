@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tools.common import load_json, save_json, setup_logging, niche_log_path, get_anthropic
+from tools.common import load_json, save_json, setup_logging, niche_log_path, get_anthropic, get_model
 from config.niches import get_niche
 
 log = setup_logging("learn")
@@ -208,7 +208,7 @@ Return ONLY a JSON array of query strings, nothing else. Example:
     try:
         client = get_anthropic()
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=get_model("scorer"),
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         )

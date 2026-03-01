@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_mentions, reply_to_post, _get_user_id, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide
+from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide, get_model
 from config.niches import get_niche
 
 log = setup_logging("respond")
@@ -129,7 +129,7 @@ Should we respond?"""
 
     try:
         response = anthropic.messages.create(
-            model=_models.get("evaluator", "claude-opus-4-6"),
+            model=get_model("evaluator"),
             max_tokens=200,
             system=_build_eval_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],
@@ -160,7 +160,7 @@ Write your response:"""
 
     try:
         response = anthropic.messages.create(
-            model=_models.get("reply_drafter", "claude-opus-4-6"),
+            model=get_model("reply_drafter"),
             max_tokens=280,
             system=_build_response_prompt(niche_id),
             messages=[{"role": "user", "content": prompt}],

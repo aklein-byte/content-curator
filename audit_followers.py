@@ -24,7 +24,7 @@ load_dotenv()
 
 from anthropic import Anthropic
 from tools.xapi import get_following, unfollow_user, get_user_recent_tweets
-from tools.common import setup_logging, load_json, save_json, notify
+from tools.common import setup_logging, load_json, save_json, notify, get_model
 
 log = setup_logging("audit")
 
@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).parent
 AUDIT_FILE = BASE_DIR / "data" / "follower-audit.json"
 
 anthropic = Anthropic()
-EVAL_MODEL = "claude-opus-4-6"
+EVAL_MODEL = get_model("evaluator")
 
 
 def evaluate_account(username: str, description: str, recent_tweets: list[dict]) -> dict:

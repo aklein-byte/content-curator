@@ -484,6 +484,128 @@ def harvard_search(query: str, limit: int = 10) -> list[MuseumObject]:
     return objects
 
 
+
+
+# --- Random browsing (department/page-based discovery) ---
+
+_MET_DEPT_IDS_CACHE: dict[int, list[int]] = {}
+
+
+def met_random_browse(limit: int = 5) -> list[MuseumObject]:
+    """Pick a random Met department, get public-domain object IDs, sample randomly."""
+    departments = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 21]
+    dept_names = {
+        1: "American Decorative Arts", 3: "Ancient West Asian Art", 4: "Arms and Armor",
+        5: "Arts of Africa, Oceania, Americas", 6: "Asian Art", 7: "The Cloisters",
+        8: "Costume Institute", 9: "Drawings and Prints", 10: "Egyptian Art",
+        11: "European Paintings", 12: "European Sculpture & Decorative Arts",
+        13: "Greek and Roman Art", 14: "Islamic Art", 15: "Robert Lehman Collection",
+        17: "Medieval Art", 18: "Musical Instruments", 19: "Photographs", 21: "Modern Art",
+    }
+    dept_id = random.choice(departments)
+    dept_name = dept_names.get(dept_id, f"Dept {dept_id}")
+    log.info(f"  Met random browse: {dept_name}")
+
+    # Cache department object IDs (they don't change often)
+    if dept_id not in _MET_DEPT_IDS_CACHE:
+        try:
+            r = requests.get(
+                f"{MET_BASE}/objects",
+                params={"departmentIds": dept_id, "isPublicDomain": True},
+                timeout=30,
+            )
+            r.raise_for_status()
+            ids = r.json().get("objectIDs") or []
+            _MET_DEPT_IDS_CACHE[dept_id] = ids
+            log.info(f"  Cached {len(ids)} IDs for {dept_name}")
+        except Exception as e:
+            log.warning(f"Met department browse failed: {e}")
+            return []
+
+    all_ids = _MET_DEPT_IDS_CACHE[dept_id]
+    if not all_ids:
+        return []
+
+    # Sample random IDs and fetch
+    sample_ids = random.sample(all_ids, min(limit * 3, len(all_ids)))
+    objects = []
+    for oid in sample_ids:
+        obj = met_get_object(oid)
+        if obj and obj.primary_image_url:
+            objects.append(obj)
+            if len(objects) >= limit:
+                break
+
+    log.info(f"  Met browse: {len(objects)} objects from {dept_name}")
+    return objects
+
+
+def aic_random_browse(limit: int = 5) -> list[MuseumObject]:
+    """Pick a random page from AIC collection, return objects with images."""
+    # AIC has ~131k objects across ~43k pages (3 per page)
+    # Pick a random page in the first 5000 pages (most have images)
+    page = random.randint(1, 5000)
+    try:
+        r = requests.get(
+            f"{AIC_BASE}/artworks",
+            params={
+                "page": page,
+                "limit": limit * 2,
+                "fields": ",".join(AIC_FIELDS),
+            },
+            headers=AIC_HEADERS,
+            timeout=REQUEST_TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        log.warning(f"AIC random browse failed (page {page}): {e}")
+        return []
+
+    objects = []
+    for d in data.get("data", []):
+        image_id = d.get("image_id")
+        if not image_id:
+            continue
+
+        image_url = f"{AIC_IIIF}/{image_id}/full/1686,/0/default.jpg"
+        subjects = d.get("subject_titles") or []
+        alt_ids = d.get("alt_image_ids") or []
+        additional = [f"{AIC_IIIF}/{aid}/full/1686,/0/default.jpg" for aid in alt_ids]
+
+        objects.append(MuseumObject(
+            id=f"aic_{d['id']}",
+            museum="aic",
+            title=d.get("title", "Untitled"),
+            artist=d.get("artist_display") or None,
+            date=d.get("date_display") or None,
+            medium=d.get("medium_display") or None,
+            dimensions=d.get("dimensions") or None,
+            description=_strip_html(d["description"]) if d.get("description") else None,
+            culture=d.get("place_of_origin") or None,
+            period=d.get("style_title") or None,
+            department=d.get("department_title") or None,
+            classification=d.get("classification_title") or None,
+            primary_image_url=image_url,
+            additional_images=additional,
+            object_url=f"https://www.artic.edu/artworks/{d['id']}",
+            is_public_domain=d.get("is_public_domain", False),
+            tags=subjects[:10],
+        ))
+        if len(objects) >= limit:
+            break
+
+    log.info(f"  AIC browse page {page}: {len(objects)} objects")
+    return objects
+
+
+def cleveland_random_browse(limit: int = 5) -> list[MuseumObject]:
+    """Pick a random offset in Cleveland collection, return objects with images."""
+    # Cleveland has ~41k objects with images
+    skip = random.randint(0, 40000)
+    return cleveland_search("", limit=limit)  # API returns random-ish results without query
+
+
 # --- Unified search ---
 
 SEARCH_FUNCTIONS = {

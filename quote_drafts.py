@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import search_posts, _get_user_id
-from tools.common import load_json, save_json, setup_logging, load_config
+from tools.common import get_model, load_json, save_json, setup_logging, load_config
 from config.niches import get_niche
 
 log = setup_logging("quote_drafts")
@@ -135,7 +135,7 @@ def _evaluate_and_draft(tweet, niche_id: str, posts_data: dict = None) -> dict |
 
     niche = get_niche(niche_id)
     _cfg = load_config().get("models", {})
-    model = _cfg.get("writer", "claude-sonnet-4-20250514")
+    model = get_model("quote_writer")
 
     client = Anthropic()
 

@@ -11,13 +11,12 @@ from pathlib import Path
 from typing import Optional
 
 from config.niches import get_niche
-from tools.common import load_config, get_anthropic, load_voice_guide
+from tools.common import load_config, get_anthropic, load_voice_guide, get_model
 
 logger = logging.getLogger(__name__)
 
-_cfg = load_config().get("models", {})
-EVALUATOR_MODEL = _cfg.get("evaluator", "claude-opus-4-6")
-REPLY_MODEL = _cfg.get("reply_drafter", "claude-opus-4-6")
+EVALUATOR_MODEL = get_model("evaluator")
+REPLY_MODEL = get_model("reply_drafter")
 
 client = get_anthropic()
 
