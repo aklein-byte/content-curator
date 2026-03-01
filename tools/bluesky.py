@@ -241,11 +241,15 @@ def create_post(text: str, image_paths: list[str] | None = None,
     # Handle text splitting
     chunks = _split_text(text)
     if len(chunks) > 1:
-        # Build thread posts
+        # Build thread posts — images only on first post
         thread_posts = [{"text": chunks[0], "image_paths": image_paths or [], "alt_texts": alt_texts or []}]
         for chunk in chunks[1:]:
             thread_posts.append({"text": chunk, "image_paths": [], "alt_texts": []})
-        return post_thread(thread_posts)
+        uris = post_thread(thread_posts)
+        if uris:
+            log.info(f"Auto-split into {len(uris)}-post thread")
+            return uris[0]  # Return first URI as string for consistency
+        return None
 
     # Single post
     embed = None

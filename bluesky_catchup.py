@@ -80,7 +80,7 @@ def _download_flat_images(post: dict) -> list[str]:
             return [str(img_path)]
 
     image_urls = post.get("image_urls", [])
-    handle = post.get("source_handle", "unknown").lstrip("@")
+    handle = (post.get("source_handle") or "unknown").lstrip("@")
     save_dir = str(BASE_DIR / "images" / handle)
 
     for url in image_urls:
@@ -169,13 +169,26 @@ def catchup_niche(niche_id: str, limit: int, dry_run: bool):
                     image_paths=local_paths,
                 )
                 if uri:
-                    post["bluesky_post_uri"] = uri
-                    log.info(f"  #{post_id}: single museum post")
+                    if isinstance(uri, list):
+                        post["bluesky_post_uri"] = uri[0]
+                        post["bluesky_thread_uris"] = uri
+                        log.info(f"  #{post_id}: museum auto-threaded ({len(uri)} posts)")
+                    else:
+                        post["bluesky_post_uri"] = uri
+                        log.info(f"  #{post_id}: single museum post")
                     posted += 1
 
             else:
                 # Flat post (tatami/cosmic)
                 image_paths = _download_flat_images(post)
+
+                # Skip repost-with-credit posts that have no images
+                # (they're image-centric, posting text-only is wrong)
+                # Allow originals/other types through as text-only
+                if not image_paths and post.get("type") == "repost-with-credit":
+                    log.warning(f"  #{post_id}: repost has no images, skipping")
+                    continue
+
                 has_thread_captions = post.get("thread_captions") and len(post.get("thread_captions", [])) > 1
 
                 if has_thread_captions:
@@ -199,8 +212,14 @@ def catchup_niche(niche_id: str, limit: int, dry_run: bool):
                         image_paths=image_paths,
                     )
                     if uri:
-                        post["bluesky_post_uri"] = uri
-                        log.info(f"  #{post_id}: single post")
+                        # Handle both str and list returns (defensive)
+                        if isinstance(uri, list):
+                            post["bluesky_post_uri"] = uri[0]
+                            post["bluesky_thread_uris"] = uri
+                            log.info(f"  #{post_id}: auto-threaded ({len(uri)} posts)")
+                        else:
+                            post["bluesky_post_uri"] = uri
+                            log.info(f"  #{post_id}: single post")
                         posted += 1
 
         except Exception as e:
