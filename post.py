@@ -692,13 +692,14 @@ def cross_post_to_bluesky(post: dict, image_paths: list[str], niche: dict):
 
         if is_museum and len(post.get("tweets", [])) > 1:
             # Museum thread — map tweets array to Bluesky thread
+            all_images = post.get("allImages") or post.get("image_urls") or []
             thread_posts = []
             for i, tw in enumerate(post["tweets"]):
                 tw_images = []
                 if tw.get("image_url"):
                     tw_images = [tw["image_url"]]
-                elif tw.get("images") and post.get("allImages"):
-                    tw_images = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
+                elif tw.get("images") and all_images:
+                    tw_images = [all_images[idx] for idx in tw["images"] if idx < len(all_images)]
 
                 # Resolve to local paths
                 local_paths = []
@@ -752,7 +753,7 @@ def cross_post_to_bluesky(post: dict, image_paths: list[str], niche: dict):
         log.warning(f"  Bluesky cross-post failed (non-fatal): {e}")
 
 
-def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, community_images):
+def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, community_images, bluesky_images=None):
     """Mark a post as posted, notify, and cross-post to communities."""
     post["status"] = "posted"
     post["posted_at"] = datetime.now(timezone.utc).isoformat()
@@ -767,7 +768,7 @@ def _mark_posted(post, posts_data, handle, tweet_ids, fmt_label, niche, communit
     notify(f"{handle} posted", f"Post #{post['id']} — {fmt_label}\n{queue_info}", priority="high" if queue_low else "default")
 
     cross_post_to_community(post, community_images, niche)
-    cross_post_to_bluesky(post, community_images, niche)
+    cross_post_to_bluesky(post, bluesky_images if bluesky_images is not None else community_images, niche)
     save_posts(posts_data)
 
 
@@ -777,13 +778,14 @@ async def _publish_museum(post: dict, posts_data: dict, niche: dict, handle: str
     log.info(f"Posting museum {'thread' if n_tweets > 1 else 'single'} ({n_tweets} tweet{'s' if n_tweets > 1 else ''}) via X API v2...")
 
     # Download per-tweet images
+    all_images = post.get("allImages") or post.get("image_urls") or []
     thread_data = []
     for i, tw in enumerate(post["tweets"]):
         image_urls = []
         if tw.get("image_url"):
             image_urls = [tw["image_url"]]
-        elif tw.get("images") and post.get("allImages"):
-            image_urls = [post["allImages"][idx] for idx in tw["images"] if idx < len(post["allImages"])]
+        elif tw.get("images") and all_images:
+            image_urls = [all_images[idx] for idx in tw["images"] if idx < len(all_images)]
 
         local_paths = []
         for img_url in image_urls:
@@ -846,7 +848,7 @@ async def _publish_tatami_thread(post: dict, posts_data: dict, niche: dict, hand
 
     post["thread_captions"] = captions
     first_image = [image_paths[0]] if image_paths else []
-    _mark_posted(post, posts_data, handle, tweet_ids, f"{len(tweet_ids)}-tweet thread", niche, first_image)
+    _mark_posted(post, posts_data, handle, tweet_ids, f"{len(tweet_ids)}-tweet thread", niche, first_image, bluesky_images=image_paths)
 
 
 async def _publish_single(post: dict, posts_data: dict, niche: dict, handle: str, image_paths: list):
