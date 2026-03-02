@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS posts (
     format          TEXT,                       -- older posts: "thread" or "single"
     dimensions      TEXT,
     allImages       TEXT,                       -- JSON array of all image URLs
+    extra           TEXT,                       -- JSON blob for unknown/niche-specific fields
     PRIMARY KEY (niche_id, id)
 );
 
@@ -458,23 +459,53 @@ def _post_row_to_dict(row: sqlite3.Row) -> dict:
         if col in d and d[col] is not None:
             d[col] = bool(d[col])
 
+    # Merge extra JSON blob back into the dict
+    if d.get("extra"):
+        extra = json_loads(d.pop("extra"), default={})
+        d.update(extra)
+    else:
+        d.pop("extra", None)
+
     # Remove None values to match original JSON behavior (keys absent = not set)
     return {k: v for k, v in d.items() if v is not None}
 
 
+_POSTS_COLUMNS: set | None = None
+
+def _get_posts_columns() -> set:
+    """Return the set of column names in the posts table (cached)."""
+    global _POSTS_COLUMNS
+    if _POSTS_COLUMNS is None:
+        db = get_db()
+        rows = db.execute("PRAGMA table_info(posts)").fetchall()
+        _POSTS_COLUMNS = {r["name"] for r in rows}
+    return _POSTS_COLUMNS
+
+
 def _post_dict_to_params(post: dict, niche_id: str) -> dict:
-    """Convert a post dict to DB column params for INSERT/UPDATE."""
+    """Convert a post dict to DB column params for INSERT/UPDATE.
+
+    Unknown keys (not in the posts table) are stored in an 'extra' JSON blob.
+    """
     params = {"niche_id": niche_id}
+    known_cols = _get_posts_columns()
+    extra = {}
 
     for key, val in post.items():
         if key == "tweets":
             continue  # handled separately in museum_tweets table
+        if key not in known_cols:
+            extra[key] = val
+            continue
         if key in _JSON_COLUMNS:
             params[key] = json_dumps(val)
         elif key in _BOOL_COLUMNS:
             params[key] = int(val) if val is not None else None
         else:
             params[key] = val
+
+    if extra:
+        params["extra"] = json_dumps(extra)
 
     return params
 
@@ -618,6 +649,9 @@ def update_post(niche_id: str, post_id: int, _commit: bool = True, **fields):
     sets = []
     values = []
 
+    known_cols = _get_posts_columns()
+    extra_updates = {}
+
     for key, val in fields.items():
         if key == "tweets":
             # Update museum tweets separately
@@ -636,6 +670,10 @@ def update_post(niche_id: str, post_id: int, _commit: bool = True, **fields):
                 )
             continue
 
+        if key not in known_cols:
+            extra_updates[key] = val
+            continue
+
         if key in _JSON_COLUMNS:
             val = json_dumps(val)
         elif key in _BOOL_COLUMNS:
@@ -643,6 +681,17 @@ def update_post(niche_id: str, post_id: int, _commit: bool = True, **fields):
 
         sets.append(f"{key} = ?")
         values.append(val)
+
+    # Merge unknown fields into extra JSON blob
+    if extra_updates:
+        row = db.execute(
+            "SELECT extra FROM posts WHERE id = ? AND niche_id = ?",
+            (post_id, niche_id),
+        ).fetchone()
+        existing_extra = json_loads(row["extra"], default={}) if row and row["extra"] else {}
+        existing_extra.update(extra_updates)
+        sets.append("extra = ?")
+        values.append(json_dumps(existing_extra))
 
     if sets:
         values.extend([post_id, niche_id])
