@@ -34,7 +34,8 @@ from tools.museum_apis import (
     MuseumObject, met_search, aic_search, cleveland_search, smk_search, search_all,
     met_random_browse, aic_random_browse, cleveland_random_browse,
 )
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, get_anthropic, load_voice_guide, get_model
+from tools.common import load_json, save_json, notify, setup_logging, get_anthropic, load_voice_guide, get_model
+from tools.db import acquire_process_lock, release_process_lock
 from tools.post_queue import (
     resolve_posts_file as pq_resolve_posts_file,
     load_posts as pq_load_posts, save_posts as pq_save_posts,
@@ -1053,11 +1054,10 @@ def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".museum_fetch.lock")
-    if not lock_fd:
+    if not acquire_process_lock("museum_fetch"):
         log.info("Another museum_fetch is already running, exiting")
         sys.exit(0)
     try:
         main()
     finally:
-        release_lock(lock_fd)
+        release_process_lock("museum_fetch")

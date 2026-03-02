@@ -20,7 +20,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_bookmarks, get_tweet_by_id, XPost, set_niche as set_xapi_niche, check_image_urls_quality
-from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, get_model
+from tools.common import notify, setup_logging, load_config, get_anthropic, get_model
+from tools.db import acquire_process_lock, release_process_lock
 from tools.post_queue import (
     load_posts as pq_load_posts, save_posts as pq_save_posts,
     next_post_id, already_in_queue, next_schedule_slot,
@@ -328,8 +329,7 @@ async def main():
                 print(f"  #{p['id']} — {p['text'][:70]}...")
                 print(f"          from {p.get('source_handle', '?')}")
         print()
-        from tools.post_queue import resolve_posts_file
-        print(f"Review in {resolve_posts_file(niche_id)}")
+        print(f"Review in the dashboard.")
         print("Change status to 'approved' and add 'scheduled_for' to publish.")
 
     if drafts_created > 0:
@@ -337,11 +337,16 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".bookmarks.lock")
-    if not lock_fd:
+    # Parse niche early for niche-specific lock
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"bookmarks_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
         log.info("Another bookmarks.py is already running, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)

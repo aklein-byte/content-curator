@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import post_thread, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
+from tools.common import notify, setup_logging
+from tools.db import acquire_process_lock, release_process_lock
 from agents.engager import generate_thread
 from config.niches import get_niche
 
@@ -137,11 +138,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".thread.lock")
-    if not lock_fd:
+    if not acquire_process_lock("thread"):
         log.info("Another thread.py is already running, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock("thread")

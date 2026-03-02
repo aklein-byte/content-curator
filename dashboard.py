@@ -12,7 +12,6 @@ import json
 import os
 import sys
 import asyncio
-import fcntl
 import argparse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
@@ -20,7 +19,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 BASE_DIR = Path(__file__).parent
-POSTS_LOCK = BASE_DIR / ".posts.json.lock"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 # Load .env so writer agent can find ANTHROPIC_API_KEY
@@ -29,33 +27,15 @@ load_dotenv(BASE_DIR / ".env")
 
 sys.path.insert(0, str(BASE_DIR))
 from config.niches import get_niche, list_niches
-from tools.post_queue import resolve_posts_file, load_posts, save_posts as pq_save_posts
+from tools.post_queue import (
+    load_posts, update_post, get_post,
+)
+from tools.db import get_db, json_dumps
 
 # URL path -> niche_id shortcut routes (e.g., /museum -> museumstories)
 _NICHE_ROUTES = {n: n for n in list_niches()}
 _NICHE_ROUTES["museum"] = "museumstories"
 _NICHE_ROUTES["tatami"] = "tatamispaces"
-
-
-def _lock_posts(niche_id: str):
-    """Acquire exclusive lock for a niche's posts file."""
-    posts_file = resolve_posts_file(niche_id)
-    lock_path = posts_file.parent / f".{posts_file.name}.lock"
-    lock_path.touch(exist_ok=True)
-    fd = open(lock_path, "r")
-    fcntl.flock(fd, fcntl.LOCK_EX)
-    return fd
-
-
-def _unlock_posts(fd):
-    """Release posts file lock."""
-    fcntl.flock(fd, fcntl.LOCK_UN)
-    fd.close()
-
-
-def save_posts(data: dict, niche_id: str):
-    """Save posts — caller must hold _lock_posts() already."""
-    pq_save_posts(data, niche_id, lock=False)
 
 
 def render_post_html(post, index):
@@ -198,6 +178,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Serve niche view directly (avoids redirect issues behind nginx proxy)
             self.path = f"/?niche={_NICHE_ROUTES[parsed.path.strip('/')]}"
             self.serve_dashboard()
+        elif parsed.path == "/api/export":
+            self.handle_export()
         else:
             self.send_error(404)
 
@@ -214,26 +196,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id or status"})
                 return
 
-            lock = _lock_posts(niche_id)
-            try:
-                data = load_posts(niche_id)
-                found = False
-                for p in data.get("posts", []):
-                    if p.get("id") == post_id:
-                        p["status"] = new_status
-                        if new_status == "approved":
-                            p.pop("ig_skip_reason", None)
-                            p.pop("skip_reason", None)
-                        found = True
-                        break
+            post = get_post(niche_id, post_id)
+            if not post:
+                self.send_json({"ok": False, "error": "post not found"})
+                return
 
-                if found:
-                    save_posts(data, niche_id)
-                    self.send_json({"ok": True})
-                else:
-                    self.send_json({"ok": False, "error": "post not found"})
-            finally:
-                _unlock_posts(lock)
+            fields = {"status": new_status}
+            if new_status == "approved":
+                fields["ig_skip_reason"] = None
+                fields["skip_reason"] = None
+            update_post(niche_id, post_id, **fields)
+            self.send_json({"ok": True})
 
         elif self.path == "/api/image-select":
             post_id = body.get("id")
@@ -242,33 +215,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": "missing id"})
                 return
 
-            lock = _lock_posts(niche_id)
-            try:
-                data = load_posts(niche_id)
-                found = False
-                for p in data.get("posts", []):
-                    if p.get("id") == post_id:
-                        if body.get("image_index") is not None:
-                            p["image_index"] = body["image_index"]
-                            p.pop("image_count", None)
-                        else:
-                            p.pop("image_index", None)
+            post = get_post(niche_id, post_id)
+            if not post:
+                self.send_json({"ok": False, "error": "post not found"})
+                return
 
-                        if body.get("image_count") is not None:
-                            p["image_count"] = body["image_count"]
-                        elif "image_index" not in body:
-                            p.pop("image_count", None)
+            fields = {}
+            if body.get("image_index") is not None:
+                fields["image_index"] = body["image_index"]
+                fields["image_count"] = None
+            else:
+                fields["image_index"] = None
 
-                        found = True
-                        break
+            if body.get("image_count") is not None:
+                fields["image_count"] = body["image_count"]
+            elif "image_index" not in body:
+                fields["image_count"] = None
 
-                if found:
-                    save_posts(data, niche_id)
-                    self.send_json({"ok": True})
-                else:
-                    self.send_json({"ok": False, "error": "post not found"})
-            finally:
-                _unlock_posts(lock)
+            update_post(niche_id, post_id, **fields)
+            self.send_json({"ok": True})
 
         elif self.path == "/api/museum/status":
             self.handle_museum_status(body)
@@ -291,26 +256,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    # === Shared post-modification helper ===
-
-    def _modify_post(self, niche_id: str, post_id, modifier):
-        """Lock, find post by ID, call modifier(post) -> error_str or None, save, unlock."""
-        lock = _lock_posts(niche_id)
-        try:
-            data = load_posts(niche_id)
-            for p in data["posts"]:
-                if p["id"] == post_id:
-                    err = modifier(p)
-                    if err:
-                        self.send_json({"ok": False, "error": err})
-                    else:
-                        save_posts(data, niche_id)
-                        self.send_json({"ok": True})
-                    return
-            self.send_json({"ok": False, "error": "post not found"})
-        finally:
-            _unlock_posts(lock)
-
     # === Museum API handlers ===
 
     def handle_museum_status(self, body):
@@ -320,11 +265,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not post_id or not new_status:
             self.send_json({"ok": False, "error": "missing id or status"})
             return
-        def _apply(p):
-            p["status"] = new_status
-            if new_status == "approved" and not p.get("scheduled_for"):
-                p["scheduled_for"] = datetime.now(timezone.utc).isoformat()
-        self._modify_post(niche_id, post_id, _apply)
+
+        post = get_post(niche_id, post_id)
+        if not post:
+            self.send_json({"ok": False, "error": "post not found"})
+            return
+
+        fields = {"status": new_status}
+        if new_status == "approved" and not post.get("scheduled_for"):
+            fields["scheduled_for"] = datetime.now(timezone.utc).isoformat()
+        update_post(niche_id, post_id, **fields)
+        self.send_json({"ok": True})
 
     def handle_museum_tweet_edit(self, body):
         post_id = body.get("id")
@@ -334,11 +285,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or text is None:
             self.send_json({"ok": False, "error": "missing id, tweet_index, or text"})
             return
-        def _apply(p):
-            if not (0 <= tweet_index < len(p.get("tweets", []))):
-                return "invalid tweet_index"
-            p["tweets"][tweet_index]["text"] = text
-        self._modify_post(niche_id, post_id, _apply)
+
+        db = get_db()
+        result = db.execute(
+            "UPDATE museum_tweets SET text = ? WHERE niche_id = ? AND post_id = ? AND tweet_index = ?",
+            (text, niche_id, post_id, tweet_index),
+        )
+        db.commit()
+        if result.rowcount > 0:
+            self.send_json({"ok": True})
+        else:
+            self.send_json({"ok": False, "error": "tweet not found"})
 
     def handle_museum_image_assign(self, body):
         post_id = body.get("post_id")
@@ -349,18 +306,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None or image_index is None or action not in ("add", "remove"):
             self.send_json({"ok": False, "error": "missing post_id, tweet_index, image_index, or action"})
             return
-        def _apply(p):
-            if not (0 <= tweet_index < len(p.get("tweets", []))):
-                return "invalid tweet_index"
-            tweet = p["tweets"][tweet_index]
-            if "images" not in tweet:
-                tweet["images"] = []
-            if action == "add":
-                if image_index not in tweet["images"]:
-                    tweet["images"].append(image_index)
-            elif action == "remove":
-                tweet["images"] = [i for i in tweet["images"] if i != image_index]
-        self._modify_post(niche_id, post_id, _apply)
+
+        db = get_db()
+        row = db.execute(
+            "SELECT images FROM museum_tweets WHERE niche_id = ? AND post_id = ? AND tweet_index = ?",
+            (niche_id, post_id, tweet_index),
+        ).fetchone()
+
+        if not row:
+            self.send_json({"ok": False, "error": "tweet not found"})
+            return
+
+        from tools.db import json_loads
+        images = json_loads(row["images"], default=[])
+
+        if action == "add":
+            if image_index not in images:
+                images.append(image_index)
+        elif action == "remove":
+            images = [i for i in images if i != image_index]
+
+        db.execute(
+            "UPDATE museum_tweets SET images = ? WHERE niche_id = ? AND post_id = ? AND tweet_index = ?",
+            (json_dumps(images), niche_id, post_id, tweet_index),
+        )
+        db.commit()
+        self.send_json({"ok": True})
 
     def handle_museum_notes(self, body):
         post_id = body.get("id")
@@ -368,12 +339,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        def _apply(p):
-            if "vote" in body:
-                p["vote"] = body["vote"]
-            if "notes" in body:
-                p["notes"] = body["notes"]
-        self._modify_post(niche_id, post_id, _apply)
+
+        fields = {}
+        if "vote" in body:
+            fields["vote"] = body["vote"]
+        if "notes" in body:
+            fields["notes"] = body["notes"]
+
+        if fields:
+            update_post(niche_id, post_id, **fields)
+        self.send_json({"ok": True})
 
     # === Regenerate handlers ===
 
@@ -385,24 +360,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not post_id:
             self.send_json({"ok": False, "error": "missing id"})
             return
-        data = load_posts(niche_id)
-        for p in data.get("posts", []):
-            if p.get("id") == post_id:
-                original = p.get("text", "")
-                if not original:
-                    self.send_json({"ok": False, "error": "post has no text"})
-                    return
-                try:
-                    from agents.writer import rewrite_caption
-                    result = asyncio.run(rewrite_caption(niche_id, original, feedback))
-                    p["text"] = result["caption"]
-                    p["_previous_text"] = original
-                    save_posts(data, niche_id)
-                    self.send_json({"ok": True, "caption": result["caption"]})
-                except Exception as e:
-                    self.send_json({"ok": False, "error": str(e)})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+
+        post = get_post(niche_id, post_id)
+        if not post:
+            self.send_json({"ok": False, "error": "post not found"})
+            return
+
+        original = post.get("text", "")
+        if not original:
+            self.send_json({"ok": False, "error": "post has no text"})
+            return
+
+        try:
+            from agents.writer import rewrite_caption
+            result = asyncio.run(rewrite_caption(niche_id, original, feedback))
+            update_post(niche_id, post_id, text=result["caption"], _previous_text=original)
+            self.send_json({"ok": True, "caption": result["caption"]})
+        except Exception as e:
+            self.send_json({"ok": False, "error": str(e)})
 
     def handle_museum_regenerate(self, body):
         """Regenerate a tweet caption via writer agent."""
@@ -413,24 +388,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if post_id is None or tweet_index is None:
             self.send_json({"ok": False, "error": "missing id or tweet_index"})
             return
+
+        post = get_post(niche_id, post_id)
+        if not post:
+            self.send_json({"ok": False, "error": "post not found"})
+            return
+
+        tweets = post.get("tweets", [])
+        if not (0 <= tweet_index < len(tweets)):
+            self.send_json({"ok": False, "error": "invalid tweet_index"})
+            return
+
+        original = tweets[tweet_index]["text"]
+        try:
+            from agents.writer import rewrite_caption
+            result = asyncio.run(rewrite_caption(niche_id, original, feedback))
+
+            db = get_db()
+            db.execute(
+                "UPDATE museum_tweets SET text = ?, _previous_text = ? WHERE niche_id = ? AND post_id = ? AND tweet_index = ?",
+                (result["caption"], original, niche_id, post_id, tweet_index),
+            )
+            db.commit()
+            self.send_json({"ok": True, "caption": result["caption"]})
+        except Exception as e:
+            self.send_json({"ok": False, "error": str(e)})
+
+    # === Export endpoint ===
+
+    def handle_export(self):
+        """Export posts as JSON for debugging/backup."""
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        niche_id = qs.get("niche", ["tatamispaces"])[0]
+
         data = load_posts(niche_id)
-        for p in data["posts"]:
-            if p["id"] == post_id:
-                if 0 <= tweet_index < len(p.get("tweets", [])):
-                    original = p["tweets"][tweet_index]["text"]
-                    try:
-                        from agents.writer import rewrite_caption
-                        result = asyncio.run(rewrite_caption(niche_id, original, feedback))
-                        p["tweets"][tweet_index]["text"] = result["caption"]
-                        p["tweets"][tweet_index]["_previous_text"] = original
-                        save_posts(data, niche_id)
-                        self.send_json({"ok": True, "caption": result["caption"]})
-                    except Exception as e:
-                        self.send_json({"ok": False, "error": str(e)})
-                    return
-                self.send_json({"ok": False, "error": "invalid tweet_index"})
-                return
-        self.send_json({"ok": False, "error": "post not found"})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Disposition", f'attachment; filename="posts-{niche_id}.json"')
+        self.end_headers()
+        self.wfile.write(json.dumps(data, indent=2, ensure_ascii=False, default=str).encode())
 
     # === Dashboard serve ===
 
@@ -474,7 +471,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             # Other niches: client-rendered from JSON
             niche_data = load_posts(niche)
-            posts_json = json.dumps(niche_data.get("posts", []), ensure_ascii=False)
+            posts_json = json.dumps(niche_data.get("posts", []), ensure_ascii=False, default=str)
 
             html = html.replace("__POSTS_DATA__", posts_json)
             html = html.replace("POSTS_HTML", "")

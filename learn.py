@@ -18,7 +18,8 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from tools.common import load_json, save_json, setup_logging, niche_log_path, get_anthropic, get_model
+from tools.common import setup_logging, get_anthropic, get_model
+from tools.db import get_db, get_engagement_log, json_dumps, json_loads
 from config.niches import get_niche
 
 log = setup_logging("learn")
@@ -50,9 +51,7 @@ def _analyze_query_performance(niche_id: str) -> dict:
             "entries_with_query": int,
         }
     """
-    eng_log = load_json(niche_log_path("engagement-log.json", niche_id))
-    if not isinstance(eng_log, list):
-        eng_log = []
+    eng_log = get_engagement_log(niche_id, "x")
 
     # Group by query
     by_query: dict[str, list] = defaultdict(list)
@@ -152,9 +151,7 @@ def _suggest_new_queries(niche_id: str, query_performance: dict) -> list[str]:
     bottom_3 = queries_with_data[-3:] if len(queries_with_data) > 5 else []
 
     # Also pull recent engagement log to find common authors/topics
-    eng_log = load_json(niche_log_path("engagement-log.json", niche_id))
-    if not isinstance(eng_log, list):
-        eng_log = []
+    eng_log = get_engagement_log(niche_id, "x")
 
     # Authors we successfully engaged with (got likes/replies back)
     successful_authors = set()
@@ -261,11 +258,12 @@ def main():
         for s in suggestions:
             log.info(f"    + {s}")
 
-    # Save to insights file
-    insights_path = BASE_DIR / "data" / f"insights-{niche_id}.json"
-    existing = load_json(insights_path, default={})
-    if not isinstance(existing, dict):
-        existing = {}
+    # Save to insights table in DB
+    db = get_db()
+    existing_row = db.execute(
+        "SELECT data FROM insights WHERE niche_id = ?", (niche_id,)
+    ).fetchone()
+    existing = json_loads(existing_row["data"], default={}) if existing_row else {}
 
     existing["query_performance"] = results["query_performance"]
     existing["recommended_min_likes"] = results["recommended_min_likes"]
@@ -273,8 +271,13 @@ def main():
     if suggestions:
         existing["proposed_queries"] = suggestions
 
-    save_json(insights_path, existing)
-    log.info(f"\n  Insights saved to {insights_path}")
+    now = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        "INSERT OR REPLACE INTO insights (niche_id, data, updated_at) VALUES (?, ?, ?)",
+        (niche_id, json_dumps(existing), now),
+    )
+    db.commit()
+    log.info(f"\n  Insights saved to DB")
 
 
 if __name__ == "__main__":

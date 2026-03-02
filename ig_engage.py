@@ -24,12 +24,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config.niches import get_niche
-from tools.common import load_json, save_json, notify, random_delay, acquire_lock, release_lock, setup_logging, load_config, niche_log_path, get_anthropic, get_model, parse_json_response
+from tools.common import notify, random_delay, setup_logging, load_config, get_anthropic, get_model, parse_json_response
+from tools.db import log_engagement, already_engaged as db_already_engaged, acquire_process_lock, release_process_lock, get_engaged_authors
 
 log = setup_logging("ig_engage")
 
 BASE_DIR = Path(__file__).parent
-IG_ENGAGEMENT_LOG: Path = None  # resolved in main() from niche config
+_niche_id: str = "tatamispaces"  # resolved in main()
 
 _cfg = load_config()
 
@@ -78,19 +79,8 @@ class IGPost:
     url: str
 
 
-def load_log() -> list:
-    return load_json(IG_ENGAGEMENT_LOG, default=[])
-
-
-def save_log(data: list):
-    save_json(IG_ENGAGEMENT_LOG, data)
-
-
-def already_engaged(log_entries: list, shortcode: str, action: str) -> bool:
-    return any(
-        e.get("shortcode") == shortcode and e.get("action") == action
-        for e in log_entries
-    )
+def already_engaged_ig(shortcode: str, action: str) -> bool:
+    return db_already_engaged(_niche_id, "ig", action, shortcode)
 
 
 async def evaluate_ig_post(post: IGPost, niche_id: str) -> dict:
@@ -179,11 +169,8 @@ async def main():
     dry_run = args.dry_run
     niche = get_niche(niche_id)
 
-    # Resolve niche-aware engagement log
-    global IG_ENGAGEMENT_LOG
-    IG_ENGAGEMENT_LOG = Path(os.environ.get(
-        "IG_ENGAGEMENT_LOG", str(niche_log_path("ig-engagement-log.json", niche_id))
-    ))
+    global _niche_id
+    _niche_id = niche_id
 
     log.info(f"IG engagement for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
 
@@ -201,9 +188,6 @@ async def main():
         log.error("IG session invalid — need fresh cookies")
         notify(f"{niche['handle']} IG", "IG engage: session expired, need fresh cookies")
         return
-
-    # Load engagement log
-    eng_log = load_log()
 
     # Pick random hashtags for this run — niche-aware
     niche_hashtags = niche.get("ig_hashtags", IG_HASHTAGS)
@@ -240,7 +224,7 @@ async def main():
     # Evaluate posts with Claude
     scored = []
     for post in all_posts:
-        if already_engaged(eng_log, post.shortcode, "like") and already_engaged(eng_log, post.shortcode, "comment"):
+        if already_engaged_ig(post.shortcode, "like") and already_engaged_ig(post.shortcode, "comment"):
             continue
         evaluation = await evaluate_ig_post(post, niche_id)
         scored.append((post, evaluation))
@@ -258,7 +242,7 @@ async def main():
             break
         if ev.get("relevance_score", 0) < 6:
             continue
-        if already_engaged(eng_log, post.shortcode, "like"):
+        if already_engaged_ig(post.shortcode, "like"):
             continue
 
         if dry_run:
@@ -268,13 +252,12 @@ async def main():
             await random_delay("like", DELAY_MIN, DELAY_MAX)
             if client.like_post(post.media_id):
                 likes_done += 1
-                eng_log.append({
-                    "action": "like",
-                    "shortcode": post.shortcode,
-                    "author": post.author,
-                    "score": ev["relevance_score"],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    niche_id, "ig", "like",
+                    shortcode=post.shortcode,
+                    author=post.author,
+                    score=ev["relevance_score"],
+                )
                 log.info(f"  Liked @{post.author} ({likes_done}/{args.max_likes})")
 
     # --- Comments ---
@@ -287,7 +270,7 @@ async def main():
             continue
         if "comment" not in ev.get("suggested_actions", []):
             continue
-        if already_engaged(eng_log, post.shortcode, "comment"):
+        if already_engaged_ig(post.shortcode, "comment"):
             continue
         if post.author in commented_authors:
             continue
@@ -305,19 +288,19 @@ async def main():
             if client.comment_post(post.media_id, comment):
                 comments_done += 1
                 commented_authors.add(post.author)
-                eng_log.append({
-                    "action": "comment",
-                    "shortcode": post.shortcode,
-                    "author": post.author,
-                    "comment": comment,
-                    "score": ev["relevance_score"],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    niche_id, "ig", "comment",
+                    shortcode=post.shortcode,
+                    author=post.author,
+                    comment=comment,
+                    score=ev["relevance_score"],
+                )
                 log.info(f"  Commented on @{post.author} ({comments_done}/{args.max_comments}): {comment[:60]}...")
 
     # --- Follows ---
     follows_done = 0
-    followed = {e["author"] for e in eng_log if e.get("action") == "follow"}
+    followed = get_engaged_authors(niche_id, "ig", "follow")
+
     for post, ev in scored:
         if follows_done >= args.max_follows:
             break
@@ -335,16 +318,15 @@ async def main():
             if client.follow_user(post.user_id):
                 follows_done += 1
                 followed.add(post.author)
-                eng_log.append({
-                    "action": "follow",
-                    "shortcode": post.shortcode,
-                    "author": post.author,
-                    "score": ev["relevance_score"],
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    niche_id, "ig", "follow",
+                    shortcode=post.shortcode,
+                    author=post.author,
+                    score=ev["relevance_score"],
+                )
                 log.info(f"  Followed @{post.author} ({follows_done}/{args.max_follows})")
 
-    save_log(eng_log)
+    # Engagement log already saved per-action via log_engagement()
 
     summary = f"IG engage: {likes_done} likes, {comments_done} comments, {follows_done} follows"
     log.info(summary)
@@ -357,13 +339,12 @@ if __name__ == "__main__":
     _pre = argparse.ArgumentParser(add_help=False)
     _pre.add_argument("--niche", default="tatamispaces")
     _pre_args, _ = _pre.parse_known_args()
-    lock_file = BASE_DIR / f".ig_engage_{_pre_args.niche}.lock"
+    lock_name = f"ig_engage_{_pre_args.niche}"
 
-    lock_fd = acquire_lock(lock_file)
-    if not lock_fd:
+    if not acquire_process_lock(lock_name):
         log.info("Another ig_engage.py is already running for this niche, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)

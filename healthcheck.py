@@ -51,60 +51,38 @@ def check_imports() -> tuple[bool, str]:
     return True, f"All {len(modules)} modules import OK"
 
 
-def check_json_files() -> tuple[bool, str]:
-    """Load all data files and verify structure."""
+def check_db_integrity() -> tuple[bool, str]:
+    """Check SQLite database integrity."""
     issues = []
 
-    # Check posts files for all niches
-    from config.niches import list_niches, get_niche
-    for nid in list_niches():
-        ncfg = get_niche(nid)
-        pf_name = ncfg.get("posts_file", "posts.json")
-        pf = BASE_DIR / pf_name
-        if pf.exists():
-            try:
-                data = json.loads(pf.read_text())
-                if "posts" not in data:
-                    issues.append(f"{pf_name} missing 'posts' key")
-                elif not isinstance(data["posts"], list):
-                    issues.append(f"{pf_name} 'posts' is not a list")
-            except json.JSONDecodeError as e:
-                issues.append(f"{pf_name} corrupt: {e}")
+    db_path = BASE_DIR / "data" / "tatami.db"
+    if not db_path.exists():
+        return False, "Database file not found"
 
-    # Log files should be arrays (check all niche variants)
-    log_files = [
-        "engagement-log.json",
-        "ig-engagement-log.json",
-        "response-log.json",
-        "thread-log.json",
-    ]
-    for nid in list_niches():
-        if nid != "tatamispaces":
-            log_files.extend([
-                f"engagement-log-{nid}.json",
-                f"ig-engagement-log-{nid}.json",
-            ])
-    for lf in log_files:
-        path = BASE_DIR / lf
-        if path.exists():
-            try:
-                data = json.loads(path.read_text())
-                if not isinstance(data, list):
-                    issues.append(f"{lf} is not a list")
-            except json.JSONDecodeError as e:
-                issues.append(f"{lf} corrupt: {e}")
+    try:
+        from tools.db import get_db
+        db = get_db()
 
-    # orchestrator status
-    status_file = DATA_DIR / "orchestrator-status.json"
-    if status_file.exists():
-        try:
-            json.loads(status_file.read_text())
-        except json.JSONDecodeError as e:
-            issues.append(f"orchestrator-status.json corrupt: {e}")
+        # Quick integrity check
+        result = db.execute("PRAGMA integrity_check").fetchone()
+        if result[0] != "ok":
+            issues.append(f"DB integrity: {result[0]}")
+
+        # Check posts exist for each niche
+        from config.niches import list_niches
+        for nid in list_niches():
+            row = db.execute(
+                "SELECT COUNT(*) as cnt FROM posts WHERE niche_id = ?", (nid,)
+            ).fetchone()
+            if row["cnt"] == 0:
+                issues.append(f"No posts for niche {nid}")
+
+    except Exception as e:
+        issues.append(f"DB error: {e}")
 
     if issues:
         return False, "; ".join(issues)
-    return True, "All JSON files OK"
+    return True, "Database OK"
 
 
 def check_auth_status() -> tuple[bool, str]:
@@ -136,74 +114,64 @@ def check_auth_status() -> tuple[bool, str]:
 
 
 def check_log_sizes() -> tuple[bool, str]:
-    """Warn if engagement logs are too large."""
-    warnings = []
-    from config.niches import list_niches
-    log_files = [
-        "engagement-log.json",
-        "ig-engagement-log.json",
-        "response-log.json",
-    ]
-    for nid in list_niches():
-        if nid != "tatamispaces":
-            log_files.extend([
-                f"engagement-log-{nid}.json",
-                f"ig-engagement-log-{nid}.json",
-            ])
-    for lf in log_files:
-        path = BASE_DIR / lf
-        if path.exists():
-            size_mb = path.stat().st_size / (1024 * 1024)
-            if size_mb > 10:
-                warnings.append(f"{lf}: {size_mb:.1f}MB (consider archival)")
+    """Warn if database is too large."""
+    db_path = BASE_DIR / "data" / "tatami.db"
+    if not db_path.exists():
+        return True, "DB not found"
 
-    if warnings:
-        return False, "; ".join(warnings)
-    return True, "Log sizes OK"
+    size_mb = db_path.stat().st_size / (1024 * 1024)
+    if size_mb > 100:
+        return False, f"tatami.db: {size_mb:.1f}MB (consider archival)"
+    return True, f"DB size OK ({size_mb:.1f}MB)"
 
 
 def check_posts_queue() -> tuple[bool, str]:
     """Warn if fewer than 3 approved posts remaining in any niche."""
-    from config.niches import list_niches, get_niche
+    from config.niches import list_niches
+    from tools.db import get_db
     warnings = []
     total_approved = 0
+    db = get_db()
     for nid in list_niches():
-        ncfg = get_niche(nid)
-        posts_file = BASE_DIR / ncfg.get("posts_file", "posts.json")
-        if not posts_file.exists():
-            continue
-        try:
-            data = json.loads(posts_file.read_text())
-        except json.JSONDecodeError:
-            warnings.append(f"{nid}: corrupt")
-            continue
-        approved = [
-            p for p in data.get("posts", [])
-            if p.get("status") == "approved" and p.get("scheduled_for")
-        ]
-        total_approved += len(approved)
-        if len(approved) < 3:
-            warnings.append(f"{nid}: {len(approved)} posts left")
+        row = db.execute(
+            "SELECT COUNT(*) as cnt FROM posts WHERE niche_id = ? AND status = 'approved' AND scheduled_for IS NOT NULL",
+            (nid,),
+        ).fetchone()
+        count = row["cnt"]
+        total_approved += count
+        if count < 3:
+            warnings.append(f"{nid}: {count} posts left")
 
     if warnings:
         return False, "; ".join(warnings)
     return True, f"{total_approved} posts queued across niches"
 
 
-def check_stale_lockfiles() -> tuple[bool, list[Path]]:
-    """Detect lockfiles older than 30 minutes (likely from crashed processes).
-
-    Most scripts finish in under 20 minutes. A 30-minute-old lock with no
-    matching process is almost certainly stale.
-    """
+def check_stale_locks() -> tuple[bool, list[str]]:
+    """Detect stale process locks in DB (dead PIDs or old heartbeats)."""
     stale = []
-    for lock in BASE_DIR.glob(".*.lock"):
-        age_minutes = (datetime.now() - datetime.fromtimestamp(lock.stat().st_mtime)).total_seconds() / 60
-        if age_minutes > 30:
-            stale.append(lock)
+    try:
+        from tools.db import get_db
+        db = get_db()
+        rows = db.execute("SELECT lock_name, pid, heartbeat_at FROM process_locks").fetchall()
+        for r in rows:
+            pid = r["pid"]
+            try:
+                os.kill(pid, 0)
+                # Process alive — check heartbeat
+                if r["heartbeat_at"]:
+                    hb = datetime.fromisoformat(r["heartbeat_at"])
+                    age_hours = (datetime.now(timezone.utc) - hb).total_seconds() / 3600
+                    if age_hours > 2:
+                        stale.append(r["lock_name"])
+            except ProcessLookupError:
+                stale.append(r["lock_name"])
+            except PermissionError:
+                pass  # Process exists but can't signal — not stale
+    except Exception:
+        pass
 
     if stale:
-        names = [l.name for l in stale]
         return False, stale
     return True, []
 
@@ -273,35 +241,37 @@ def main():
     checks.append(("Imports", ok, msg))
     log.info(f"  {'OK' if ok else 'WARN'} Imports: {msg}")
 
-    # 2. JSON integrity
-    ok, msg = check_json_files()
-    checks.append(("JSON", ok, msg))
-    log.info(f"  {'OK' if ok else 'WARN'} JSON: {msg}")
+    # 2. Database integrity
+    ok, msg = check_db_integrity()
+    checks.append(("DB", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} DB: {msg}")
 
     # 3. Auth status
     ok, msg = check_auth_status()
     checks.append(("Auth", ok, msg))
     log.info(f"  {'OK' if ok else 'WARN'} Auth: {msg}")
 
-    # 4. Log sizes
+    # 4. DB size
     ok, msg = check_log_sizes()
-    checks.append(("Logs", ok, msg))
-    log.info(f"  {'OK' if ok else 'WARN'} Logs: {msg}")
+    checks.append(("Size", ok, msg))
+    log.info(f"  {'OK' if ok else 'WARN'} Size: {msg}")
 
     # 5. Posts queue
     ok, msg = check_posts_queue()
     checks.append(("Queue", ok, msg))
     log.info(f"  {'OK' if ok else 'WARN'} Queue: {msg}")
 
-    # 6. Stale lockfiles
-    ok, stale_locks = check_stale_lockfiles()
+    # 6. Stale process locks
+    ok, stale_locks = check_stale_locks()
     if stale_locks:
-        lock_names = [l.name for l in stale_locks]
-        msg = f"Stale: {', '.join(lock_names)}"
+        msg = f"Stale: {', '.join(stale_locks)}"
         if args.fix:
-            for l in stale_locks:
-                l.unlink()
-                log.info(f"  Removed stale lockfile: {l.name}")
+            from tools.db import get_db as _fix_db
+            db = _fix_db()
+            for lock_name in stale_locks:
+                db.execute("DELETE FROM process_locks WHERE lock_name = ?", (lock_name,))
+            db.commit()
+            log.info(f"  Removed {len(stale_locks)} stale process locks")
             msg += " (removed)"
     else:
         msg = "No stale locks"
@@ -312,22 +282,6 @@ def main():
     ok, msg = check_disk_space()
     checks.append(("Disk", ok, msg))
     log.info(f"  {'OK' if ok else 'WARN'} Disk: {msg}")
-
-    # Auto-fix: archive old log entries
-    if args.fix:
-        from config.niches import list_niches as _ln
-        archive_files = ["engagement-log.json", "ig-engagement-log.json", "response-log.json"]
-        for nid in _ln():
-            if nid != "tatamispaces":
-                archive_files.extend([
-                    f"engagement-log-{nid}.json",
-                    f"ig-engagement-log-{nid}.json",
-                ])
-        for lf in archive_files:
-            path = BASE_DIR / lf
-            count = archive_old_entries(path, days=90)
-            if count > 0:
-                log.info(f"  Archived {count} entries from {lf}")
 
     # Summary
     passed = sum(1 for _, ok, _ in checks if ok)

@@ -35,7 +35,8 @@ from tools.bluesky import (
     post_thread as bsky_post_thread,
     count_graphemes,
 )
-from tools.common import notify, acquire_lock, release_lock, setup_logging, load_config, get_model
+from tools.common import notify, setup_logging, load_config, get_model
+from tools.db import acquire_process_lock, release_process_lock
 from tools.post_queue import resolve_posts_file, load_posts as pq_load_posts, save_posts as pq_save_posts
 from agents.writer import generate_thread_captions
 from config.niches import get_niche
@@ -873,11 +874,16 @@ async def _publish_single(post: dict, posts_data: dict, niche: dict, handle: str
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".post.lock")
-    if not lock_fd:
+    # Parse niche early for niche-specific lock
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"post_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
         log.info("Another post.py is already running, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)

@@ -17,7 +17,6 @@ import os
 import json
 import re
 import subprocess
-import fcntl
 import random
 import logging
 import argparse
@@ -25,14 +24,20 @@ from pathlib import Path
 from datetime import datetime, timedelta, date, time as dt_time
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).parent))
+from tools.db import (
+    get_orchestrator_status, save_orchestrator_status,
+    acquire_process_lock, release_process_lock,
+    count_today_actions, get_db,
+)
+
 BASE_DIR = Path(__file__).parent
 DEFAULT_CONFIG_FILE = BASE_DIR / "config.json"
-STATUS_FILE = BASE_DIR / "data" / "orchestrator-status.json"
-LOCKFILE = BASE_DIR / ".orchestrator.lock"
 LOG_DIR = BASE_DIR / "logs"
 
 # Set by main() from --config flag
 CONFIG_FILE = DEFAULT_CONFIG_FILE
+CONFIG_NAME = "config"  # derived from CONFIG_FILE stem in main()
 
 from tools.common import notify as _common_notify
 
@@ -60,19 +65,11 @@ def load_config() -> dict:
 
 
 def load_status() -> dict:
-    if STATUS_FILE.exists():
-        try:
-            return json.loads(STATUS_FILE.read_text())
-        except json.JSONDecodeError:
-            log.warning("Corrupt status.json, starting fresh")
-    return {"scripts": {}, "daily_jitter": {}, "jitter_date": None}
+    return get_orchestrator_status(CONFIG_NAME)
 
 
 def save_status(status: dict):
-    STATUS_FILE.parent.mkdir(exist_ok=True)
-    tmp = STATUS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(status, indent=2, default=str))
-    tmp.rename(STATUS_FILE)
+    save_orchestrator_status(CONFIG_NAME, status)
 
 
 # --- Jitter ---
@@ -444,8 +441,10 @@ def notify_if_needed(name: str, result: dict, status: dict, config: dict):
 # --- Aggregate stats ---
 
 def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
-    """Read engagement logs and count today's actions."""
-    today_str = str(now_et.date())
+    """Read engagement stats from DB for today."""
+    if niche_id is None:
+        niche_id = load_config().get("niche", "tatamispaces")
+
     stats = {"x_likes": 0, "x_replies": 0, "x_follows": 0,
              "ig_likes": 0, "ig_comments": 0, "ig_follows": 0,
              "bsky_likes": 0, "bsky_replies": 0, "bsky_follows": 0,
@@ -453,108 +452,53 @@ def aggregate_today_stats(now_et: datetime, niche_id: str = None) -> dict:
              "x_posts": 0, "ig_posts": 0, "drafts_created": 0,
              "x_responses": 0}
 
-    # Resolve niche-aware file suffixes
-    if niche_id is None:
-        niche_id = load_config().get("niche", "tatamispaces")
-    suffix = f"-{niche_id}" if niche_id != "tatamispaces" else ""
+    # X engagement from DB
+    stats["x_likes"] = count_today_actions(niche_id, "x", "like")
+    stats["x_replies"] = count_today_actions(niche_id, "x", "reply")
+    stats["x_follows"] = count_today_actions(niche_id, "x", "follow")
+    stats["x_responses"] = count_today_actions(niche_id, "x", "respond")
 
-    # X engagement log
-    eng_file = BASE_DIR / f"engagement-log{suffix}.json"
-    if eng_file.exists():
-        try:
-            entries = json.loads(eng_file.read_text())
-            for e in entries:
-                ts = e.get("timestamp", "")
-                if not ts.startswith(today_str):
-                    continue
-                action = e.get("action", "")
-                if action == "like":
-                    stats["x_likes"] += 1
-                elif action == "reply":
-                    stats["x_replies"] += 1
-                elif action == "follow":
-                    stats["x_follows"] += 1
-        except Exception:
-            pass
+    # IG engagement from DB
+    stats["ig_likes"] = count_today_actions(niche_id, "ig", "like")
+    stats["ig_comments"] = count_today_actions(niche_id, "ig", "comment")
+    stats["ig_follows"] = count_today_actions(niche_id, "ig", "follow")
 
-    # IG engagement log
-    ig_eng_file = BASE_DIR / f"ig-engagement-log{suffix}.json"
-    if ig_eng_file.exists():
-        try:
-            entries = json.loads(ig_eng_file.read_text())
-            for e in entries:
-                ts = e.get("timestamp", "")
-                if not ts.startswith(today_str):
-                    continue
-                action = e.get("action", "")
-                if action == "like":
-                    stats["ig_likes"] += 1
-                elif action == "comment":
-                    stats["ig_comments"] += 1
-                elif action == "follow":
-                    stats["ig_follows"] += 1
-        except Exception:
-            pass
+    # Posts from DB
+    today_str = str(now_et.date())
+    db = get_db()
+    row = db.execute(
+        "SELECT COUNT(*) as cnt FROM posts WHERE niche_id = ? AND posted_at LIKE ?",
+        (niche_id, f"{today_str}%"),
+    ).fetchone()
+    stats["x_posts"] = row["cnt"]
 
-    # Bluesky engagement log
-    bsky_eng_file = BASE_DIR / "data" / f"bluesky-engagement-log-{niche_id}.json"
-    if bsky_eng_file.exists():
-        try:
-            entries = json.loads(bsky_eng_file.read_text())
-            for e in entries:
-                ts = e.get("timestamp", "")
-                if not ts.startswith(today_str):
-                    continue
-                action = e.get("action", "")
-                if action == "like":
-                    stats["bsky_likes"] += 1
-                elif action == "reply":
-                    stats["bsky_replies"] += 1
-                elif action == "follow":
-                    stats["bsky_follows"] += 1
-        except Exception:
-            pass
+    row = db.execute(
+        "SELECT COUNT(*) as cnt FROM posts WHERE niche_id = ? AND ig_posted_at LIKE ?",
+        (niche_id, f"{today_str}%"),
+    ).fetchone()
+    stats["ig_posts"] = row["cnt"]
+
+    # Bluesky engagement from DB
+    for action, key in [("like", "bsky_likes"), ("reply", "bsky_replies"), ("follow", "bsky_follows")]:
+        row = db.execute(
+            "SELECT COUNT(*) as cnt FROM engagement_log WHERE niche_id = ? AND platform = 'bluesky' AND action = ? AND timestamp LIKE ?",
+            (niche_id, action, f"{today_str}%"),
+        ).fetchone()
+        stats[key] = row["cnt"]
 
     # Bluesky responses
-    bsky_resp_file = BASE_DIR / "data" / f"bluesky-response-log-{niche_id}.json"
-    if bsky_resp_file.exists():
-        try:
-            entries = json.loads(bsky_resp_file.read_text())
-            for e in entries:
-                ts = e.get("timestamp", "")
-                if ts.startswith(today_str):
-                    stats["bsky_responses"] += 1
-        except Exception:
-            pass
+    row = db.execute(
+        "SELECT COUNT(*) as cnt FROM engagement_log WHERE niche_id = ? AND platform = 'bluesky' AND action = 'respond' AND timestamp LIKE ?",
+        (niche_id, f"{today_str}%"),
+    ).fetchone()
+    stats["bsky_responses"] = row["cnt"]
 
-    # Posts — resolve from niche config
-    from config.niches import get_niche
-    niche_cfg = get_niche(niche_id)
-    posts_file = BASE_DIR / niche_cfg.get("posts_file", "posts.json")
-    if posts_file.exists():
-        try:
-            data = json.loads(posts_file.read_text())
-            for p in data.get("posts", []):
-                posted_at = p.get("posted_at", "")
-                if posted_at and posted_at.startswith(today_str):
-                    stats["x_posts"] += 1
-                ig_posted_at = p.get("ig_posted_at", "")
-                if ig_posted_at and ig_posted_at.startswith(today_str):
-                    stats["ig_posts"] += 1
-        except Exception:
-            pass
-
-    # Responses
-    resp_file = BASE_DIR / "response-log.json"
-    if resp_file.exists():
-        try:
-            entries = json.loads(resp_file.read_text())
-            for e in entries:
-                ts = e.get("timestamp", "")
-                if ts.startswith(today_str):
-                    stats["x_responses"] += 1
-        except Exception:
-            pass
+    # X responses
+    row = db.execute(
+        "SELECT COUNT(*) as cnt FROM engagement_log WHERE niche_id = ? AND platform = 'x' AND action = 'respond' AND timestamp LIKE ?",
+        (niche_id, f"{today_str}%"),
+    ).fetchone()
+    stats["x_responses"] = row["cnt"]
 
     return stats
 
@@ -755,13 +699,11 @@ def main():
     parser.add_argument("--config", default=None, help="Config file (default: config.json)")
     args = parser.parse_args()
 
-    global CONFIG_FILE, STATUS_FILE, LOCKFILE
+    global CONFIG_FILE, CONFIG_NAME
     if args.config:
         CONFIG_FILE = BASE_DIR / args.config
-        # Derive status file and lockfile from config name for isolation
-        config_stem = Path(args.config).stem
-        STATUS_FILE = BASE_DIR / "data" / f"orchestrator-status-{config_stem}.json"
-        LOCKFILE = BASE_DIR / f".orchestrator-{config_stem}.lock"
+
+    CONFIG_NAME = CONFIG_FILE.stem
 
     config = load_config()
 
@@ -770,19 +712,16 @@ def main():
         print_status(status, datetime.now(ET))
         return
 
-    # Lockfile — skip if another orchestrator is running
-    lock_fd = open(LOCKFILE, "w")
-    try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+    # Process lock — skip if another orchestrator is running
+    lock_name = f"orchestrator_{CONFIG_NAME}"
+    if not acquire_process_lock(lock_name):
         log.info("Another orchestrator instance is running. Skipping.")
         return
 
     try:
         heartbeat(config, dry_run=args.dry_run)
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
+        release_process_lock(lock_name)
 
 
 if __name__ == "__main__":

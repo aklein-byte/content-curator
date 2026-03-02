@@ -23,7 +23,8 @@ load_dotenv()
 from config.niches import get_niche
 from tools.ig_api import publish_single, publish_carousel
 from tools.ig_api import adapt_caption_for_ig
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging
+from tools.common import notify, setup_logging
+from tools.db import acquire_process_lock, release_process_lock, log_ig_post, already_ig_posted
 from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts
 
 log = setup_logging("ig_post")
@@ -32,17 +33,6 @@ BASE_DIR = Path(__file__).parent
 
 # Set once by main()
 _niche_id: str | None = None
-_resolved_ig_log: Path = BASE_DIR / "ig-post-log.json"
-
-
-def _init_paths(niche: dict):
-    """Set IG log path based on niche config."""
-    global _resolved_ig_log
-    niche_name = niche.get("name", "").lower().replace(" ", "")
-    if niche_name and niche_name != "tatami":
-        _resolved_ig_log = BASE_DIR / f"ig-post-log-{niche_name}.json"
-    else:
-        _resolved_ig_log = BASE_DIR / "ig-post-log.json"
 
 
 def load_posts() -> dict:
@@ -67,37 +57,28 @@ def count_ig_posts_today(posts_data: dict) -> int:
 IG_MAX_PER_DAY = 3
 
 
-def _load_ig_log() -> list:
-    """Load the separate IG post log (dedup source of truth)."""
-    return load_json(_resolved_ig_log, default=[])
+def _ig_already_posted(post_id: int) -> bool:
+    """Check if a post ID has already been cross-posted to IG (via DB log)."""
+    return already_ig_posted(_niche_id, post_id)
 
 
-def _save_ig_log(entries: list):
-    save_json(_resolved_ig_log, entries)
-
-
-def _ig_already_posted(ig_log: list, post_id) -> bool:
-    """Check if a post ID has already been cross-posted to IG (via separate log)."""
-    return any(e.get("post_id") == post_id for e in ig_log)
-
-
-def find_unposted_to_ig(posts_data: dict, ig_log: list, max_count: int = 3) -> list[dict]:
+def find_unposted_to_ig(posts_data: dict, max_count: int = 3) -> list[dict]:
     """Find posts that are posted to X but not yet to Instagram.
-    Uses both posts.json flags AND the separate IG log for dedup safety.
+    Uses both posts DB flags AND the separate IG post log for dedup safety.
     """
     ready = []
     for post in posts_data.get("posts", []):
         if post.get("status") != "posted":
             continue
-        # Check posts.json flags
+        # Check posts DB flags
         if post.get("ig_posted") or post.get("ig_container_created"):
             continue
         # Skip dedup-recovered posts — they were already live on X and may
         # have been manually crossposted to IG already
         if post.get("dedup_recovered"):
             continue
-        # Check separate dedup log (survives posts.json clobbers)
-        if _ig_already_posted(ig_log, post.get("id")):
+        # Check separate dedup log in DB
+        if _ig_already_posted(post.get("id")):
             continue
         if not post.get("image") and not post.get("image_urls") and not post.get("allImages"):
             continue
@@ -155,7 +136,6 @@ async def main():
 
     global _niche_id
     _niche_id = niche_id
-    _init_paths(niche)
     ig_env = niche.get("ig_env")
     log.info(f"Instagram cross-post for {niche['handle']} ({'DRY RUN' if args.dry_run else 'LIVE'})")
 
@@ -172,8 +152,7 @@ async def main():
             args.max = remaining
             log.info(f"Limiting to {remaining} post(s) (daily max {IG_MAX_PER_DAY})")
 
-    ig_log = _load_ig_log()
-    to_post = find_unposted_to_ig(posts_data, ig_log, max_count=args.max)
+    to_post = find_unposted_to_ig(posts_data, max_count=args.max)
 
     if not to_post:
         log.info("No posts ready for Instagram cross-posting")
@@ -231,9 +210,8 @@ async def main():
             posted_count += 1
             log.info(f"  Posted #{post['id']} to Instagram (media_id: {result.get('id')})")
             save_posts(posts_data)
-            # Write to separate dedup log (survives posts.json race conditions)
-            ig_log.append({"post_id": post.get("id"), "ig_media_id": result.get("id"), "timestamp": now})
-            _save_ig_log(ig_log)
+            # Write to separate dedup log in DB
+            log_ig_post(niche_id, post.get("id"), ig_media_id=result.get("id"))
         except Exception as e:
             # Container was already created — mark as posted anyway since
             # IG containers auto-publish even when media_publish returns 403
@@ -242,8 +220,7 @@ async def main():
             post["ig_posted_at"] = now
             post["ig_publish_error"] = str(e)
             save_posts(posts_data)
-            ig_log.append({"post_id": post.get("id"), "error": str(e), "timestamp": now})
-            _save_ig_log(ig_log)
+            log_ig_post(niche_id, post.get("id"), error=str(e))
             log.error(f"  Failed #{post['id']}: {e}")
             log.warning(f"  Marked as ig_posted anyway (containers auto-publish)")
 
@@ -254,11 +231,16 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".ig_post.lock")
-    if not lock_fd:
+    # Parse niche early for niche-specific lock
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"ig_post_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
         log.info("Another ig_post.py is already running, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)

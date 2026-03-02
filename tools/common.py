@@ -8,14 +8,12 @@ async delays, and logging setup.
 import os
 import sys
 import json
-import fcntl
 import random
 import asyncio
 import logging
 import platform
 import subprocess
 from pathlib import Path
-from typing import IO
 
 BASE_DIR = Path(__file__).parent.parent
 
@@ -48,48 +46,12 @@ def load_json(path: Path, default=None):
 
 def save_json(path: Path, data, lock: bool = False) -> None:
     """Atomic JSON write: write to tmp file then rename.
-    If lock=True, acquires an exclusive flock on path.lock during the write
-    to prevent concurrent read-modify-write races (e.g. dashboard vs post.py).
+    The lock parameter is ignored (kept for backward compatibility).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    lockfile = path.parent / f".{path.name}.lock"
-    fd = None
-    if lock:
-        lockfile.touch(exist_ok=True)
-        fd = open(lockfile, "r")
-        fcntl.flock(fd, fcntl.LOCK_EX)
-
-    try:
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
-        tmp.rename(path)
-    finally:
-        if fd:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-            fd.close()
-
-
-# --- Lockfile ---
-
-def acquire_lock(lockfile: Path) -> IO | None:
-    """Try to acquire an exclusive lock. Returns file descriptor or None if locked."""
-    fd = open(lockfile, "w")
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd
-    except BlockingIOError:
-        fd.close()
-        return None
-
-
-def release_lock(fd: IO) -> None:
-    """Release a lockfile acquired with acquire_lock."""
-    try:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        fd.close()
-    except Exception:
-        pass
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+    tmp.rename(path)
 
 
 # --- Notifications ---

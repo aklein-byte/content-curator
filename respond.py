@@ -9,7 +9,6 @@ Usage: python respond.py [--niche tatamispaces] [--dry-run] [--max-responses 5]
 """
 
 import sys
-import os
 import json
 import asyncio
 import argparse
@@ -22,14 +21,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import get_mentions, reply_to_post, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, random_delay, acquire_lock, release_lock, setup_logging, load_config, get_anthropic, load_voice_guide, get_model, parse_json_response
+from tools.common import random_delay, setup_logging, load_config, get_anthropic, load_voice_guide, get_model, parse_json_response
+from tools.db import log_engagement, already_engaged as db_already_engaged, get_db, acquire_process_lock, release_process_lock
 from config.niches import get_niche
 
 log = setup_logging("respond")
 
 BASE_DIR = Path(__file__).parent
-RESPONSE_LOG = Path(os.environ.get("RESPONSE_LOG", str(BASE_DIR / "response-log.json")))
-SINCE_ID_FILE = BASE_DIR / "data" / "respond-since-id.txt"
+_niche_id: str = "tatamispaces"  # resolved in main()
 
 MAX_RESPONSES_PER_RUN = 5
 _delays = load_config().get("delays", {}).get("respond", [30, 90])
@@ -39,8 +38,14 @@ DELAY_MAX = _delays[1]
 anthropic = get_anthropic()
 
 
-def already_responded_to_tweet(log_entries: list, tweet_id: str) -> bool:
-    return any(e.get("reply_to_tweet_id") == tweet_id for e in log_entries)
+def already_responded_to_tweet(tweet_id: str) -> bool:
+    """Check if we already responded to this tweet via DB."""
+    db = get_db()
+    row = db.execute(
+        "SELECT 1 FROM engagement_log WHERE niche_id = ? AND platform = 'x' AND action = 'respond' AND reply_to_tweet_id = ? LIMIT 1",
+        (_niche_id, tweet_id),
+    ).fetchone()
+    return row is not None
 
 
 def _build_response_prompt(niche_id: str) -> str:
@@ -178,15 +183,22 @@ Write your response:"""
 
 
 def load_since_id() -> str | None:
-    """Load the last processed mention ID to avoid re-processing."""
-    if SINCE_ID_FILE.exists():
-        return SINCE_ID_FILE.read_text().strip() or None
-    return None
+    """Load the last processed mention ID from DB."""
+    db = get_db()
+    row = db.execute(
+        "SELECT value FROM kv_store WHERE key = ?",
+        (f"respond_since_id_{_niche_id}",),
+    ).fetchone()
+    return row["value"] if row else None
 
 
 def save_since_id(since_id: str):
-    SINCE_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SINCE_ID_FILE.write_text(since_id)
+    db = get_db()
+    db.execute(
+        "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
+        (f"respond_since_id_{_niche_id}", since_id),
+    )
+    db.commit()
 
 
 async def main():
@@ -203,11 +215,10 @@ async def main():
     set_xapi_niche(niche_id)
     handle = niche["handle"].lstrip("@")
 
-    log.info(f"Checking replies for @{handle} ({'DRY RUN' if dry_run else 'LIVE'})")
+    global _niche_id
+    _niche_id = niche_id
 
-    response_log = load_json(RESPONSE_LOG)
-    if not isinstance(response_log, list):
-        response_log = []
+    log.info(f"Checking replies for @{handle} ({'DRY RUN' if dry_run else 'LIVE'})")
 
     # Get recent mentions via official API
     since_id = load_since_id()
@@ -231,7 +242,7 @@ async def main():
             continue
 
         # Skip if already responded
-        if already_responded_to_tweet(response_log, m.tweet_id):
+        if already_responded_to_tweet(m.tweet_id):
             continue
 
         # Skip old mentions (> 48 hours)
@@ -309,18 +320,16 @@ async def main():
             responses_done += 1
             log.info(f"Responded to @{c['replier']} ({responses_done}/{max_responses})")
 
-            response_log.append({
-                "reply_to_tweet_id": c["tweet_id"],
-                "our_response_id": reply_id,
-                "replier": c["replier"],
-                "reply_text": c["reply_text"],
-                "our_response": response_text,
-                "parent_id": c.get("parent_id"),
-                "score": c["eval"]["score"],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "action": "respond",
-            })
-            save_json(RESPONSE_LOG, response_log)
+            log_engagement(
+                niche_id, "x", "respond",
+                reply_to_tweet_id=c["tweet_id"],
+                our_response_id=reply_id,
+                replier=c["replier"],
+                reply_text=c["reply_text"],
+                our_response=response_text,
+                parent_id=c.get("parent_id"),
+                score=c["eval"]["score"],
+            )
         else:
             log.warning(f"Failed to post response to @{c['replier']}")
 
@@ -332,11 +341,16 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".respond.lock")
-    if not lock_fd:
+    # Parse niche early for niche-specific lock
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"respond_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
         print("Another respond instance is running. Skipping.")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)

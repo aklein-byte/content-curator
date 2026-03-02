@@ -23,8 +23,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.xapi import search_posts, like_post, follow_user, reply_to_post, XPost, get_liking_users, get_own_recent_tweets, get_user_recent_tweets, set_niche as set_xapi_niche
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, niche_log_path
-from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts, next_post_id
+from tools.common import notify, setup_logging, load_config
+from tools.post_queue import load_posts as pq_load_posts, save_posts as pq_save_posts, next_post_id, insert_post as pq_insert_post
+from tools.db import (
+    log_engagement, already_engaged as db_already_engaged,
+    count_today_actions as db_count_today, replies_to_author_this_week as db_replies_week,
+    update_engagement_entry, get_engaged_authors, get_insights,
+)
 from agents.engager import evaluate_post, draft_reply, draft_quote_tweet
 from config.niches import get_niche
 
@@ -55,8 +60,6 @@ BASE_DIR = Path(__file__).parent
 
 # Resolved per-niche in main()
 _niche_id: str | None = None
-ENGAGEMENT_LOG: Path = BASE_DIR / "engagement-log.json"
-ENGAGEMENT_DRAFTS: Path = BASE_DIR / "engagement-drafts.json"
 
 # Limits
 MAX_LIKES_PER_RUN = 25
@@ -70,34 +73,24 @@ MAX_RUNTIME_SECONDS = 1000  # orchestrator timeout is 1200s, leave 200s buffer
 
 
 
-def already_liked(log_entries: list, post_id: str) -> bool:
+def already_liked(post_id: str) -> bool:
     """Check if we already liked this post."""
-    return any(e["post_id"] == post_id and e["action"] == "like" for e in log_entries)
+    return db_already_engaged(_niche_id, "x", "like", post_id)
 
 
-def already_replied(log_entries: list, post_id: str) -> bool:
+def already_replied(post_id: str) -> bool:
     """Check if we already replied to this post."""
-    return any(e["post_id"] == post_id and e["action"] == "reply" for e in log_entries)
+    return db_already_engaged(_niche_id, "x", "reply", post_id)
 
 
-def count_today_actions(log_entries: list, action: str) -> int:
+def count_today_actions(action: str) -> int:
     """Count how many of a given action type were taken today (UTC)."""
-    today = datetime.now(timezone.utc).date().isoformat()
-    return sum(
-        1 for e in log_entries
-        if e.get("action") == action and e.get("timestamp", "").startswith(today)
-    )
+    return db_count_today(_niche_id, "x", action)
 
 
-def replies_to_author_this_week(log_entries: list, author: str) -> int:
+def replies_to_author_this_week(author: str) -> int:
     """Count replies to a specific author in the last 7 days."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    return sum(
-        1 for e in log_entries
-        if e.get("action") == "reply"
-        and e.get("author", "").lower() == author.lower()
-        and e.get("timestamp", "") >= cutoff
-    )
+    return db_replies_week(_niche_id, "x", author)
 
 
 def _post_age_minutes(post) -> float:
@@ -111,31 +104,31 @@ def _post_age_minutes(post) -> float:
         return 9999
 
 
-def track_reply_performance(eng_log: list, niche_id: str) -> None:
+def track_reply_performance(niche_id: str) -> None:
     """Check how our recent replies performed (likes, reply-backs).
-    Updates engagement log entries in-place with performance data.
+    Updates engagement log entries in DB with performance data.
     Runs once per engage session on unchecked replies older than 1 hour."""
     import requests
     from tools.xapi import _get_auth, set_niche
+    from tools.db import get_db
 
-    # Find replies that haven't been checked yet and are >1 hour old
+    db = get_db()
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    unchecked = [
-        e for e in eng_log
-        if e.get("action") == "reply"
-        and e.get("reply_id")
-        and "reply_likes" not in e  # not yet checked
-        and e.get("timestamp", "") < cutoff  # at least 1 hour old
-        and e.get("timestamp", "") > week_ago  # only last 7 days
-    ]
+
+    unchecked = db.execute(
+        """SELECT id, reply_id FROM engagement_log
+           WHERE niche_id = ? AND platform = 'x' AND action = 'reply'
+           AND reply_id IS NOT NULL AND reply_likes IS NULL
+           AND timestamp < ? AND timestamp > ?
+           LIMIT 50""",
+        (niche_id, cutoff, week_ago),
+    ).fetchall()
 
     if not unchecked:
         return
 
-    # Check up to 50 per run (API limit is 100 per request)
-    batch = unchecked[:50]
-    ids = [str(e["reply_id"]) for e in batch]
+    ids = [str(r["reply_id"]) for r in unchecked]
 
     try:
         set_niche(niche_id)
@@ -156,14 +149,18 @@ def track_reply_performance(eng_log: list, niche_id: str) -> None:
 
     checked = 0
     got_engagement = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
     for tw in data["data"]:
         m = tw["public_metrics"]
-        entry = next((e for e in batch if str(e["reply_id"]) == tw["id"]), None)
-        if entry:
-            entry["reply_likes"] = m["like_count"]
-            entry["reply_replies"] = m["reply_count"]
-            entry["reply_retweets"] = m["retweet_count"]
-            entry["checked_at"] = datetime.now(timezone.utc).isoformat()
+        row = next((r for r in unchecked if str(r["reply_id"]) == tw["id"]), None)
+        if row:
+            update_engagement_entry(
+                row["id"],
+                reply_likes=m["like_count"],
+                reply_replies=m["reply_count"],
+                reply_retweets=m["retweet_count"],
+                checked_at=now_iso,
+            )
             checked += 1
             if m["like_count"] > 0 or m["reply_count"] > 0:
                 got_engagement += 1
@@ -192,7 +189,7 @@ def load_source_tweet_ids() -> set:
 
 
 
-def engage_back(eng_log: list, dry_run: bool = False) -> int:
+def engage_back(dry_run: bool = False) -> int:
     """Like tweets from users who recently liked our posts. Highest-ROI engagement."""
     log.info("Checking who engaged with our recent posts...")
     our_tweets = get_own_recent_tweets(max_results=10)
@@ -201,7 +198,8 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
         return 0
 
     # Collect likers we haven't engaged back with
-    already_liked_authors = {e.get("author_handle") or e.get("author") for e in eng_log if e.get("action") == "like"}
+    already_liked_authors = get_engaged_authors(_niche_id, "x", "like")
+
     likers = {}
     for tweet in our_tweets[:5]:  # Check last 5 posts (save API credits)
         users = get_liking_users(tweet["id"], max_results=10)
@@ -236,13 +234,12 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
             time.sleep(delay)
             if like_post(tweet_to_like["id"]):
                 engaged += 1
-                eng_log.append({
-                    "action": "like",
-                    "post_id": tweet_to_like["id"],
-                    "author_handle": handle,
-                    "reason": "engage_back",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    _niche_id, "x", "like",
+                    post_id=tweet_to_like["id"],
+                    author_handle=handle,
+                    reason="engage_back",
+                )
                 log.info(f"  Liked @{handle}'s tweet (engage-back {engaged})")
 
     log.info(f"  Engage-back: {engaged} likes")
@@ -250,7 +247,8 @@ def engage_back(eng_log: list, dry_run: bool = False) -> int:
 
 
 async def main():
-    global _niche_id, ENGAGEMENT_LOG, ENGAGEMENT_DRAFTS
+    global MAX_LIKES_PER_RUN, MAX_REPLIES_PER_RUN, MAX_FOLLOWS_PER_RUN
+    global _niche_id
 
     parser = argparse.ArgumentParser(description="Engage with JP architecture posts")
     parser.add_argument("--niche", default="tatamispaces", help="Niche ID")
@@ -272,10 +270,7 @@ async def main():
     # Load niche-specific engagement limits from config
     limits = _get_limits(niche_id)
 
-    # Resolve niche-specific file paths
     _niche_id = niche_id
-    ENGAGEMENT_LOG = Path(os.environ.get("ENGAGEMENT_LOG", str(niche_log_path("engagement-log.json", niche_id))))
-    ENGAGEMENT_DRAFTS = Path(os.environ.get("ENGAGEMENT_DRAFTS", str(niche_log_path("engagement-drafts.json", niche_id))))
 
     engagement_cfg = niche.get("engagement", {})
     queries = engagement_cfg.get("search_queries", [])
@@ -293,13 +288,8 @@ async def main():
 
     # No login needed — official API uses OAuth from .env
 
-    # Load existing logs
-    engagement_log = load_json(ENGAGEMENT_LOG)
-    if not isinstance(engagement_log, list):
-        engagement_log = []
-
     # Track how our recent replies performed (feedback loop)
-    track_reply_performance(engagement_log, niche_id)
+    track_reply_performance(niche_id)
 
     # Gather posts from all queries
     all_posts: list[XPost] = []
@@ -307,16 +297,16 @@ async def main():
     min_likes = engagement_cfg.get("min_likes", 20)
 
     # Engage back with people who liked our posts (highest ROI)
-    engage_back(engagement_log, dry_run)
+    engage_back(dry_run)
 
     # Select queries — weighted by past performance if insights exist,
     # with 1 slot reserved for random exploration
     max_queries = min(load_config().get("max_queries_per_run", 5), len(queries))
-    insights_path = BASE_DIR / "data" / f"insights-{niche_id}.json"
-    query_perf = load_json(insights_path, default={}).get("query_performance", {})
+    _insights = get_insights(niche_id)
+    query_perf = _insights.get("query_performance", {})
 
     # Also read recommended_min_likes from insights
-    rec_min = load_json(insights_path, default={}).get("recommended_min_likes")
+    rec_min = _insights.get("recommended_min_likes")
     if rec_min is not None:
         old_min = min_likes
         min_likes = min(rec_min, 15)  # Cap at 15 — higher kills discovery
@@ -408,8 +398,8 @@ async def main():
         if time_left() < 300:
             log.warning(f"Time budget low ({time_left():.0f}s), stopping evaluations ({eval_count} done)")
             break
-        liked = already_liked(engagement_log, post.post_id)
-        replied = already_replied(engagement_log, post.post_id)
+        liked = already_liked(post.post_id)
+        replied = already_replied(post.post_id)
         if liked and replied:
             continue  # Fully engaged, skip
         if post.author_handle.lower() == our_handle:
@@ -450,7 +440,7 @@ async def main():
 
     # --- Auto-like posts scoring 6+ ---
     likes_done = 0
-    daily_likes = count_today_actions(engagement_log, "like")
+    daily_likes = count_today_actions("like")
     daily_max_likes = limits["daily_max_likes"]
     for post, eval_data in scored_posts:
         if likes_done >= max_likes:
@@ -463,7 +453,7 @@ async def main():
             break
         if eval_data["relevance_score"] < 6:
             continue
-        if already_liked(engagement_log, post.post_id):
+        if already_liked(post.post_id):
             continue
 
         if dry_run:
@@ -474,21 +464,20 @@ async def main():
             success = like_post(post.post_id)
             if success:
                 likes_done += 1
-                engagement_log.append({
-                    "action": "like",
-                    "post_id": post.post_id,
-                    "author": post.author_handle,
-                    "score": eval_data["relevance_score"],
-                    "post_likes": post.likes,
-                    "author_followers": post.author_followers,
-                    "query": getattr(post, '_source_query', None),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    _niche_id, "x", "like",
+                    post_id=post.post_id,
+                    author=post.author_handle,
+                    score=eval_data["relevance_score"],
+                    post_likes=post.likes,
+                    author_followers=post.author_followers,
+                    query=getattr(post, '_source_query', None),
+                )
                 log.info(f"Liked post by @{post.author_handle} ({likes_done}/{max_likes})")
 
     # --- Reply to top posts ---
     replies_done = 0
-    daily_replies = count_today_actions(engagement_log, "reply")
+    daily_replies = count_today_actions("reply")
     daily_max_replies = limits["daily_max_replies"]
     min_followers = limits["min_author_followers_for_reply"]
     min_post_likes = limits["min_post_likes_for_reply"]
@@ -504,12 +493,12 @@ async def main():
             break
         if eval_data["relevance_score"] < 8:
             continue
-        if already_replied(engagement_log, post.post_id):
+        if already_replied(post.post_id):
             continue
         if post.author_handle in replied_authors:
             continue
         # Per-account cooldown: max 2 replies per author per week
-        if replies_to_author_this_week(engagement_log, post.author_handle) >= 2:
+        if replies_to_author_this_week(post.author_handle) >= 2:
             continue
         # Only reply to accounts with enough followers for visibility
         if post.author_followers < min_followers:
@@ -538,26 +527,23 @@ async def main():
                 if reply_id:
                     replies_done += 1
                     replied_authors.add(post.author_handle)
-                    engagement_log.append({
-                        "action": "reply",
-                        "post_id": post.post_id,
-                        "reply_id": reply_id,
-                        "author": post.author_handle,
-                        "reply_text": reply_text,
-                        "score": eval_data["relevance_score"],
-                        "post_likes": post.likes,
-                        "author_followers": post.author_followers,
-                        "query": getattr(post, '_source_query', None),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    })
+                    log_engagement(
+                        _niche_id, "x", "reply",
+                        post_id=post.post_id,
+                        reply_id=reply_id,
+                        author=post.author_handle,
+                        reply_text=reply_text,
+                        score=eval_data["relevance_score"],
+                        post_likes=post.likes,
+                        author_followers=post.author_followers,
+                        query=getattr(post, '_source_query', None),
+                    )
                     log.info(f"Replied to @{post.author_handle} ({replies_done}/{max_replies}): {reply_text[:60]}...")
 
     # --- Follow a few relevant accounts ---
-    followed_handles = {
-        e["author"] for e in engagement_log if e.get("action") == "follow"
-    }
+    followed_handles = get_engaged_authors(_niche_id, "x", "follow")
     follows_done = 0
-    daily_follows = count_today_actions(engagement_log, "follow")
+    daily_follows = count_today_actions("follow")
     daily_max_follows = limits["daily_max_follows"]
     seen_follow_handles = set()  # dedup within this run
 
@@ -585,16 +571,15 @@ async def main():
             if success:
                 follows_done += 1
                 followed_handles.add(post.author_handle)
-                engagement_log.append({
-                    "action": "follow",
-                    "post_id": post.post_id,
-                    "author": post.author_handle,
-                    "score": eval_data["relevance_score"],
-                    "post_likes": post.likes,
-                    "author_followers": post.author_followers,
-                    "query": getattr(post, '_source_query', None),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                log_engagement(
+                    _niche_id, "x", "follow",
+                    post_id=post.post_id,
+                    author=post.author_handle,
+                    score=eval_data["relevance_score"],
+                    post_likes=post.likes,
+                    author_followers=post.author_followers,
+                    query=getattr(post, '_source_query', None),
+                )
                 log.info(f"Followed @{post.author_handle} ({follows_done}/{max_follows})")
 
     # --- Draft quote tweets for top posts (saved to posts file for review) ---
@@ -603,12 +588,13 @@ async def main():
     MIN_LIKES_FOR_QUOTE = 500  # only quote posts with broad reach
     MIN_SCORE_FOR_QUOTE = 9
 
-    # Load posts file to check for existing quote drafts
-    posts_data = pq_load_posts(_niche_id)
-    existing_quote_ids = {
-        str(p.get("quote_tweet_id")) for p in posts_data.get("posts", [])
-        if p.get("quote_tweet_id")
-    }
+    # Check existing quote drafts via DB
+    from tools.db import get_db as _gdb
+    _qt_rows = _gdb().execute(
+        "SELECT quote_tweet_id FROM posts WHERE niche_id = ? AND quote_tweet_id IS NOT NULL",
+        (_niche_id,),
+    ).fetchall()
+    existing_quote_ids = {str(r["quote_tweet_id"]) for r in _qt_rows}
 
     for post, eval_data in scored_posts:
         if quotes_drafted >= MAX_QUOTES_PER_RUN:
@@ -634,7 +620,6 @@ async def main():
             # Extract image URLs from the original post if available
             qt_image_urls = post.image_urls or []
             new_post = {
-                "id": next_post_id(posts_data),
                 "status": "draft",
                 "type": "quote",
                 "title": f"QT @{post.author_handle}",
@@ -648,13 +633,11 @@ async def main():
                 "source": "engage",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
-            posts_data["posts"].append(new_post)
-            pq_save_posts(posts_data, _niche_id, lock=True)
+            new_id = pq_insert_post(_niche_id, new_post)
             quotes_drafted += 1
-            log.info(f"Quote tweet draft #{new_post['id']}: {qt_text[:80]}...")
+            log.info(f"Quote tweet draft #{new_id}: {qt_text[:80]}...")
 
-    # Save engagement log
-    save_json(ENGAGEMENT_LOG, engagement_log)
+    # Engagement log is already saved per-action via log_engagement()
 
     # Summary
     elapsed = int(time.time() - start_time)
@@ -668,11 +651,16 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".engage.lock")
-    if not lock_fd:
-        log.info("Another engage.py is already running, exiting")
+    from tools.db import acquire_process_lock, release_process_lock
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"engage_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
+        log.info("Another engage.py is already running for this niche, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)
