@@ -123,19 +123,41 @@ CREATE TABLE IF NOT EXISTS posts (
     quote_author    TEXT,
     quote_text      TEXT,
     quote_likes     INTEGER,
+    quote_tweet_author TEXT,                    -- legacy alias for quote_author
+    quote_tweet_text TEXT,                      -- legacy alias for quote_text
+    quote_tweet_likes INTEGER,                  -- legacy alias for quote_likes
 
     -- Status tracking
     skip_reason     TEXT,
     fail_reason     TEXT,
+    draft_reason    TEXT,
+    drop_reason     TEXT,
+    delete_reason   TEXT,
     posting_started TEXT,
     dedup_recovered INTEGER DEFAULT 0,         -- boolean
     pinned          INTEGER DEFAULT 0,         -- boolean
     posted          INTEGER DEFAULT 0,         -- legacy boolean
+    moved_from      TEXT,
+
+    -- Bluesky
+    bluesky_post_uri TEXT,
+    bluesky_thread_uris TEXT,                  -- JSON array
+    bsky_performance TEXT,                      -- JSON object
+
+    -- Performance tracking
+    performance     TEXT,                       -- JSON object (X metrics)
 
     -- Notes / dashboard
     notes           TEXT,
     vote            TEXT,
     _previous_text  TEXT,
+
+    -- Content-specific
+    source_title    TEXT,
+    og_image        TEXT,
+    location        TEXT,
+    price           TEXT,
+    image_indices   TEXT,                       -- JSON array
 
     -- Museum-specific inline (simple fields)
     object_id       TEXT,
@@ -408,7 +430,8 @@ def heartbeat_lock(name: str):
 # Columns that store JSON arrays/objects (need serialize/deserialize)
 _JSON_COLUMNS = {
     "image_urls", "thread_tweet_ids", "thread_captions",
-    "community_posts", "allImages",
+    "community_posts", "allImages", "bluesky_thread_uris",
+    "bsky_performance", "performance", "image_indices",
 }
 
 # Boolean columns stored as INTEGER in SQLite

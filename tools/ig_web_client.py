@@ -6,16 +6,10 @@ Loads cookies extracted from a real Chrome session and makes direct
 HTTP requests to Instagram's private web API endpoints.
 
 Cookie files live at data/cookies/ig_cookies_{niche}.json
-
-Proxy support: set RESIDENTIAL_PROXY in .env to route through a residential IP.
-Format: http://user:pass@host:port or socks5://user:pass@host:port
 """
 
 import json
 import logging
-import os
-import re
-import random
 import time
 from pathlib import Path
 
@@ -28,28 +22,12 @@ BASE_DIR = Path(__file__).parent.parent
 # Instagram web app ID (constant, same for all users)
 IG_APP_ID = "936619743392459"
 
-# Chrome user agents to rotate
-_CHROME_UAS = [
-    (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/133.0.0.0 Safari/537.36"
-    ),
-    (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/133.0.0.0 Safari/537.36"
-    ),
-    (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/132.0.0.0 Safari/537.36"
-    ),
-]
-
-# Max retries on 429
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 10  # seconds
+# Default headers mimicking Chrome on macOS
+_CHROME_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
 
 
 class IGWebClient:
@@ -57,61 +35,8 @@ class IGWebClient:
 
     def __init__(self, niche_id: str = "tatamispaces"):
         self.niche_id = niche_id
-        # Load expected IG username from niche config
-        try:
-            from config.niches import get_niche
-            niche = get_niche(niche_id)
-            self.expected_username = niche.get("ig_env", {}).get("username", "")
-        except Exception:
-            self.expected_username = ""
         self.session = requests.Session()
-        self._setup_proxy()
         self._load_cookies()
-
-    def _setup_proxy(self):
-        """Configure residential proxy with sticky session.
-
-        Sticky sessions ensure all requests in one IGWebClient lifetime
-        route through the same proxy IP. DataImpulse format:
-        http://login__sessid.XXXXXXXX:pass@host:port
-        """
-        proxy_url = os.environ.get("RESIDENTIAL_PROXY", "").strip()
-        if proxy_url:
-            # Add sticky session so all requests use same IP
-            proxy_url = self._make_sticky(proxy_url)
-            self.session.proxies = {
-                "http": proxy_url,
-                "https": proxy_url,
-            }
-            masked = proxy_url.split("@")[-1] if "@" in proxy_url else proxy_url
-            log.info(f"Using residential proxy: {masked}")
-        else:
-            log.warning(
-                "No RESIDENTIAL_PROXY set — IG may block datacenter IPs. "
-                "Set RESIDENTIAL_PROXY=http://user:pass@host:port in .env"
-            )
-
-    @staticmethod
-    def _make_sticky(proxy_url: str) -> str:
-        """Inject a sticky session ID into the proxy URL.
-
-        Turns http://user:pass@host:port into
-        http://user__sessid.XXXXXXXX:pass@host:port so all requests
-        in this client instance route through the same IP.
-        """
-        import string as _string
-        sess_id = "".join(random.choices(_string.ascii_lowercase + _string.digits, k=8))
-        # Only add if not already sticky
-        if "__sessid." in proxy_url:
-            return proxy_url
-        # Parse: http://login:pass@host:port
-        match = re.match(r"(https?://)([^:]+):([^@]+)@(.+)", proxy_url)
-        if match:
-            scheme, login, password, host = match.groups()
-            sticky = f"{scheme}{login}__sessid.{sess_id}:{password}@{host}"
-            log.info(f"Sticky session: {sess_id}")
-            return sticky
-        return proxy_url
 
     def _cookie_path(self) -> Path:
         return BASE_DIR / "data" / "cookies" / f"ig_cookies_{self.niche_id}.json"
@@ -138,9 +63,9 @@ class IGWebClient:
         for name, value in cookie_dict.items():
             self.session.cookies.set(name, value, domain=".instagram.com")
 
-        # Set required headers with a random UA
+        # Set required headers
         self.session.headers.update({
-            "User-Agent": random.choice(_CHROME_UAS),
+            "User-Agent": _CHROME_UA,
             "X-CSRFToken": csrf_token,
             "X-IG-App-ID": IG_APP_ID,
             "X-Requested-With": "XMLHttpRequest",
@@ -148,37 +73,9 @@ class IGWebClient:
             "Origin": "https://www.instagram.com",
             "Accept": "*/*",
             "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Ch-Ua-Platform": '"macOS"',
         })
 
         log.info(f"Loaded IG cookies for user {self.ds_user_id}")
-
-    def _request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response | None:
-        """Make a request with retry on 429."""
-        kwargs.setdefault("timeout", 15)
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                resp = getattr(self.session, method)(url, **kwargs)
-                if resp.status_code != 429:
-                    return resp
-                # 429 — back off and retry
-                delay = RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(1, 5)
-                if attempt < MAX_RETRIES:
-                    log.warning(f"429 on {url.split('?')[0]} — retry {attempt + 1}/{MAX_RETRIES} in {delay:.0f}s")
-                    time.sleep(delay)
-                else:
-                    log.error(f"429 on {url.split('?')[0]} — all {MAX_RETRIES} retries exhausted")
-                    return resp
-            except Exception as e:
-                log.error(f"Request failed: {e}")
-                if attempt < MAX_RETRIES:
-                    time.sleep(RETRY_BASE_DELAY)
-                else:
-                    return None
-        return None
 
     def _check_login(self, resp: requests.Response) -> bool:
         """Check if response indicates we're logged out."""
@@ -204,23 +101,21 @@ class IGWebClient:
         Returns list of dicts with: shortcode, author, caption, likes, media_id, user_id
         """
         url = f"https://www.instagram.com/api/v1/tags/web_info/?tag_name={hashtag}"
-        resp = self._request_with_retry("get", url)
-        if resp is None:
-            return []
-        if not self._check_login(resp):
-            return []
-        if resp.status_code != 200:
-            log.warning(f"Hashtag {hashtag} returned {resp.status_code}")
-            return []
-
         try:
+            resp = self.session.get(url, timeout=15)
+            if not self._check_login(resp):
+                return []
+            if resp.status_code != 200:
+                log.warning(f"Hashtag {hashtag} returned {resp.status_code}")
+                return []
+
             data = resp.json()
         except Exception as e:
-            log.error(f"Hashtag {hashtag} JSON parse failed: {e}")
+            log.error(f"Hashtag {hashtag} request failed: {e}")
             return []
 
         posts = []
-        # Extract from sections -> media entries
+        # Extract from sections → media entries
         sections = data.get("data", {}).get("recent", {}).get("sections", [])
         if not sections:
             # Try top posts
@@ -264,41 +159,51 @@ class IGWebClient:
     def like_post(self, media_id: str) -> bool:
         """Like a post by media ID."""
         url = f"https://www.instagram.com/api/v1/web/likes/{media_id}/like/"
-        resp = self._request_with_retry("post", url)
-        if resp is None:
+        try:
+            resp = self.session.post(url, timeout=15)
+            if not self._check_login(resp):
+                return False
+            if resp.status_code == 200:
+                return True
+            log.warning(f"Like {media_id} returned {resp.status_code}: {resp.text[:200]}")
             return False
-        if not self._check_login(resp):
+        except Exception as e:
+            log.error(f"Like {media_id} failed: {e}")
             return False
-        if resp.status_code == 200:
-            return True
-        log.warning(f"Like {media_id} returned {resp.status_code}: {resp.text[:200]}")
-        return False
 
     def comment_post(self, media_id: str, comment_text: str) -> bool:
         """Comment on a post."""
         url = f"https://www.instagram.com/api/v1/web/comments/{media_id}/add/"
-        resp = self._request_with_retry("post", url, data={"comment_text": comment_text})
-        if resp is None:
+        try:
+            resp = self.session.post(
+                url,
+                data={"comment_text": comment_text},
+                timeout=15,
+            )
+            if not self._check_login(resp):
+                return False
+            if resp.status_code == 200:
+                return True
+            log.warning(f"Comment {media_id} returned {resp.status_code}: {resp.text[:200]}")
             return False
-        if not self._check_login(resp):
+        except Exception as e:
+            log.error(f"Comment {media_id} failed: {e}")
             return False
-        if resp.status_code == 200:
-            return True
-        log.warning(f"Comment {media_id} returned {resp.status_code}: {resp.text[:200]}")
-        return False
 
     def follow_user(self, user_id: str) -> bool:
         """Follow a user by their user ID."""
         url = f"https://www.instagram.com/api/v1/friendships/create/{user_id}/"
-        resp = self._request_with_retry("post", url)
-        if resp is None:
+        try:
+            resp = self.session.post(url, timeout=15)
+            if not self._check_login(resp):
+                return False
+            if resp.status_code == 200:
+                return True
+            log.warning(f"Follow {user_id} returned {resp.status_code}: {resp.text[:200]}")
             return False
-        if not self._check_login(resp):
+        except Exception as e:
+            log.error(f"Follow {user_id} failed: {e}")
             return False
-        if resp.status_code == 200:
-            return True
-        log.warning(f"Follow {user_id} returned {resp.status_code}: {resp.text[:200]}")
-        return False
 
     def check_session(self) -> bool:
         """Verify session is valid by checking our own profile."""
@@ -308,13 +213,6 @@ class IGWebClient:
             if resp.status_code == 200:
                 data = resp.json()
                 username = data.get("user", {}).get("username", "unknown")
-                # Validate account matches expected niche
-                if self.expected_username and username != self.expected_username:
-                    log.error(
-                        f"WRONG ACCOUNT: logged in as @{username} but expected "
-                        f"@{self.expected_username} for niche {self.niche_id}. Aborting."
-                    )
-                    return False
                 log.info(f"Session valid — logged in as @{username}")
                 return True
             log.error(f"Session check failed: {resp.status_code}")

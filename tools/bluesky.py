@@ -218,15 +218,20 @@ def upload_image(file_path: str, alt_text: str = "") -> models.AppBskyEmbedImage
             log.warning(f"Image compression failed for {path.name}: {e}")
             return None
 
-    try:
-        blob = client.upload_blob(img_data)
-        return models.AppBskyEmbedImages.Image(
-            alt=alt_text or "",
-            image=blob.blob,
-        )
-    except Exception as e:
-        log.error(f"Failed to upload image {path.name}: {e}")
-        return None
+    for attempt in range(2):
+        try:
+            blob = client.upload_blob(img_data)
+            return models.AppBskyEmbedImages.Image(
+                alt=alt_text or "",
+                image=blob.blob,
+            )
+        except Exception as e:
+            if attempt == 0:
+                log.warning(f"Upload attempt 1 failed for {path.name}, retrying in 2s: {e}")
+                time.sleep(2)
+            else:
+                log.error(f"Failed to upload image {path.name} after 2 attempts: {e}")
+                return None
 
 
 def create_post(text: str, image_paths: list[str] | None = None,
@@ -257,6 +262,8 @@ def create_post(text: str, image_paths: list[str] | None = None,
         images = []
         alts = alt_texts or [""] * len(image_paths)
         for i, img_path in enumerate(image_paths[:4]):  # Bluesky max 4 images
+            if i > 0:
+                time.sleep(1)  # Rate limit: Bluesky rejects rapid sequential uploads
             alt = alts[i] if i < len(alts) else ""
             img_model = upload_image(img_path, alt_text=alt)
             if img_model:
@@ -299,6 +306,8 @@ def post_thread(posts: list[dict]) -> list[str] | None:
         if image_paths:
             images = []
             for j, img_path in enumerate(image_paths[:4]):
+                if j > 0:
+                    time.sleep(1)  # Rate limit: Bluesky rejects rapid sequential uploads
                 alt = alt_texts[j] if j < len(alt_texts) else ""
                 img_model = upload_image(img_path, alt_text=alt)
                 if img_model:
