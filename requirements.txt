@@ -8,3 +8,4 @@ Pillow>=10.0.0
 python-telegram-bot[job-queue]>=21.0
 atproto>=0.0.55
 grapheme>=0.6.0
+instagrapi==2.3.0

@@ -3,7 +3,7 @@ Instagram engagement script — niche-aware.
 Searches hashtags, auto-likes high-relevance content,
 drafts comments for review, follows relevant accounts.
 
-Uses direct HTTP requests with session cookies (no browser needed).
+Uses instagrapi (mobile API) with persistent sessions.
 
 Usage: python ig_engage.py [--niche tatamispaces] [--dry-run]
 """
@@ -174,19 +174,23 @@ async def main():
 
     log.info(f"IG engagement for {niche['handle']} ({'DRY RUN' if dry_run else 'LIVE'})")
 
-    # Initialize web client with cookies
-    from tools.ig_web_client import IGWebClient
+    # Initialize instagrapi client (mobile API)
+    from tools.ig_insta_client import IGInstaClient
     try:
-        client = IGWebClient(niche_id=niche_id)
-    except (FileNotFoundError, ValueError) as e:
+        client = IGInstaClient(niche_id=niche_id)
+    except (ValueError, RuntimeError) as e:
         log.error(f"Cannot start IG engage: {e}")
+        notify(f"{niche['handle']} IG", f"IG engage failed: {e}")
+        return
+    except Exception as e:
+        log.error(f"IG client init failed: {e}")
         notify(f"{niche['handle']} IG", f"IG engage failed: {e}")
         return
 
     # Verify session
     if not client.check_session():
-        log.error("IG session invalid — need fresh cookies")
-        notify(f"{niche['handle']} IG", "IG engage: session expired, need fresh cookies")
+        log.error("IG session invalid — need to re-login")
+        notify(f"{niche['handle']} IG", "IG engage: session expired, need re-login")
         return
 
     # Pick random hashtags for this run — niche-aware
