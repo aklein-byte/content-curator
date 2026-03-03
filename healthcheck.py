@@ -112,13 +112,12 @@ def check_auth_status() -> tuple[bool, str]:
             if age > timedelta(days=session_max_age_days):
                 warnings.append(f"IG session stale: {niche_id} ({age.days}d old)")
 
-    # IG Graph API tokens for cross-posting
-    graph_tokens = {
-        "tatamispaces": "IG_ACCESS_TOKEN",
-        "museumstories": "IG_ACCESS_TOKEN_MUSEUM",
-    }
-    for niche_id, env_var in graph_tokens.items():
-        if not os.environ.get(env_var) and env_var not in env_text:
+    # IG Graph API tokens for cross-posting (read env var names from niche config)
+    from config.niches import get_niche as _get_niche
+    for niche_id in ["tatamispaces", "museumstories"]:
+        ig_env = _get_niche(niche_id).get("ig_env", {})
+        env_var = ig_env.get("token")
+        if env_var and not os.environ.get(env_var) and env_var not in env_text:
             warnings.append(f"IG Graph token missing: {env_var} ({niche_id} cross-posting won't work)")
 
     if warnings:
