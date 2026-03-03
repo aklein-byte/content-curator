@@ -81,15 +81,13 @@ class IGInstaClient:
             except Exception as e:
                 log.warning(f"Session test failed ({e}), re-logging in")
 
-        # Login with credentials
-        niche_key = self.niche_id.upper()
-        username = os.environ.get(f"IG_USERNAME_{niche_key}")
-        password = os.environ.get(f"IG_PASSWORD_{niche_key}")
+        # Login with credentials — try niche-specific env vars, fall back to generic
+        username, password = self._get_credentials()
 
         if not username or not password:
             raise ValueError(
-                f"No IG credentials found. Set IG_USERNAME_{niche_key} and "
-                f"IG_PASSWORD_{niche_key} in .env, or provide a session file at {session_path}"
+                f"No IG credentials found for {self.niche_id}. "
+                f"Set IG_USERNAME / IG_PASSWORD in .env, or provide a session file at {session_path}"
             )
 
         log.info(f"Logging in as {username}")
@@ -106,6 +104,44 @@ class IGInstaClient:
         except PleaseWaitFewMinutes:
             log.error("Instagram rate limited — wait a few minutes and retry")
             raise
+
+    def _get_credentials(self) -> tuple[str, str]:
+        """Resolve IG credentials from env vars.
+
+        Tries niche-specific vars first, then generic fallbacks:
+          IG_USERNAME_TATAMISPACES / IG_PASSWORD_TATAMISPACES
+          IG_USERNAME / IG_PASSWORD
+          IG_PASSWORD_MUSEUM (museumstories uses separate password)
+        """
+        # Niche-specific username/password lookup map
+        _cred_map = {
+            "tatamispaces": {
+                "username_vars": ["IG_USERNAME_TATAMISPACES", "IG_USERNAME"],
+                "password_vars": ["IG_PASSWORD_TATAMISPACES", "IG_PASSWORD"],
+            },
+            "museumstories": {
+                "username_vars": ["IG_USERNAME_MUSEUMSTORIES", "IG_USERNAME_MUSEUM"],
+                "password_vars": ["IG_PASSWORD_MUSEUMSTORIES", "IG_PASSWORD_MUSEUM"],
+            },
+        }
+
+        creds = _cred_map.get(self.niche_id, {})
+        username_vars = creds.get("username_vars", [f"IG_USERNAME_{self.niche_id.upper()}"])
+        password_vars = creds.get("password_vars", [f"IG_PASSWORD_{self.niche_id.upper()}"])
+
+        username = None
+        for var in username_vars:
+            username = os.environ.get(var)
+            if username:
+                break
+
+        password = None
+        for var in password_vars:
+            password = os.environ.get(var)
+            if password:
+                break
+
+        return username or "", password or ""
 
     def _save_session(self):
         """Persist session to disk."""
