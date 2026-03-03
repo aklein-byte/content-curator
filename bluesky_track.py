@@ -20,7 +20,8 @@ load_dotenv()
 from tools.bluesky import (
     get_post_thread, set_niche as set_bsky_niche,
 )
-from tools.common import load_json, save_json, setup_logging, acquire_lock, release_lock
+from tools.common import load_json, save_json, setup_logging
+from tools.db import acquire_process_lock, release_process_lock
 from config.niches import get_niche
 
 log = setup_logging("bluesky_track")
@@ -49,7 +50,10 @@ def _lookup_bsky_posts(uris: list[str]) -> dict:
 def track(niche_id: str):
     set_bsky_niche(niche_id)
     path = _posts_path(niche_id)
-    lock = acquire_lock(BASE_DIR / f".bsky_track_{niche_id}.lock")
+    lock_name = f"bsky_track_{niche_id}"
+    if not acquire_process_lock(lock_name):
+        log.info(f"Another bsky_track is running for {niche_id}, skipping")
+        return
     try:
         data = load_json(path, default={"posts": []})
         posts = data.get("posts", [])
@@ -105,7 +109,7 @@ def track(niche_id: str):
             log.info(f"{niche_id}: No new Bluesky metrics found")
 
     finally:
-        release_lock(lock)
+        release_process_lock(lock_name)
 
 
 def main():

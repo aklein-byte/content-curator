@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.common import (
-    load_json, save_json, notify, acquire_lock, release_lock,
+    load_json, save_json, notify,
     setup_logging, get_anthropic, load_voice_guide, get_model,
 )
 from tools.post_queue import (

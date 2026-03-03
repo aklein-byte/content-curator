@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import requests
-from tools.common import load_json, save_json, setup_logging, acquire_lock, release_lock
+from tools.common import load_json, save_json, setup_logging
+from tools.db import acquire_process_lock, release_process_lock
 from tools.xapi import _get_auth, API_BASE
 from config.niches import get_niche
 
@@ -67,7 +68,10 @@ def _lookup_tweets(tweet_ids: list[str]) -> dict:
 
 def track(niche_id: str):
     path = _posts_path(niche_id)
-    lock = acquire_lock(BASE_DIR / f".track_perf_{niche_id}.lock")
+    lock_name = f"track_perf_{niche_id}"
+    if not acquire_process_lock(lock_name):
+        log.info(f"Another track_performance is running for {niche_id}, skipping")
+        return
     try:
         data = load_json(path, default={"posts": []})
         posts = data.get("posts", [])
@@ -125,7 +129,7 @@ def track(niche_id: str):
             log.info(f"{niche_id}: No new metrics found (API may not return impression data on free tier)")
 
     finally:
-        release_lock(lock)
+        release_process_lock(lock_name)
 
 
 def main():

@@ -22,10 +22,11 @@ from tools.bluesky import (
     set_niche as set_bsky_niche,
 )
 from tools.common import (
-    load_json, save_json, random_delay, acquire_lock, release_lock,
+    load_json, save_json, random_delay,
     setup_logging, load_config, get_anthropic, load_voice_guide,
     get_model, parse_json_response,
 )
+from tools.db import acquire_process_lock, release_process_lock
 from config.niches import get_niche
 
 log = setup_logging("bluesky_respond")
@@ -317,11 +318,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".bluesky_respond.lock")
-    if not lock_fd:
+    if not acquire_process_lock("bluesky_respond"):
         print("Another bluesky_respond is running. Skipping.")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock("bluesky_respond")
