@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from tools.museum_apis import (
-    MuseumObject, met_search, aic_search, cleveland_search, smk_search, search_all,
+    MuseumObject, met_search, aic_search, cleveland_search, smk_search, harvard_search, search_all,
     met_random_browse, aic_random_browse, cleveland_random_browse,
 )
 from tools.common import load_json, save_json, notify, setup_logging, get_anthropic, load_voice_guide, get_model
@@ -202,36 +202,44 @@ def fetch_candidates() -> list[MuseumObject]:
     """
     candidates = []
 
-    # Strategy 1: Random department browsing (~70% of candidates)
-    # Weighted toward Cleveland (62% approval) and Met (50%) over AIC (7%) and SMK (0%)
+    # Strategy 1: Random department browsing (~60% of candidates)
+    # Spread across museums for variety
     try:
-        met_browse = met_random_browse(limit=10)
+        met_browse = met_random_browse(limit=8)
         candidates.extend(met_browse)
         log.info(f"Met random browse: {len(met_browse)} candidates")
     except Exception as e:
         log.warning(f"Met random browse failed: {e}")
 
-    # AIC: reduced — only 7% of AIC objects get approved (mostly prints/drawings)
     try:
-        aic_browse = aic_random_browse(limit=3)
+        aic_browse = aic_random_browse(limit=4)
         candidates.extend(aic_browse)
         log.info(f"AIC random browse: {len(aic_browse)} candidates")
     except Exception as e:
         log.warning(f"AIC random browse failed: {e}")
 
-    # Cleveland: increased — 62% approval rate, best museum for stories
     try:
-        clev_browse = cleveland_random_browse(limit=8)
+        clev_browse = cleveland_random_browse(limit=5)
         candidates.extend(clev_browse)
         log.info(f"Cleveland random browse: {len(clev_browse)} candidates")
     except Exception as e:
         log.warning(f"Cleveland random browse failed: {e}")
 
-    # Strategy 2: Cleveland fun_facts (goldmine)
+    # Harvard: good for Asian art, antiquities, Islamic art
+    try:
+        harvard_queries = ["sculpture", "armor", "ceramic", "bronze", "gold", "jade", "mask", "ivory", "tapestry", "instrument"]
+        hq = random.choice(harvard_queries)
+        harvard_browse = harvard_search(hq, limit=5)
+        candidates.extend(harvard_browse)
+        log.info(f"Harvard search '{hq}': {len(harvard_browse)} candidates")
+    except Exception as e:
+        log.warning(f"Harvard search failed: {e}")
+
+    # Strategy 2: Cleveland fun_facts (good story hooks, but capped)
     try:
         cleveland_curated = cleveland_search("", limit=50, require_fun_fact=True)
         if cleveland_curated:
-            sample = random.sample(cleveland_curated, k=min(8, len(cleveland_curated)))
+            sample = random.sample(cleveland_curated, k=min(5, len(cleveland_curated)))
             candidates.extend(sample)
             log.info(f"Cleveland fun_facts: {len(sample)} candidates")
     except Exception as e:
@@ -240,7 +248,7 @@ def fetch_candidates() -> list[MuseumObject]:
     # Strategy 3: Keyword search (2 random keywords, targeted finds)
     keywords = random.sample(NARRATIVE_KEYWORDS, k=2)
     for kw in keywords:
-        apis = random.sample(["met", "aic", "cleveland", "smk"], k=2)
+        apis = random.sample(["met", "aic", "cleveland", "harvard"], k=2)
         results = search_all(kw, limit_per_api=3, apis=apis)
         candidates.extend(results)
         log.info(f"Keyword '{kw}': {len(results)} candidates")
@@ -416,6 +424,12 @@ def score_novelty(obj: MuseumObject, post_history: list[dict]) -> float:
     if obj.culture and obj.culture in last_10_cultures:
         score -= 15
 
+    # Same medium in last 5? Penalize (avoids runs of "oil on canvas")
+    last_5_mediums = [(p.get("medium") or "").lower()[:20] for p in recent[-5:]]
+    obj_medium = (obj.medium or "").lower()[:20]
+    if obj_medium and obj_medium in last_5_mediums:
+        score -= 20
+
     return max(score, 0.0)
 
 
@@ -474,6 +488,11 @@ def filter_and_rank(candidates: list[MuseumObject], post_history: list[dict], mi
         obj._meta_score = meta
         obj._img_score = img
         obj._novelty_score = novelty
+
+        # Hard disqualify: exact object already in history (any status)
+        if novelty == 0.0:
+            obj._total_score = 0.0
+            continue
         # Category penalty: prints, jewelry, textiles, photography rarely have
         # compelling images and almost always get rejected by curator
         cat = (obj.classification or obj.department or "").lower()
@@ -485,14 +504,7 @@ def filter_and_rank(candidates: list[MuseumObject], post_history: list[dict], mi
         elif any(t in cat for t in ("photograph",)):
             cat_penalty = 0.5
 
-        # Museum preference: Cleveland and Met have much higher approval rates
-        museum_bonus = 0.0
-        if obj.museum == "cleveland":
-            museum_bonus = 5.0
-        elif obj.museum == "met":
-            museum_bonus = 3.0
-
-        obj._total_score = (meta * 0.35 + img * 0.45 + novelty * 0.2 + museum_bonus) * cat_penalty
+        obj._total_score = (meta * 0.35 + img * 0.45 + novelty * 0.2) * cat_penalty
 
     # Apply diversity boost
     candidates = apply_diversity_boost(candidates, post_history)
