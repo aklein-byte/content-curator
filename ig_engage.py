@@ -223,6 +223,11 @@ async def main():
 
     if not all_posts:
         log.warning("No posts found — hashtag feeds may be empty or session blocked")
+        notify(
+            f"{niche['handle']} IG",
+            "IG engage: 0 posts found across all hashtags — session may be silently broken",
+            priority="high",
+        )
         return
 
     # Evaluate posts with Claude

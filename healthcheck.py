@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Daily health check for @tatamispaces automation.
+Daily health check for tatami-bot platform.
 
-Checks: imports, JSON integrity, auth status, log sizes,
-post queue, stale lockfiles, disk space.
+Checks: imports, DB integrity, auth status (X keys, IG sessions, Graph API tokens),
+DB size, post queue, stale lockfiles, disk space.
 
 Usage:
-    python healthcheck.py          # Run checks, report
-    python healthcheck.py --fix    # Auto-fix: archive old logs, remove stale locks
+    python healthcheck.py                  # Run checks, report
+    python healthcheck.py --fix            # Auto-fix: archive old logs, remove stale locks
+    python healthcheck.py --check-ig-session  # Also live-verify IG sessions (makes API calls)
 """
 
 import sys
@@ -86,7 +87,7 @@ def check_db_integrity() -> tuple[bool, str]:
 
 
 def check_auth_status() -> tuple[bool, str]:
-    """Check X API keys and IG token/profile."""
+    """Check X API keys, IG session files, and IG Graph API tokens."""
     warnings = []
 
     # X API OAuth 1.0a keys
@@ -97,20 +98,61 @@ def check_auth_status() -> tuple[bool, str]:
     if missing_keys:
         warnings.append(f"Missing X API keys: {', '.join(missing_keys)}")
 
-    # IG: check for browser profile (primary method) or Graph API token
-    ig_token = os.environ.get("IG_ACCESS_TOKEN", "")
-    if not ig_token:
-        if "IG_ACCESS_TOKEN" not in env_text:
-            pass  # Graph API token optional if using browser
+    # IG instagrapi session files — check existence and freshness
+    sessions_dir = DATA_DIR / "sessions"
+    session_max_age_days = 7
+    for niche_id in ["tatamispaces", "museumstories"]:
+        session_file = sessions_dir / f"ig_session_{niche_id}.json"
+        if not session_file.exists():
+            warnings.append(f"IG session missing: {niche_id}")
+        else:
+            age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+                session_file.stat().st_mtime, tz=timezone.utc
+            )
+            if age > timedelta(days=session_max_age_days):
+                warnings.append(f"IG session stale: {niche_id} ({age.days}d old)")
 
-    # Playwright browser profile
-    profile_dir = DATA_DIR / "ig_browser_profile"
-    if not profile_dir.exists():
-        warnings.append("IG browser profile missing (run ig_post.py --login)")
+    # IG Graph API tokens for cross-posting
+    graph_tokens = {
+        "tatamispaces": "IG_ACCESS_TOKEN",
+        "museumstories": "IG_ACCESS_TOKEN_MUSEUM",
+    }
+    for niche_id, env_var in graph_tokens.items():
+        if not os.environ.get(env_var) and env_var not in env_text:
+            warnings.append(f"IG Graph token missing: {env_var} ({niche_id} cross-posting won't work)")
 
     if warnings:
         return False, "; ".join(warnings)
     return True, "Auth OK"
+
+
+def check_ig_session_live() -> tuple[bool, str]:
+    """Load instagrapi sessions and verify they work via account_info().
+
+    This makes real API calls — use sparingly (weekly or on-demand).
+    """
+    from tools.ig_insta_client import IGInstaClient
+
+    results = []
+    for niche_id in ["tatamispaces", "museumstories"]:
+        session_file = DATA_DIR / "sessions" / f"ig_session_{niche_id}.json"
+        if not session_file.exists():
+            results.append(f"{niche_id}: no session file")
+            continue
+        try:
+            client = IGInstaClient(niche_id=niche_id)
+            if client.check_session():
+                results.append(f"{niche_id}: OK")
+            else:
+                results.append(f"{niche_id}: session expired")
+        except Exception as e:
+            results.append(f"{niche_id}: {e}")
+
+    failed = [r for r in results if not r.endswith(": OK")]
+    summary = "; ".join(results)
+    if failed:
+        return False, summary
+    return True, summary
 
 
 def check_log_sizes() -> tuple[bool, str]:
@@ -230,6 +272,7 @@ def main():
     parser = argparse.ArgumentParser(description="Health check for content-curator")
     parser.add_argument("--fix", action="store_true", help="Auto-fix: archive old logs, remove stale locks")
     parser.add_argument("--niche", help="Niche name (accepted for orchestrator compatibility, ignored)")
+    parser.add_argument("--check-ig-session", action="store_true", help="Live-verify IG sessions via API (makes real calls)")
     args = parser.parse_args()
 
     log.info("Running health check...")
@@ -250,6 +293,12 @@ def main():
     ok, msg = check_auth_status()
     checks.append(("Auth", ok, msg))
     log.info(f"  {'OK' if ok else 'WARN'} Auth: {msg}")
+
+    # 3b. Live IG session check (optional, makes API calls)
+    if args.check_ig_session:
+        ok, msg = check_ig_session_live()
+        checks.append(("IG Session", ok, msg))
+        log.info(f"  {'OK' if ok else 'WARN'} IG Session: {msg}")
 
     # 4. DB size
     ok, msg = check_log_sizes()

@@ -44,7 +44,7 @@
         "20:30"
       ],
       "jitter_minutes": 15,
-      "enabled": false,
+      "enabled": true,
       "timeout_seconds": 300,
       "extra_args": []
     },
