@@ -25,7 +25,8 @@ from tools.bluesky import (
     BskyPost, set_niche as set_bsky_niche, rate_budget_remaining,
     _clean_query_for_bluesky,
 )
-from tools.common import load_json, save_json, notify, acquire_lock, release_lock, setup_logging, load_config, niche_log_path
+from tools.common import load_json, save_json, notify, setup_logging, load_config, niche_log_path
+from tools.db import acquire_process_lock, release_process_lock
 from tools.post_queue import load_posts as pq_load_posts
 from agents.engager import evaluate_post, draft_reply
 from config.niches import get_niche
@@ -483,11 +484,15 @@ async def main():
 
 
 if __name__ == "__main__":
-    lock_fd = acquire_lock(BASE_DIR / ".bluesky_engage.lock")
-    if not lock_fd:
-        log.info("Another bluesky_engage is running, exiting")
+    _pre = argparse.ArgumentParser(add_help=False)
+    _pre.add_argument("--niche", default="tatamispaces")
+    _pre_args, _ = _pre.parse_known_args()
+    lock_name = f"bluesky_engage_{_pre_args.niche}"
+
+    if not acquire_process_lock(lock_name):
+        log.info("Another bluesky_engage is running for this niche, exiting")
         sys.exit(0)
     try:
         asyncio.run(main())
     finally:
-        release_lock(lock_fd)
+        release_process_lock(lock_name)
