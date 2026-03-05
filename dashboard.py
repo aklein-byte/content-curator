@@ -38,134 +38,6 @@ _NICHE_ROUTES["museum"] = "museumstories"
 _NICHE_ROUTES["tatami"] = "tatamispaces"
 
 
-def render_post_html(post, index):
-    pid = post.get("id", index)
-    status = post.get("status", "unknown")
-    text = post.get("text", "")
-    source = post.get("source", "")
-    source_handle = post.get("source_handle", "")
-    category = post.get("category", "")
-    tweet_id = post.get("tweet_id", "")
-    ig_posted = post.get("ig_posted", False)
-    posted_at = post.get("posted_at", "")
-    scheduled = post.get("scheduled_for", "")
-
-    # Image URLs — build both thumbnail and full-res lists
-    image_urls = post.get("image_urls") or []
-    img_index = post.get("image_index")
-    img_count = post.get("image_count")
-
-    # Full-res URLs for lightbox (orig quality)
-    full_urls = []
-    for url in image_urls[:4]:
-        full = url
-        if "pbs.twimg.com" in url and "format=" not in url:
-            full = url + "?format=jpg&name=orig"
-        elif "format=" in url:
-            full = url.replace("name=small", "name=orig")
-        full_urls.append(full)
-
-    # JSON-safe URL list for onclick
-    import html as html_mod
-    urls_json = html_mod.escape(json.dumps(full_urls))
-
-    imgs_html = ""
-    for idx, url in enumerate(image_urls[:4]):
-        # Thumbnail URL
-        thumb = url
-        if "pbs.twimg.com" in url and "format=" not in url:
-            thumb = url + "?format=jpg&name=small"
-        elif "format=" in url:
-            thumb = url.replace("name=orig", "name=small")
-
-        selected = ""
-        if img_index is not None and idx == img_index:
-            selected = " selected"
-        elif img_index is not None and idx != img_index:
-            selected = " dimmed"
-        elif img_count is not None and idx >= img_count:
-            selected = " dimmed"
-
-        imgs_html += f'<div class="img-wrap{selected}"><span class="img-num">{idx+1}</span><img src="{thumb}" loading="lazy" onerror="this.parentElement.style.display=\'none\'" onclick="openLightbox({pid}, {urls_json}, {idx})"></div>'
-
-    if len(image_urls) > 1 and status in ("approved", "dropped") or (status.startswith("skipped") and len(image_urls) > 1):
-        current = "all"
-        if img_index is not None:
-            current = f"#{img_index+1} only"
-        elif img_count is not None:
-            current = f"first {img_count}"
-        imgs_html += f'<div class="img-controls">Using: {current} <button onclick="resetImages({pid})">all</button></div>'
-
-    # Badges
-    badges = ""
-    badge_class = f"badge-{status}" if status in ("posted", "approved", "dropped", "draft") else "badge-skipped"
-    if status.startswith("skipped"):
-        badges += f'<span class="badge badge-skipped">skipped</span>'
-    else:
-        badges += f'<span class="badge {badge_class}">{status}</span>'
-
-    post_type = post.get("type", "")
-    if post_type == "quote-tweet":
-        badges += '<span class="badge" style="background:#1d9bf0;color:#fff">QT</span>'
-    if tweet_id:
-        badges += '<span class="badge badge-x">X</span>'
-    if ig_posted:
-        badges += '<span class="badge badge-ig">IG</span>'
-
-    # Meta info
-    meta = ""
-    if source_handle:
-        meta += f'<span>from: {source_handle}</span>'
-    elif source:
-        meta += f'<span>source: {source}</span>'
-    quote_id = post.get("quote_tweet_id")
-    if quote_id:
-        qt_handle = (source_handle or "").lstrip("@") or "i"
-        meta += f'<span>quoting: <a href="https://x.com/{qt_handle}/status/{quote_id}" target="_blank" style="color:#1d9bf0">view original</a></span>'
-    if category:
-        meta += f'<span>category: {category}</span>'
-    if posted_at:
-        meta += f'<span>posted: {posted_at[:16]}</span>'
-    elif scheduled:
-        meta += f'<span>scheduled: {scheduled[:16]}</span>'
-
-    score = post.get("score")
-    if score is not None:
-        meta += f'<span>score: {score}/10</span>'
-
-    # Actions
-    actions = ""
-    if status == "draft":
-        actions = f'<button class="btn-approve" onclick="setStatus({pid},\'approved\')">Approve</button> <button class="btn-skip" onclick="setStatus({pid},\'dropped\')">Delete</button>'
-    elif status == "approved":
-        actions = f'<button class="btn-skip" onclick="setStatus({pid},\'dropped\')">Skip</button>'
-    elif status == "dropped" or status.startswith("skipped"):
-        actions = f'<button class="btn-approve" onclick="setStatus({pid},\'approved\')">Approve</button>'
-
-    css_class = "posted" if status == "posted" else ("dropped" if status == "dropped" or status.startswith("skipped") else "")
-
-    regen_html = ""
-    if status in ("draft", "approved"):
-        regen_html = f'''<div class="regen-row" id="regen-{pid}">
-          <button class="btn-regen" onclick="toggleRegen({pid})" title="Regenerate caption">&#x21bb;</button>
-          <div class="regen-input" style="display:none">
-            <input placeholder="Direction (optional)..." id="regen-fb-{pid}">
-            <button onclick="regenerate({pid})">Go</button>
-          </div>
-        </div>'''
-
-    return f'''<div class="post {css_class}" data-status="{status}" data-id="{pid}">
-      <div class="post-images">{imgs_html}</div>
-      <div class="post-body">
-        <div class="post-id">#{pid} {badges}</div>
-        <div class="post-text">{text}</div>
-        {regen_html}
-        <div class="post-meta">{meta}</div>
-        <div class="post-actions">{actions}</div>
-      </div>
-    </div>'''
-
-
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # quiet
@@ -205,8 +77,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if new_status == "approved":
                 fields["ig_skip_reason"] = None
                 fields["skip_reason"] = None
+                if not post.get("scheduled_for"):
+                    fields["scheduled_for"] = datetime.now(timezone.utc).isoformat()
             update_post(niche_id, post_id, **fields)
             self.send_json({"ok": True})
+
+        elif self.path == "/api/text-edit":
+            self.handle_text_edit(body)
 
         elif self.path == "/api/image-select":
             post_id = body.get("id")
@@ -256,7 +133,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
-    # === Museum API handlers ===
+    # === Post API handlers ===
+
+    def handle_text_edit(self, body):
+        """Update a simple post's text field."""
+        post_id = body.get("id")
+        text = body.get("text")
+        niche_id = body.get("niche", "tatamispaces")
+        if not post_id or text is None:
+            self.send_json({"ok": False, "error": "missing id or text"})
+            return
+        update_post(niche_id, post_id, text=text)
+        self.send_json({"ok": True})
 
     def handle_museum_status(self, body):
         post_id = body.get("id")
@@ -439,50 +327,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         html = (TEMPLATES_DIR / "dashboard.html").read_text()
         html = html.replace("__NICHE__", niche)
 
-        if niche == "tatamispaces":
-            # Tatami: server-rendered post cards
-            data = load_posts(niche)
-            posts = data.get("posts", [])
+        # All niches: client-rendered from JSON
+        niche_data = load_posts(niche)
+        posts_json = json.dumps(niche_data.get("posts", []), ensure_ascii=False, default=str)
+        html = html.replace("__POSTS_DATA__", posts_json)
 
-            counts = {"all": len(posts), "approved": 0, "draft": 0, "posted": 0, "dropped": 0}
-            for p in posts:
-                s = p.get("status", "")
-                if s == "approved":
-                    counts["approved"] += 1
-                elif s == "draft":
-                    counts["draft"] += 1
-                elif s == "posted":
-                    counts["posted"] += 1
-                elif s == "dropped" or s.startswith("skipped"):
-                    counts["dropped"] += 1
-
-            posts_html = ""
-            for i, p in enumerate(posts):
-                posts_html += render_post_html(p, i)
-
-            html = html.replace("POSTS_HTML", posts_html)
-            html = html.replace("POST_COUNT_ALL", str(counts["all"]))
-            html = html.replace("POST_COUNT_APPROVED", str(counts["approved"]))
-            html = html.replace("POST_COUNT_DRAFT", str(counts["draft"]))
-            html = html.replace("POST_COUNT_POSTED", str(counts["posted"]))
-            html = html.replace("POST_COUNT_DROPPED", str(counts["dropped"]))
-            html = html.replace("__POSTS_DATA__", "[]")
-            html = html.replace("__STATS_HTML__", "")
-        else:
-            # Other niches: client-rendered from JSON
-            niche_data = load_posts(niche)
-            posts_json = json.dumps(niche_data.get("posts", []), ensure_ascii=False, default=str)
-
-            html = html.replace("__POSTS_DATA__", posts_json)
-            html = html.replace("POSTS_HTML", "")
-            html = html.replace("POST_COUNT_ALL", "0")
-            html = html.replace("POST_COUNT_APPROVED", "0")
-            html = html.replace("POST_COUNT_DRAFT", "0")
-            html = html.replace("POST_COUNT_POSTED", "0")
-            html = html.replace("POST_COUNT_DROPPED", "0")
-            html = html.replace("__STATS_HTML__", "")
-
-        # Set active nav tab — works for any niche
+        # Set active nav tab
         for nid in list_niches():
             placeholder = f"__ACTIVE_{nid.upper()}__"
             html = html.replace(placeholder, "active" if nid == niche else "")
