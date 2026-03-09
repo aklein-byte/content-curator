@@ -131,6 +131,27 @@ def already_in_queue(posts_data: dict | None = None, identifier: str = "",
     return False
 
 
+def images_already_in_queue(image_urls: list[str], niche_id: str) -> bool:
+    """Check if any image URL (base, without query params) already exists in the queue.
+
+    Catches re-bookmarked content where the tweet ID differs but images are identical.
+    """
+    if not image_urls:
+        return False
+    db = get_db()
+    for url in image_urls[:4]:
+        base = url.split("?")[0] if "?" in url else url
+        if not base:
+            continue
+        row = db.execute(
+            "SELECT 1 FROM posts WHERE niche_id = ? AND image_urls LIKE ? LIMIT 1",
+            (niche_id, f"%{base}%"),
+        ).fetchone()
+        if row:
+            return True
+    return False
+
+
 # --- Granular helpers for targeted operations ---
 
 def update_post(niche_id: str, post_id: int, **fields):

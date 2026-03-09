@@ -24,7 +24,7 @@ from tools.common import notify, setup_logging, load_config, get_anthropic, get_
 from tools.db import acquire_process_lock, release_process_lock
 from tools.post_queue import (
     load_posts as pq_load_posts, save_posts as pq_save_posts,
-    next_post_id, already_in_queue, next_schedule_slot,
+    next_post_id, already_in_queue, images_already_in_queue, next_schedule_slot,
 )
 from agents.engager import evaluate_post, draft_original_post
 from agents.fact_checker import fact_check_draft, quick_validate, SourceContext
@@ -212,6 +212,12 @@ async def main():
             break
 
         if already_in_queue(posts_data, post.post_id):
+            skipped += 1
+            continue
+
+        # Image URL dedup — catches re-bookmarked content with different tweet IDs
+        if images_already_in_queue(post.image_urls, niche_id):
+            log.info(f"  Skipping {post.post_id} — images already in queue")
             skipped += 1
             continue
 
